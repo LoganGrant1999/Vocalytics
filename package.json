@@ -2,6 +2,7 @@
   "name": "tubewhisperer",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "build": "pnpm -r build",
     "test": "vitest run",
@@ -11,6 +12,7 @@
     "typecheck": "pnpm -r typecheck"
   },
   "devDependencies": {
+    "@eslint/js": "^9.17.0",
     "@types/node": "^20.11.5",
     "@typescript-eslint/eslint-plugin": "^6.19.0",
     "@typescript-eslint/parser": "^6.19.0",
