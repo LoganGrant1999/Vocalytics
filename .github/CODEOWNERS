@@ -1,0 +1,5 @@
+# CODEOWNERS
+# This file designates who owns what parts of the repository.
+
+# Default rule: Logan Gibbons owns the entire repo
+* @LoganGrant1999
