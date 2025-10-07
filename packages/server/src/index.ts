@@ -21,6 +21,7 @@ import {
   generateReplies,
   summarizeSentiment,
 } from './tools.js';
+import { createHealthServer } from './health.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -483,6 +484,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 
 async function main() {
+  const PORT = Number(process.env.PORT || 3000);
+  const health = createHealthServer('1.0.0');
+  await health.listen({ port: PORT, host: '0.0.0.0' });
+  console.error(`[health] http://localhost:${PORT}/health`);
+
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error('TubeWhisperer MCP server running on stdio');
