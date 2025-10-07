@@ -1,0 +1,12 @@
+{
+  "name": "@tubewhisperer/web",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "node build.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "esbuild": "^0.20.0"
+  }
+}
