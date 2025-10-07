@@ -150,7 +150,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         tools: [
             {
                 name: 'fetch_comments',
-                description: 'Fetch YouTube comments for a video or channel',
+                description: 'Use this when the user wants to retrieve recent YouTube comments for a specific video or the whole channel if no video is specified. Do not use when the user is asking for analysis, sentiment, or reply drafting—use analyze_comments or generate_replies instead.',
                 inputSchema: {
                     type: 'object',
                     properties: {
@@ -184,7 +184,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             {
                 name: 'analyze_comments',
-                description: 'Analyze sentiment, topics, and toxicity of YouTube comments',
+                description: 'Use this when the user wants comment classification or sentiment (positive/neutral/constructive/negative/spam). Do not use to fetch new comments or to draft replies—use fetch_comments or generate_replies instead.',
                 inputSchema: {
                     type: 'object',
                     properties: {
@@ -223,6 +223,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                     required: ['comments'],
                 },
                 _meta: {
+                    securitySchemes,
                     'openai/toolInvocation': {
                         invoking: 'Analyzing comments...',
                         invoked: 'Analysis complete',
@@ -234,7 +235,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             {
                 name: 'generate_replies',
-                description: 'Generate replies to a YouTube comment in different tones',
+                description: 'Use this when the user wants 1–3 reply suggestions for a single comment in selected tones. Do not use for bulk analysis or summaries—use analyze_comments or summarize_sentiment.',
                 inputSchema: {
                     type: 'object',
                     properties: {
@@ -278,6 +279,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                     required: ['comment', 'tones'],
                 },
                 _meta: {
+                    securitySchemes,
                     'openai/outputTemplate': 'ui://widget/tw-replies.html',
                     'openai/toolInvocation': {
                         invoking: 'Generating replies...',
@@ -290,7 +292,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             {
                 name: 'summarize_sentiment',
-                description: 'Summarize overall sentiment from comment analysis',
+                description: 'Use this when the user wants an overall sentiment roll-up, highlights, or a brief summary of themes from prior analysis. Do not use to fetch data or to generate per-comment replies—use fetch_comments or generate_replies.',
                 inputSchema: {
                     type: 'object',
                     properties: {
@@ -324,6 +326,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                     required: ['analysis'],
                 },
                 _meta: {
+                    securitySchemes,
                     'openai/outputTemplate': 'ui://widget/tw-summary.html',
                     'openai/toolInvocation': {
                         invoking: 'Summarizing sentiment...',
