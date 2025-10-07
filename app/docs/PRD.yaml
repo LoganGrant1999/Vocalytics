@@ -1,0 +1,231 @@
+# ------------------------------------------------------------
+# PRD: YouTube Comment Assistant (ChatGPT Embedded App)
+# Target: MVP ready for launch + monetization by Nov 1, 2025
+# ------------------------------------------------------------
+
+meta:
+  product_name: "YouTube Comment Assistant"
+  codename: "TubeWhisper"
+  owner: "Logan Gibbons"
+  date_created: "2025-10-07"
+  target_launch: "2025-11-01"
+  version: "v0.9-MVP"
+  stack:
+    backend: "Node.js + Fastify (Claude Code scaffold)"
+    frontend: "ChatGPT App SDK (for embedded conversational interface)"
+    database: "Firestore (lightweight metadata storage)"
+    external_apis:
+      - "YouTube Data API v3 (read-only: comments.list)"
+      - "OpenAI API (GPT-4o-mini / GPT-4-turbo)"
+    deployment:
+      - "Vercel (frontend)"
+      - "Render/Fly.io (backend)"
+
+problem_statement:
+  summary: >
+    YouTube creators waste significant time moderating, filtering, and replying to
+    video comments. Spam, negativity, and sheer comment volume make it hard to
+    engage with real fans efficiently.
+    The native YouTube Studio comment tools are slow, lack sentiment insight, and
+    offer no AI reply assistance — especially for small creators without teams.
+
+  user_pain_points:
+    - "Creators spend 30–90 minutes daily responding to comments manually."
+    - "YouTube’s default filters miss nuance — many 'spammy' comments are misclassified, while real ones get buried."
+    - "Engaging with comments is crucial for audience retention, but it’s mentally exhausting."
+    - "Small creators can’t afford social media managers or AI tools like Sprinklr or Hootsuite."
+    - "No current solution offers conversational, context-aware moderation and response suggestions in one flow."
+
+  why_now:
+    - "ChatGPT App Store is newly launched; early discoverability window (Q4 2025)."
+    - "Creators increasingly use AI to streamline workflows but lack in-chat automation tools."
+    - "OpenAI SDK + YouTube API integration is feasible with a small team."
+    - "Monetization through SaaS subscription aligns with creators’ existing spending patterns ($10–50/mo on TubeBuddy, vidIQ, etc.)."
+
+value_proposition:
+  statement: >
+    TubeWhisper saves creators hours each week by summarizing, classifying, and
+    drafting thoughtful comment replies in seconds — directly inside ChatGPT.
+
+  key_benefits:
+    - "Cut comment time by 80% — review all comments in one summarized batch."
+    - "Auto-filter spam and negativity — only see high-value engagement."
+    - "Generate authentic, tone-matched replies with one click."
+    - "Visualize audience sentiment over time."
+    - "All conversational — no new dashboard to learn."
+
+target_users:
+  primary_persona:
+    name: "Indie Creator"
+    profile:
+      - "10k–250k subscribers"
+      - "Manages their own YouTube channel"
+      - "Publishes 1–3 videos/week"
+      - "Struggles with comment volume"
+      - "Tech-savvy, uses ChatGPT casually"
+      - "Willing to pay $10–20/mo for time-saving automation"
+  secondary_personas:
+    - "Podcast hosts posting full episodes to YouTube"
+    - "Brand marketing interns managing small brand channels"
+    - "Small production agencies handling client YouTube pages"
+
+success_metrics:
+  prelaunch_metrics:
+    - "10+ creators interviewed or surveyed by Oct 20"
+    - "3 creators using private beta before launch"
+  postlaunch_metrics:
+    - "≥1000 installs by Dec 1"
+    - "≥5% conversion to paid tier within 30 days"
+    - "≥70% weekly retention of free-tier users"
+    - "NPS ≥ 8 among first 100 paid users"
+
+MVP_scope:
+  scope_summary: >
+    Build a minimal but polished ChatGPT app that connects to YouTube, retrieves
+    recent comments, classifies them (positive / neutral / spam / toxic), summarizes
+    insights, and generates AI reply suggestions. The goal is to validate WTP via
+    time savings + creator satisfaction — not full automation.
+
+  core_features:
+    - id: F1
+      name: "YouTube OAuth Login"
+      description: >
+        Authenticate user securely via Google OAuth to access YouTube comments
+        (read-only). Request minimum scopes: youtube.readonly
+      success_criteria: "User connects account in <60s; no security warnings."
+
+    - id: F2
+      name: "Fetch Recent Comments"
+      description: >
+        Pull latest comments for selected video(s) or entire channel.
+        Display commenter name, text, likes, and timestamps.
+      success_criteria: "Display 20–50 comments in under 3 seconds."
+
+    - id: F3
+      name: "AI Comment Classification"
+      description: >
+        Analyze each comment using GPT model and classify as:
+          - Positive
+          - Neutral
+          - Constructive Criticism
+          - Negative / Toxic
+          - Spam / Promotion
+        Use OpenAI moderation API as first-pass filter; fine-tune with prompt rules.
+      success_criteria: "≥85% accuracy in sample validation set."
+
+    - id: F4
+      name: "AI Reply Suggestion"
+      description: >
+        Generate 1–3 reply options per comment:
+          - Casual/friendly
+          - Professional/concise
+          - Witty/fun
+        Allow user to copy or refine reply via conversational follow-up.
+      success_criteria: "Replies align with creator tone in 70%+ of cases (measured in feedback)."
+
+    - id: F5
+      name: "Sentiment Overview Summary"
+      description: >
+        Summarize overall sentiment (positive %, negative %, spam %).
+        Highlight top positive/negative comments.
+      success_criteria: "Report generated in <10s with human-readable summary."
+
+    - id: F6
+      name: "Conversation Mode (ChatGPT App Embed)"
+      description: >
+        Let user type 'Analyze my last 50 comments' or 'Write replies for my latest upload'
+        and handle the entire flow inside ChatGPT (no external dashboard).
+      success_criteria: "Full workflow from query → AI output within 1 minute."
+
+    - id: F7
+      name: "Export / Share (Optional MVP+)"
+      description: >
+        Allow exporting analyzed data (CSV or Google Sheet) for record keeping.
+      success_criteria: "CSV download via signed link works with <2 clicks."
+
+  non_core_features:
+    - id: F8
+      name: "Automatic posting of replies via YouTube API (requires elevated scope)"
+    - id: F9
+      name: "Tone memory (learn creator’s style over time)"
+    - id: F10
+      name: "Engagement analytics (which replies drive most likes)"
+    - id: F11
+      name: "Cross-platform integration (TikTok / Instagram)"
+    - id: F12
+      name: "Team collaboration (assign comments to editors/managers)"
+
+UX_flow:
+  entry_point: "ChatGPT App Store → TubeWhisper → 'Connect my YouTube account'"
+  main_journey:
+    - "User installs app → signs in with Google"
+    - "ChatGPT: 'Which video should I analyze?'"
+    - "User: 'My latest upload'"
+    - "App fetches last 50 comments"
+    - "AI summarizes sentiment + displays categories"
+    - "User selects 'Generate replies'"
+    - "AI suggests tone-matched responses"
+    - "User copies or tweaks replies → done"
+  empty_state: "No recent comments yet — upload a video to start engaging your audience!"
+  tone_guidelines:
+    - "Friendly, supportive, confident"
+    - "Feels like a smart assistant for creators, not a corporate tool"
+
+monetization_model:
+  pricing_tiers:
+    - name: "Free"
+      features:
+        - "Analyze up to 50 comments/week"
+        - "3 reply generations/day"
+        - "Sentiment overview"
+      conversion_goal: "Show clear time savings, tease premium benefits"
+    - name: "Pro - $10/mo"
+      features:
+        - "Unlimited comment analysis"
+        - "Unlimited AI replies"
+        - "Saved tone memory"
+        - "Export CSV"
+        - "Priority sentiment insights"
+      WTP_justification: "Saves 3–5 hours/week → ~$150 value for creators"
+  billing_integration: "Stripe or LemonSqueezy subscription checkout linked via ChatGPT App SDK commerce API (if available)."
+
+go_to_market:
+  prelaunch:
+    - "Interview 10 creators (r/NewTubers, r/SmallYoutubers)"
+    - "Create teaser landing page (tubewhisper.app)"
+    - "Post concept demo video on X / TikTok / Reddit"
+  launch_channels:
+    - "ChatGPT App Store (native discoverability)"
+    - "Reddit threads: r/YouTube, r/ContentCreator, r/Productivity"
+    - "Product Hunt launch (Week of Nov 1)"
+    - "Short-form demo content ('AI replies to my YouTube comments instantly')"
+  viral_hooks:
+    - "Shareable demo GIFs ('Watch ChatGPT reply to 20 comments in 10 seconds')"
+    - "Early user testimonials"
+    - "Built-in 'Tweet this reply' button"
+
+milestones:
+  week_1 (Oct 7–13):
+    - "Validate top 5 user pains via Reddit interviews"
+    - "Define comment classification prompt schema"
+    - "Claude Code: scaffold backend + YouTube API integration"
+  week_2 (Oct 14–20):
+    - "Implement OAuth + comment fetch"
+    - "Build classification + reply generation pipeline"
+    - "Create simple JSON-based ChatGPT UI integration"
+  week_3 (Oct 21–27):
+    - "Add sentiment summary + tone presets"
+    - "Run closed beta with 3 creators"
+    - "Collect feedback + polish UX prompts"
+  week_4 (Oct 28–Nov 1):
+    - "Final QA, store submission, landing page, pricing"
+    - "Launch to GPT Store + Reddit + Product Hunt"
+
+risk_mitigation:
+  - "YouTube API quotas → cache responses locally; use pagination."
+  - "Moderation false positives → allow user override + feedback button."
+  - "Low WTP → emphasize time saved and emotional relief in copywriting."
+  - "App Store visibility → optimize name/keywords, request OpenAI featuring."
+  - "Competitor entry → ship fast, collect testimonials early."
+
+north_star: "Become the #1 ChatGPT app for YouTube creators — the go-to workflow assistant for managing comments, engagement, and sentiment."
