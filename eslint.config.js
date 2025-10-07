@@ -37,6 +37,16 @@ export default [
       },
     },
   },
+  {
+    files: ['packages/web/**/*.{ts,tsx,js}'],
+    languageOptions: {
+      globals: {
+        document: 'readonly',
+        window: 'readonly',
+        console: 'readonly',
+      },
+    },
+  },
   prettierConfig,
   {
     ignores: ['**/dist', '**/node_modules', '**/.github'],

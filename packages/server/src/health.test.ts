@@ -1,7 +1,8 @@
 import { createHealthServer } from './health';
 import { afterAll, beforeAll, it, expect } from 'vitest';
+import type { FastifyInstance } from 'fastify';
 
-let app: any;
+let app: FastifyInstance;
 beforeAll(async () => {
   app = createHealthServer('1.0.0');
 });
