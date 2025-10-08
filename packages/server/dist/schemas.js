@@ -27,7 +27,7 @@ export const AnalysisSchema = z.object({
 export const FetchCommentsArgsSchema = z.object({
     videoId: z.string().optional(),
     channelId: z.string().optional(),
-    max: z.number().max(50).default(50),
+    max: z.number().int().min(1).max(50).default(20),
 });
 export const AnalyzeCommentsArgsSchema = z.object({
     comments: z.array(CommentSchema),
@@ -36,6 +36,24 @@ export const GenerateRepliesArgsSchema = z.object({
     comment: CommentSchema,
     tones: z.array(ToneEnum),
 });
+const SentimentLabel = z.enum(['positive', 'neutral', 'constructive', 'negative', 'spam']);
+const AnalysisItem = z.object({
+    commentId: z.string(),
+    label: SentimentLabel,
+});
+const AnalysisPage = z.object({
+    items: z.array(AnalysisItem).min(1),
+    aggregates: z
+        .object({
+        positive: z.number().int().nonnegative(),
+        neutral: z.number().int().nonnegative(),
+        constructive: z.number().int().nonnegative(),
+        negative: z.number().int().nonnegative(),
+        spam: z.number().int().nonnegative(),
+        total: z.number().int().nonnegative(),
+    })
+        .optional(),
+});
 export const SummarizeSentimentArgsSchema = z.object({
-    analysis: z.array(AnalysisSchema),
+    analysis: z.union([AnalysisPage, z.array(AnalysisPage).min(1)]),
 });

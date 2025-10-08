@@ -1,7 +1,8 @@
 // src/tw-replies.ts
 var root = document.getElementById("app");
-var data = window.openai?.toolOutput ?? {};
-var list = (data?.suggestions ?? []).map(
+var w = window;
+var data = w.openai?.toolOutput ?? {};
+var list = (data.suggestions ?? []).map(
   (s) => `
   <div class="reply">
     <div class="tone-badge">${s.tone}</div>

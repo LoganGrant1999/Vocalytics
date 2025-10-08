@@ -243,28 +243,28 @@ export function registerTools(server: Server) {
     switch (name) {
       case 'fetch_comments': {
         const validated = FetchCommentsArgsSchema.parse(args);
-        const comments = await fetchComments(
+        const fullData = await fetchComments(
           validated.videoId,
           validated.channelId,
           validated.max
         );
 
+        const comments = fullData.map(c => ({
+          id: c.id,
+          videoId: c.videoId,
+          text: c.textOriginal ?? c.textDisplay ?? "",
+          likeCount: c.likeCount ?? 0,
+          publishedAt: c.publishedAt ?? null
+        }));
+
         return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(
-                {
-                  summary: `Fetched ${comments.length} comment(s)`,
-                  count: comments.length,
-                },
-                null,
-                2
-              ),
-            },
-          ],
+          content: [{ type: 'text', text: `Fetched ${comments.length} comment(s)` }],
+          structuredContent: {
+            count: comments.length,
+            comments
+          },
           _meta: {
-            fullData: comments,
+            fullData
           },
         };
       }
@@ -273,20 +273,49 @@ export function registerTools(server: Server) {
         const validated = AnalyzeCommentsArgsSchema.parse(args);
         const analysis = await analyzeComments(validated.comments);
 
+        function labelFor(text: string): "positive"|"neutral"|"constructive"|"negative"|"spam" {
+          const t = (text || "").toLowerCase();
+
+          // spam
+          if (/(https?:\/\/|www\.|visit my channel|free i?phone|giveaway|promo code)/.test(t)) return "spam";
+
+          // constructive cues (questions, polite disagreement)
+          if (/\?|not sure|don['']?t|dont|disagree|could you|clarify|maybe|suggest|consider/.test(t)) return "constructive";
+
+          // negative
+          if (/hate|terrible|awful|worst|trash|scam|fake/.test(t)) return "negative";
+
+          // positive
+          if (/love|loved|great|helpful|amazing|awesome|thanks|thank you|appreciate/.test(t)) return "positive";
+
+          return "neutral";
+        }
+
+        // Create lookup map from commentId to text
+        const commentTextMap = new Map(
+          validated.comments.map(c => [c.id, c.textOriginal || c.textDisplay])
+        );
+
+        // Build minimal items for structuredContent
+        const items = analysis.map(a => ({
+          commentId: a.commentId,
+          label: labelFor(commentTextMap.get(a.commentId) || "")
+        }));
+
+        // Calculate aggregates
+        const aggregates = items.reduce((acc, item) => {
+          const label = item.label as 'positive' | 'neutral' | 'constructive' | 'negative' | 'spam';
+          acc[label]++;
+          acc.total++;
+          return acc;
+        }, { positive: 0, neutral: 0, constructive: 0, negative: 0, spam: 0, total: 0 });
+
         return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(
-                {
-                  summary: `Analyzed ${analysis.length} comment(s)`,
-                  count: analysis.length,
-                },
-                null,
-                2
-              ),
-            },
-          ],
+          content: [{ type: 'text', text: `Analyzed ${items.length} comment(s)` }],
+          structuredContent: {
+            items,
+            aggregates
+          },
           _meta: {
             fullData: analysis,
           },
@@ -294,7 +323,21 @@ export function registerTools(server: Server) {
       }
 
       case 'generate_replies': {
-        const validated = GenerateRepliesArgsSchema.parse(args);
+        function normalizeArgs(a: any) {
+          if (!a) return a;
+          // If user pasted full payload into 'comment' field by mistake:
+          if (a.comment && a.comment.comment) {
+            a.comment = a.comment.comment;
+          }
+          // If tones got nested under comment by mistake:
+          if (a.comment && a.comment.tones && !a.tones) {
+            a.tones = a.comment.tones;
+            delete a.comment.tones;
+          }
+          return a;
+        }
+
+        const validated = GenerateRepliesArgsSchema.parse(normalizeArgs(args));
         const replies = await generateReplies(validated.comment, validated.tones);
 
         return {
@@ -316,7 +359,26 @@ export function registerTools(server: Server) {
 
       case 'summarize_sentiment': {
         const validated = SummarizeSentimentArgsSchema.parse(args);
-        const summary = await summarizeSentiment(validated.analysis);
+        // Normalize to array so downstream logic remains unchanged
+        const pages = Array.isArray(validated.analysis) ? validated.analysis : [validated.analysis];
+
+        // Flatten all items from all pages into a single analysis array
+        const allItems = pages.flatMap(page => page.items);
+
+        // Convert items to Analysis format for summarizeSentiment
+        const analysisData = allItems.map(item => ({
+          commentId: item.commentId,
+          sentiment: {
+            positive: item.label === 'positive' ? 0.8 : 0.1,
+            negative: item.label === 'negative' ? 0.8 : 0.1,
+            neutral: item.label === 'neutral' ? 0.8 : 0.1,
+          },
+          topics: [] as string[],
+          intent: item.label,
+          toxicity: item.label === 'spam' ? 0.9 : 0.1,
+        }));
+
+        const summary = await summarizeSentiment(analysisData);
 
         return {
           content: [
