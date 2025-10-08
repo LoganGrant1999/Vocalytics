@@ -5,6 +5,8 @@ import {
   AnalyzeCommentsArgsSchema,
   GenerateRepliesArgsSchema,
   SummarizeSentimentArgsSchema,
+  normalizeToPages,
+  AnalysisPage,
 } from './schemas.js';
 import {
   fetchComments,
@@ -358,9 +360,11 @@ export function registerTools(server: Server) {
       }
 
       case 'summarize_sentiment': {
-        const validated = SummarizeSentimentArgsSchema.parse(args);
-        // Normalize to array so downstream logic remains unchanged
-        const pages = Array.isArray(validated.analysis) ? validated.analysis : [validated.analysis];
+        // Be maximally tolerant of input shapes, then validate pages with Zod.
+        const anyInput = SummarizeSentimentArgsSchema.parse(args);
+        const pagesAny = normalizeToPages(anyInput);
+        // Validate each page structurally; this will throw helpful errors if malformed.
+        const pages = pagesAny.map((p) => AnalysisPage.parse(p));
 
         // Flatten all items from all pages into a single analysis array
         const allItems = pages.flatMap(page => page.items);

@@ -1,5 +1,5 @@
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { FetchCommentsArgsSchema, AnalyzeCommentsArgsSchema, GenerateRepliesArgsSchema, SummarizeSentimentArgsSchema, } from './schemas.js';
+import { FetchCommentsArgsSchema, AnalyzeCommentsArgsSchema, GenerateRepliesArgsSchema, SummarizeSentimentArgsSchema, normalizeToPages, AnalysisPage, } from './schemas.js';
 import { fetchComments, analyzeComments, generateReplies, summarizeSentiment, } from './tools.js';
 const YOUTUBE_OAUTH_SCOPE = 'https://www.googleapis.com/auth/youtube.readonly';
 // Security schemes for OAuth2
@@ -320,9 +320,11 @@ export function registerTools(server) {
                 };
             }
             case 'summarize_sentiment': {
-                const validated = SummarizeSentimentArgsSchema.parse(args);
-                // Normalize to array so downstream logic remains unchanged
-                const pages = Array.isArray(validated.analysis) ? validated.analysis : [validated.analysis];
+                // Be maximally tolerant of input shapes, then validate pages with Zod.
+                const anyInput = SummarizeSentimentArgsSchema.parse(args);
+                const pagesAny = normalizeToPages(anyInput);
+                // Validate each page structurally; this will throw helpful errors if malformed.
+                const pages = pagesAny.map((p) => AnalysisPage.parse(p));
                 // Flatten all items from all pages into a single analysis array
                 const allItems = pages.flatMap(page => page.items);
                 // Convert items to Analysis format for summarizeSentiment
