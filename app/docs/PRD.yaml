@@ -1,6 +1,9 @@
 # ------------------------------------------------------------
 # PRD: YouTube Comment Assistant (ChatGPT Embedded App)
-# Target: MVP ready for launch + monetization by Nov 1, 2025
+# Codename: TubeWhisper
+# Version: v0.9-MVP
+# Target Launch: Nov 1, 2025
+# Owner: Logan Gibbons
 # ------------------------------------------------------------
 
 meta:
@@ -11,221 +14,350 @@ meta:
   target_launch: "2025-11-01"
   version: "v0.9-MVP"
   stack:
-    backend: "Node.js + Fastify (Claude Code scaffold)"
-    frontend: "ChatGPT App SDK (for embedded conversational interface)"
-    database: "Firestore (lightweight metadata storage)"
+    backend: "Node.js + Fastify"
+    frontend: "ChatGPT App SDK (MCP tools + HTML widgets)"
+    database: "Firestore (lightweight metadata) + Supabase (auth + billing)"
     external_apis:
       - "YouTube Data API v3 (read-only: comments.list)"
       - "OpenAI API (GPT-4o-mini / GPT-4-turbo)"
+      - "Stripe API (subscription billing)"
     deployment:
-      - "Vercel (frontend)"
-      - "Render/Fly.io (backend)"
+      - "Vercel (frontend + landing page)"
+      - "Render/Fly.io (backend API + MCP server)"
+      - "Supabase (auth + usage tracking)"
+  environment:
+    node_version: "20.x"
+    runtime: "pnpm workspaces"
+    build: "pnpm -r build"
+    package_entry: "packages/server/src/index.ts"
 
 problem_statement:
   summary: >
-    YouTube creators waste significant time moderating, filtering, and replying to
-    video comments. Spam, negativity, and sheer comment volume make it hard to
-    engage with real fans efficiently.
-    The native YouTube Studio comment tools are slow, lack sentiment insight, and
-    offer no AI reply assistance — especially for small creators without teams.
+    YouTube creators waste significant time moderating and replying to comments.
+    Spam, negativity, and sheer volume make it hard to engage with real fans.
+    Existing tools are slow, lack sentiment insight, and offer no AI assistance —
+    especially for small creators without teams.
 
   user_pain_points:
-    - "Creators spend 30–90 minutes daily responding to comments manually."
-    - "YouTube’s default filters miss nuance — many 'spammy' comments are misclassified, while real ones get buried."
-    - "Engaging with comments is crucial for audience retention, but it’s mentally exhausting."
-    - "Small creators can’t afford social media managers or AI tools like Sprinklr or Hootsuite."
-    - "No current solution offers conversational, context-aware moderation and response suggestions in one flow."
+    - "Creators spend 30–90 minutes daily responding manually."
+    - "YouTube’s default filters miss nuance."
+    - "Engagement is critical but mentally draining."
+    - "No simple way to summarize audience sentiment or auto-reply."
+    - "Small creators can’t afford enterprise social tools."
 
   why_now:
-    - "ChatGPT App Store is newly launched; early discoverability window (Q4 2025)."
-    - "Creators increasingly use AI to streamline workflows but lack in-chat automation tools."
-    - "OpenAI SDK + YouTube API integration is feasible with a small team."
-    - "Monetization through SaaS subscription aligns with creators’ existing spending patterns ($10–50/mo on TubeBuddy, vidIQ, etc.)."
+    - "ChatGPT App Store is launching — early discoverability window (Q4 2025)."
+    - "AI workflows are trending among creators."
+    - "OpenAI SDK + YouTube API + Stripe make this technically lightweight."
+    - "Subscription SaaS model mirrors existing creator spend."
 
 value_proposition:
   statement: >
-    TubeWhisper saves creators hours each week by summarizing, classifying, and
-    drafting thoughtful comment replies in seconds — directly inside ChatGPT.
-
+    TubeWhisper saves creators hours by summarizing, classifying, and drafting
+    thoughtful replies directly inside ChatGPT — no new dashboard needed.
   key_benefits:
-    - "Cut comment time by 80% — review all comments in one summarized batch."
-    - "Auto-filter spam and negativity — only see high-value engagement."
-    - "Generate authentic, tone-matched replies with one click."
-    - "Visualize audience sentiment over time."
-    - "All conversational — no new dashboard to learn."
+    - "Cut comment time by 80%."
+    - "Auto-filter spam and toxicity."
+    - "Generate authentic tone-matched replies."
+    - "Summarize sentiment trends over time."
+    - "Conversational, in one place: ChatGPT."
 
 target_users:
   primary_persona:
     name: "Indie Creator"
     profile:
       - "10k–250k subscribers"
-      - "Manages their own YouTube channel"
       - "Publishes 1–3 videos/week"
-      - "Struggles with comment volume"
-      - "Tech-savvy, uses ChatGPT casually"
-      - "Willing to pay $10–20/mo for time-saving automation"
+      - "Manages own community engagement"
+      - "Tech-comfortable, uses ChatGPT casually"
+      - "Willing to pay $10–20/mo for time savings"
   secondary_personas:
-    - "Podcast hosts posting full episodes to YouTube"
-    - "Brand marketing interns managing small brand channels"
-    - "Small production agencies handling client YouTube pages"
+    - "Podcast hosts posting episodes to YouTube"
+    - "Small brand interns managing channels"
+    - "Micro-agencies managing client pages"
 
 success_metrics:
   prelaunch_metrics:
-    - "10+ creators interviewed or surveyed by Oct 20"
-    - "3 creators using private beta before launch"
+    - "10+ creator interviews by Oct 20"
+    - "3 private beta testers before launch"
   postlaunch_metrics:
     - "≥1000 installs by Dec 1"
-    - "≥5% conversion to paid tier within 30 days"
-    - "≥70% weekly retention of free-tier users"
-    - "NPS ≥ 8 among first 100 paid users"
+    - "≥5% paid conversion within 30 days"
+    - "≥70% weekly retention (free users)"
+    - "NPS ≥8 among first 100 paid users"
+    - "≥95% uptime on /healthz"
 
 MVP_scope:
   scope_summary: >
-    Build a minimal but polished ChatGPT app that connects to YouTube, retrieves
-    recent comments, classifies them (positive / neutral / spam / toxic), summarizes
-    insights, and generates AI reply suggestions. The goal is to validate WTP via
-    time savings + creator satisfaction — not full automation.
+    Deliver a production-ready ChatGPT app that connects to YouTube,
+    retrieves recent comments, classifies sentiment, summarizes engagement,
+    and drafts AI replies — enforcing a clear free-tier usage limit via
+    Supabase + Stripe paywall.
 
   core_features:
     - id: F1
       name: "YouTube OAuth Login"
       description: >
-        Authenticate user securely via Google OAuth to access YouTube comments
-        (read-only). Request minimum scopes: youtube.readonly
-      success_criteria: "User connects account in <60s; no security warnings."
+        Secure Google OAuth (scope: youtube.readonly) to access channel comments.
+      success_criteria: "User connects account in <60 s; no warnings."
 
     - id: F2
       name: "Fetch Recent Comments"
       description: >
-        Pull latest comments for selected video(s) or entire channel.
-        Display commenter name, text, likes, and timestamps.
-      success_criteria: "Display 20–50 comments in under 3 seconds."
+        Retrieve 20–50 latest comments for a selected video or channel.
+      success_criteria: "20–50 comments load in <3 s."
 
     - id: F3
       name: "AI Comment Classification"
       description: >
-        Analyze each comment using GPT model and classify as:
-          - Positive
-          - Neutral
-          - Constructive Criticism
-          - Negative / Toxic
-          - Spam / Promotion
-        Use OpenAI moderation API as first-pass filter; fine-tune with prompt rules.
-      success_criteria: "≥85% accuracy in sample validation set."
+        Classify each comment as Positive, Neutral, Constructive,
+        Negative/Toxic, or Spam via GPT + moderation API.
+      success_criteria: "≥85 % accuracy in validation set."
 
     - id: F4
       name: "AI Reply Suggestion"
       description: >
-        Generate 1–3 reply options per comment:
-          - Casual/friendly
-          - Professional/concise
-          - Witty/fun
-        Allow user to copy or refine reply via conversational follow-up.
-      success_criteria: "Replies align with creator tone in 70%+ of cases (measured in feedback)."
+        Generate 1–3 replies per comment (friendly, concise, witty).
+      success_criteria: "Replies align with creator tone ≥70 % of feedback."
 
     - id: F5
       name: "Sentiment Overview Summary"
       description: >
-        Summarize overall sentiment (positive %, negative %, spam %).
-        Highlight top positive/negative comments.
-      success_criteria: "Report generated in <10s with human-readable summary."
+        Aggregate sentiment percentages and highlight top comments.
+      success_criteria: "Summary computed in <10 s."
 
     - id: F6
       name: "Conversation Mode (ChatGPT App Embed)"
       description: >
-        Let user type 'Analyze my last 50 comments' or 'Write replies for my latest upload'
-        and handle the entire flow inside ChatGPT (no external dashboard).
-      success_criteria: "Full workflow from query → AI output within 1 minute."
+        Handle the entire “Analyze my last 50 comments” flow inside ChatGPT
+        using MCP tools and HTML widgets.
+      success_criteria: "Query → summary → replies all within 1 min."
 
     - id: F7
-      name: "Export / Share (Optional MVP+)"
+      name: "Paywall Integration (Supabase + Stripe)"
       description: >
-        Allow exporting analyzed data (CSV or Google Sheet) for record keeping.
-      success_criteria: "CSV download via signed link works with <2 clicks."
+        Track per-user usage; enforce limits for Free users; redirect to
+        Stripe Checkout for upgrades. After payment, Stripe → Supabase webhook
+        marks user as 'pro' and lifts limits.
+      success_criteria: >
+        Limits enforced correctly; upgrade link works; webhook updates tier;
+        Pro users experience no restriction.
 
-  non_core_features:
+  optional_features:
     - id: F8
-      name: "Automatic posting of replies via YouTube API (requires elevated scope)"
+      name: "CSV Export"
+      description: >
+        Allow Pro users to export analyzed data via signed link.
     - id: F9
-      name: "Tone memory (learn creator’s style over time)"
-    - id: F10
-      name: "Engagement analytics (which replies drive most likes)"
-    - id: F11
-      name: "Cross-platform integration (TikTok / Instagram)"
-    - id: F12
-      name: "Team collaboration (assign comments to editors/managers)"
+      name: "Tone Memory"
+      description: >
+        Persist creator style for replies (Pro-only, post-MVP).
 
 UX_flow:
-  entry_point: "ChatGPT App Store → TubeWhisper → 'Connect my YouTube account'"
+  entry_point: "ChatGPT App → TubeWhisper → 'Connect my YouTube account'"
   main_journey:
-    - "User installs app → signs in with Google"
-    - "ChatGPT: 'Which video should I analyze?'"
-    - "User: 'My latest upload'"
-    - "App fetches last 50 comments"
+    - "Install app → OAuth YouTube"
+    - "Chat: 'Analyze my latest upload'"
+    - "App fetches 50 comments"
     - "AI summarizes sentiment + displays categories"
     - "User selects 'Generate replies'"
-    - "AI suggests tone-matched responses"
-    - "User copies or tweaks replies → done"
-  empty_state: "No recent comments yet — upload a video to start engaging your audience!"
+    - "App produces tone-matched replies"
+    - "If free-tier limit reached → message with upgrade link to tubewhisper.app/upgrade"
+  empty_state: "No recent comments — upload a video to start engaging!"
   tone_guidelines:
-    - "Friendly, supportive, confident"
-    - "Feels like a smart assistant for creators, not a corporate tool"
+    - "Friendly, confident, creator-to-creator"
+    - "Short, practical, optimistic"
 
 monetization_model:
   pricing_tiers:
     - name: "Free"
       features:
         - "Analyze up to 50 comments/week"
-        - "3 reply generations/day"
+        - "Generate 3 replies/day"
         - "Sentiment overview"
-      conversion_goal: "Show clear time savings, tease premium benefits"
-    - name: "Pro - $10/mo"
+      conversion_goal: "Show clear time savings; redirect to upgrade at limit."
+    - name: "Pro – $10 / mo"
       features:
-        - "Unlimited comment analysis"
-        - "Unlimited AI replies"
-        - "Saved tone memory"
-        - "Export CSV"
+        - "Unlimited comment analysis & replies"
+        - "Tone memory"
+        - "CSV export"
         - "Priority sentiment insights"
-      WTP_justification: "Saves 3–5 hours/week → ~$150 value for creators"
-  billing_integration: "Stripe or LemonSqueezy subscription checkout linked via ChatGPT App SDK commerce API (if available)."
+      checkout: "Stripe Checkout via tubewhisper.app/upgrade"
+  paywall_integration:
+    backend: "Supabase + Stripe"
+    flow:
+      - "Each ChatGPT user mapped in Supabase (id, email, tier, usage counters)."
+      - "Free tier limited to 50 comments/week or 3 replies/day."
+      - "When limit hit, backend returns upgrade message with external link."
+      - "Stripe Checkout completes at tubewhisper.app/upgrade."
+      - "Webhook updates Supabase tier to 'pro'."
+    success_criteria: >
+      Free limits enforced; Stripe payment and webhook verified end-to-end;
+      paid users bypass limits seamlessly.
 
 go_to_market:
   prelaunch:
-    - "Interview 10 creators (r/NewTubers, r/SmallYoutubers)"
-    - "Create teaser landing page (tubewhisper.app)"
-    - "Post concept demo video on X / TikTok / Reddit"
+    - "Interview 10 creators (r/NewTubers, r/SmallYouTubers)"
+    - "Launch teaser site: tubewhisper.app"
+    - "Post demo clip on X/TikTok/Reddit"
   launch_channels:
     - "ChatGPT App Store (native discoverability)"
-    - "Reddit threads: r/YouTube, r/ContentCreator, r/Productivity"
-    - "Product Hunt launch (Week of Nov 1)"
-    - "Short-form demo content ('AI replies to my YouTube comments instantly')"
+    - "Product Hunt (Week of Nov 1)"
+    - "Reddit threads (r/YouTube, r/Productivity)"
   viral_hooks:
-    - "Shareable demo GIFs ('Watch ChatGPT reply to 20 comments in 10 seconds')"
-    - "Early user testimonials"
-    - "Built-in 'Tweet this reply' button"
+    - "Shareable demo GIFs ('ChatGPT replies to 20 comments in 10 s!')"
+    - "Testimonials from beta creators"
+    - "'Tweet this reply' button on landing page"
 
 milestones:
   week_1 (Oct 7–13):
-    - "Validate top 5 user pains via Reddit interviews"
-    - "Define comment classification prompt schema"
-    - "Claude Code: scaffold backend + YouTube API integration"
+    - "Validate top 5 creator pains"
+    - "Claude Code scaffold backend + YouTube API"
   week_2 (Oct 14–20):
-    - "Implement OAuth + comment fetch"
-    - "Build classification + reply generation pipeline"
-    - "Create simple JSON-based ChatGPT UI integration"
+    - "Implement OAuth + fetch"
+    - "Build classification + reply pipeline"
+    - "Integrate MCP tools + mock ChatGPT UI"
   week_3 (Oct 21–27):
     - "Add sentiment summary + tone presets"
-    - "Run closed beta with 3 creators"
-    - "Collect feedback + polish UX prompts"
+    - "Wire Supabase + Stripe paywall"
+    - "Run closed beta (3 creators)"
   week_4 (Oct 28–Nov 1):
-    - "Final QA, store submission, landing page, pricing"
-    - "Launch to GPT Store + Reddit + Product Hunt"
+    - "Final QA + llm-check + healthz/readyz endpoints"
+    - "Polish ChatGPT manifest & widgets"
+    - "Submit to GPT Store + Product Hunt"
 
 risk_mitigation:
-  - "YouTube API quotas → cache responses locally; use pagination."
-  - "Moderation false positives → allow user override + feedback button."
-  - "Low WTP → emphasize time saved and emotional relief in copywriting."
-  - "App Store visibility → optimize name/keywords, request OpenAI featuring."
-  - "Competitor entry → ship fast, collect testimonials early."
+  - "YouTube quota → per-minute cap + caching."
+  - "Transient LLM errors → 1-retry + concurrency gate."
+  - "Moderation false positives → allow override."
+  - "Low WTP → emphasize time saved in copy."
+  - "Store visibility → optimize name/keywords."
+  - "Payment failures → Stripe webhook retries + manual sync endpoint."
 
-north_star: "Become the #1 ChatGPT app for YouTube creators — the go-to workflow assistant for managing comments, engagement, and sentiment."
+north_star: >
+  Become the #1 ChatGPT app for YouTube creators —
+  the go-to AI assistant for managing comments, engagement, and sentiment.
+
+data_model:
+  database: "Supabase (PostgreSQL)"
+  description: >
+    Supabase handles authentication, usage tracking, and billing tier enforcement.
+    Each ChatGPT App user is stored with basic identity info and counters for free-tier limits.
+    Stripe webhooks update the user's tier and subscription status.
+  tables:
+    - name: users
+      description: "Primary user record; one per ChatGPT or OAuth user."
+      columns:
+        - name: id
+          type: uuid
+          description: "Primary key; matches ChatGPT user ID or OAuth subject."
+        - name: email
+          type: text
+          description: "Optional email from Google OAuth."
+        - name: tier
+          type: text
+          enum: ["free", "pro"]
+          default: "free"
+          description: "Current access level."
+        - name: comments_analyzed_count
+          type: integer
+          default: 0
+          description: "Number of comments analyzed this week."
+        - name: replies_generated_count
+          type: integer
+          default: 0
+          description: "Number of replies generated today."
+        - name: reset_date
+          type: date
+          description: "When usage counters last reset (for free-tier limits)."
+        - name: subscribed_until
+          type: timestamptz
+          description: "If Pro, date until which subscription is valid."
+        - name: stripe_customer_id
+          type: text
+          description: "Stripe Customer object reference."
+        - name: stripe_subscription_id
+          type: text
+          description: "Stripe Subscription object reference."
+        - name: created_at
+          type: timestamptz
+          default: "now()"
+        - name: updated_at
+          type: timestamptz
+          default: "now()"
+
+    - name: usage_events
+      description: "Optional audit log of usage actions for analytics/debugging."
+      columns:
+        - name: id
+          type: bigint
+          auto_increment: true
+        - name: user_id
+          type: uuid
+          foreign_key: users.id
+        - name: action
+          type: text
+          enum: ["analyze", "reply"]
+        - name: count
+          type: integer
+          default: 1
+        - name: timestamp
+          type: timestamptz
+          default: "now()"
+        - name: metadata
+          type: jsonb
+          description: "Optional data (videoId, tone, etc.)."
+
+    - name: stripe_events
+      description: "Stores webhook events for billing verification and replay safety."
+      columns:
+        - name: id
+          type: bigint
+          auto_increment: true
+        - name: event_id
+          type: text
+          unique: true
+          description: "Stripe event.id (idempotency key)."
+        - name: type
+          type: text
+          description: "Stripe event type (checkout.session.completed, etc.)."
+        - name: payload
+          type: jsonb
+          description: "Full webhook body (for debugging)."
+        - name: processed
+          type: boolean
+          default: false
+        - name: created_at
+          type: timestamptz
+          default: "now()"
+
+data_model:
+  notes:
+    - "Backend uses Supabase service-role key; identifies users by ChatGPT app_user_id (opaque ID) or OAuth email if available."
+    - "No Supabase Auth login required for MVP; web upgrade page may add optional email capture."
+    - "Counters reset: comments = weekly; replies = daily."
+  constraints_and_indexes:
+    users:
+      - "CHECK (comments_analyzed_count >= 0)"
+      - "CHECK (replies_generated_count >= 0)"
+      - "INDEX ON (email) WHERE email IS NOT NULL"
+      - "INDEX ON (stripe_customer_id) WHERE stripe_customer_id IS NOT NULL"
+      - "INDEX ON (stripe_subscription_id) WHERE stripe_subscription_id IS NOT NULL"
+    usage_events:
+      - "INDEX ON (user_id, timestamp DESC)"
+    stripe_events:
+      - "UNIQUE (event_id)"
+      - "INDEX ON (processed, created_at DESC)"
+  counters_reset_policy:
+    comments_analyzed_count: "weekly (Monday 00:00 UTC)"
+    replies_generated_count: "daily (00:00 UTC)"
+  webhook_mapping:
+    on_checkout_completed:
+      - "Set users.tier = 'pro'"
+      - "Set users.subscribed_until = period_end (from subscription)"
+      - "Set users.stripe_customer_id"
+      - "Set users.stripe_subscription_id"
+    on_invoice_payment_failed_or_subscription_canceled:
+      - "Set users.tier = 'free'"
+      - "Null users.subscribed_until"
+      - "Keep stripe_customer_id for future reuse"
