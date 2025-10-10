@@ -1,41 +1,24 @@
-export interface Comment {
+// Canonical internal comment shape for TubeWhisperer
+export interface TWComment {
   id: string;
   videoId: string;
-  channelId: string;
-  authorDisplayName: string;
-  authorChannelId: string;
-  textDisplay: string;
-  textOriginal: string;
+  author: string;          // normalized from authorDisplayName
+  text: string;            // plain text (no HTML)
+  publishedAt: string;     // ISO string
   likeCount: number;
-  publishedAt: string;
-  updatedAt: string;
+  replyCount: number;
+  isReply: boolean;
+  parentId?: string;
 }
 
-export interface SentimentScore {
-  positive: number;
-  negative: number;
-  neutral: number;
-}
-
-export interface Analysis {
-  commentId: string;
-  sentiment: SentimentScore;
-  topics: string[];
-  intent: string;
-  toxicity: number;
-}
-
-export interface SentimentSummary {
-  overallSentiment: 'positive' | 'negative' | 'neutral' | 'mixed';
-  averageScores: SentimentScore;
-  totalComments: number;
-  topTopics: Array<{ topic: string; count: number }>;
-  toxicityLevel: 'low' | 'moderate' | 'high';
-}
-
-export type Tone = 'friendly' | 'concise' | 'enthusiastic';
-
-export interface GeneratedReply {
-  tone: Tone;
-  reply: string;
+// Minimal HTML → text normalizer for YouTube textDisplay / textOriginal
+export function htmlToText(s: string): string {
+  if (!s) return "";
+  const noTags = s.replace(/<[^>]+>/g, "");
+  return noTags
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
 }

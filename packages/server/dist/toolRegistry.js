@@ -38,9 +38,23 @@ export function registerTools(server) {
                             },
                             max: {
                                 type: 'number',
-                                description: 'Maximum number of comments to fetch (max 50)',
-                                maximum: 50,
+                                description: 'Maximum number of comments to fetch (max 100)',
+                                maximum: 100,
                                 default: 50,
+                            },
+                            pageToken: {
+                                type: 'string',
+                                description: 'YouTube pageToken',
+                            },
+                            includeReplies: {
+                                type: 'boolean',
+                                description: 'Include replies',
+                                default: false,
+                            },
+                            order: {
+                                type: 'string',
+                                enum: ['time', 'relevance'],
+                                default: 'time',
                             },
                         },
                     },
@@ -69,26 +83,23 @@ export function registerTools(server) {
                                     properties: {
                                         id: { type: 'string' },
                                         videoId: { type: 'string' },
-                                        channelId: { type: 'string' },
-                                        authorDisplayName: { type: 'string' },
-                                        authorChannelId: { type: 'string' },
-                                        textDisplay: { type: 'string' },
-                                        textOriginal: { type: 'string' },
-                                        likeCount: { type: 'number' },
+                                        author: { type: 'string' },
+                                        text: { type: 'string' },
                                         publishedAt: { type: 'string' },
-                                        updatedAt: { type: 'string' },
+                                        likeCount: { type: 'number' },
+                                        replyCount: { type: 'number' },
+                                        isReply: { type: 'boolean' },
+                                        parentId: { type: 'string' },
                                     },
                                     required: [
                                         'id',
                                         'videoId',
-                                        'channelId',
-                                        'authorDisplayName',
-                                        'authorChannelId',
-                                        'textDisplay',
-                                        'textOriginal',
-                                        'likeCount',
+                                        'author',
+                                        'text',
                                         'publishedAt',
-                                        'updatedAt',
+                                        'likeCount',
+                                        'replyCount',
+                                        'isReply',
                                     ],
                                 },
                                 description: 'Array of comments to analyze',
@@ -118,26 +129,23 @@ export function registerTools(server) {
                                 properties: {
                                     id: { type: 'string' },
                                     videoId: { type: 'string' },
-                                    channelId: { type: 'string' },
-                                    authorDisplayName: { type: 'string' },
-                                    authorChannelId: { type: 'string' },
-                                    textDisplay: { type: 'string' },
-                                    textOriginal: { type: 'string' },
-                                    likeCount: { type: 'number' },
+                                    author: { type: 'string' },
+                                    text: { type: 'string' },
                                     publishedAt: { type: 'string' },
-                                    updatedAt: { type: 'string' },
+                                    likeCount: { type: 'number' },
+                                    replyCount: { type: 'number' },
+                                    isReply: { type: 'boolean' },
+                                    parentId: { type: 'string' },
                                 },
                                 required: [
                                     'id',
                                     'videoId',
-                                    'channelId',
-                                    'authorDisplayName',
-                                    'authorChannelId',
-                                    'textDisplay',
-                                    'textOriginal',
-                                    'likeCount',
+                                    'author',
+                                    'text',
                                     'publishedAt',
-                                    'updatedAt',
+                                    'likeCount',
+                                    'replyCount',
+                                    'isReply',
                                 ],
                                 description: 'The comment to reply to',
                             },
@@ -220,27 +228,101 @@ export function registerTools(server) {
     // Call tool handler
     server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const { name, arguments: args } = request.params;
+        // --- shared tiny helpers ---
+        function maybeParseJSON(x) {
+            if (typeof x === "string" && x.trim().startsWith("{")) {
+                try {
+                    return JSON.parse(x);
+                }
+                catch {
+                    return null;
+                }
+            }
+            return null;
+        }
+        function sanitizeFetchArgs(a) {
+            if (!a)
+                return a;
+            // If the entire arguments is a JSON string
+            const parsedAll = maybeParseJSON(a);
+            if (parsedAll)
+                a = parsedAll;
+            // If videoId/channelId were pasted as JSON blobs, extract fields
+            const vParsed = maybeParseJSON(a.videoId);
+            if (vParsed && typeof vParsed.videoId === "string")
+                a.videoId = vParsed.videoId;
+            const cParsed = maybeParseJSON(a.channelId);
+            if (cParsed && typeof cParsed.channelId === "string")
+                a.channelId = cParsed.channelId;
+            return a;
+        }
         switch (name) {
             case 'fetch_comments': {
-                const validated = FetchCommentsArgsSchema.parse(args);
-                const fullData = await fetchComments(validated.videoId, validated.channelId, validated.max);
-                const comments = fullData.map(c => ({
-                    id: c.id,
-                    videoId: c.videoId,
-                    text: c.textOriginal ?? c.textDisplay ?? "",
-                    likeCount: c.likeCount ?? 0,
-                    publishedAt: c.publishedAt ?? null
-                }));
-                return {
-                    content: [{ type: 'text', text: `Fetched ${comments.length} comment(s)` }],
-                    structuredContent: {
-                        count: comments.length,
-                        comments
-                    },
-                    _meta: {
-                        fullData
-                    },
-                };
+                try {
+                    const validated = FetchCommentsArgsSchema.parse(sanitizeFetchArgs(args));
+                    const result = await fetchComments(validated.videoId, validated.channelId, validated.max, validated.pageToken, validated.includeReplies, validated.order);
+                    return {
+                        content: [{ type: 'text', text: `Fetched ${result.comments.length} comment(s)` }],
+                        structuredContent: {
+                            count: result.comments.length,
+                            comments: result.comments,
+                            nextPageToken: result.nextPageToken
+                        },
+                        _meta: { fullData: result.comments },
+                    };
+                }
+                catch (e) {
+                    const msg = e?.message || 'Unknown error';
+                    // Map YouTube API errors to standard codes
+                    let httpStatus = 500;
+                    let code = 'INTERNAL';
+                    if (/YouTube API error 401/.test(msg)) {
+                        httpStatus = 401;
+                        code = 'UNAUTHENTICATED';
+                    }
+                    else if (/YouTube API error 403/.test(msg)) {
+                        // Check for rate limit reasons
+                        if (/quotaExceeded|userRateLimitExceeded|rateLimitExceeded/i.test(msg)) {
+                            httpStatus = 429;
+                            code = 'RESOURCE_EXHAUSTED';
+                        }
+                        else {
+                            httpStatus = 403;
+                            code = 'PERMISSION_DENIED';
+                        }
+                    }
+                    else if (/YouTube API error 404|video not found|private/i.test(msg)) {
+                        httpStatus = 404;
+                        code = 'NOT_FOUND';
+                    }
+                    else if (/YouTube API error 5\d\d/.test(msg)) {
+                        httpStatus = 503;
+                        code = 'UNAVAILABLE';
+                    }
+                    else if (/YouTube API error 400/.test(msg)) {
+                        httpStatus = 400;
+                        code = 'INVALID_ARGUMENT';
+                    }
+                    else if (/Provide videoId or channelId/.test(msg)) {
+                        httpStatus = 400;
+                        code = 'INVALID_ARGUMENT';
+                    }
+                    else if (/Validation failed/.test(msg) || e?.name === 'ZodError') {
+                        httpStatus = 400;
+                        code = 'INVALID_ARGUMENT';
+                    }
+                    return {
+                        content: [{ type: 'text', text: `fetch_comments failed: ${msg}` }],
+                        _meta: {
+                            error: {
+                                code,
+                                message: msg,
+                                httpStatus,
+                                ...(e?.issues && { details: e.issues })
+                            }
+                        },
+                    };
+                }
             }
             case 'analyze_comments': {
                 const validated = AnalyzeCommentsArgsSchema.parse(args);
@@ -262,7 +344,7 @@ export function registerTools(server) {
                     return "neutral";
                 }
                 // Create lookup map from commentId to text
-                const commentTextMap = new Map(validated.comments.map(c => [c.id, c.textOriginal || c.textDisplay]));
+                const commentTextMap = new Map(validated.comments.map(c => [c.id, c.text]));
                 // Build minimal items for structuredContent
                 const items = analysis.map(a => ({
                     commentId: a.commentId,
@@ -338,6 +420,7 @@ export function registerTools(server) {
                     topics: [],
                     intent: item.label,
                     toxicity: item.label === 'spam' ? 0.9 : 0.1,
+                    category: item.label,
                 }));
                 const summary = await summarizeSentiment(analysisData);
                 return {

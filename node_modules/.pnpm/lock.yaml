@@ -12,7 +12,7 @@ importers:
         specifier: ^9.17.0
         version: 9.37.0
       '@types/node':
-        specifier: ^20.11.5
+        specifier: ^20.19.19
         version: 20.19.19
       '@typescript-eslint/eslint-plugin':
         specifier: ^6.19.0
@@ -29,8 +29,11 @@ importers:
       prettier:
         specifier: ^3.2.4
         version: 3.6.2
+      tsx:
+        specifier: ^4.20.6
+        version: 4.20.6
       typescript:
-        specifier: ^5.3.3
+        specifier: ^5.9.3
         version: 5.9.3
       vitest:
         specifier: ^1.2.1
@@ -48,9 +51,15 @@ importers:
         specifier: ^3.22.4
         version: 3.25.76
     devDependencies:
+      '@types/node':
+        specifier: ^20.19.19
+        version: 20.19.19
       tsx:
-        specifier: ^4.7.0
+        specifier: ^4.20.6
         version: 4.20.6
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
 
   packages/web:
     devDependencies:

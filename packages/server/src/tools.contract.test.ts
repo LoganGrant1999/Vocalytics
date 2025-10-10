@@ -4,12 +4,12 @@ import {
   AnalyzeCommentsArgsSchema,
   GenerateRepliesArgsSchema,
   SummarizeSentimentArgsSchema,
-  CommentSchema,
+  TWCommentZ,
   AnalysisSchema,
 } from './schemas';
 
 it('FetchCommentsArgsSchema validates minimal payload', () => {
-  const result = FetchCommentsArgsSchema.safeParse({ max: 10 });
+  const result = FetchCommentsArgsSchema.safeParse({ videoId: 'test123', max: 10 });
   expect(result.success).toBe(true);
 });
 
@@ -17,14 +17,12 @@ it('AnalyzeCommentsArgsSchema validates minimal payload', () => {
   const mockComment = {
     id: '1',
     videoId: 'v1',
-    channelId: 'c1',
-    authorDisplayName: 'Test User',
-    authorChannelId: 'ac1',
-    textDisplay: 'Great video!',
-    textOriginal: 'Great video!',
-    likeCount: 5,
+    author: 'Test User',
+    text: 'Great video!',
     publishedAt: '2025-01-01T00:00:00Z',
-    updatedAt: '2025-01-01T00:00:00Z',
+    likeCount: 5,
+    replyCount: 0,
+    isReply: false,
   };
   const result = AnalyzeCommentsArgsSchema.safeParse({ comments: [mockComment] });
   expect(result.success).toBe(true);
@@ -34,14 +32,12 @@ it('GenerateRepliesArgsSchema validates minimal payload', () => {
   const mockComment = {
     id: '1',
     videoId: 'v1',
-    channelId: 'c1',
-    authorDisplayName: 'Test User',
-    authorChannelId: 'ac1',
-    textDisplay: 'Great video!',
-    textOriginal: 'Great video!',
-    likeCount: 5,
+    author: 'Test User',
+    text: 'Great video!',
     publishedAt: '2025-01-01T00:00:00Z',
-    updatedAt: '2025-01-01T00:00:00Z',
+    likeCount: 5,
+    replyCount: 0,
+    isReply: false,
   };
   const result = GenerateRepliesArgsSchema.safeParse({
     comment: mockComment,
@@ -62,8 +58,8 @@ it('SummarizeSentimentArgsSchema validates minimal payload', () => {
   expect(result.success).toBe(true);
 });
 
-it('CommentSchema rejects invalid payload', () => {
-  const result = CommentSchema.safeParse({ id: '1' });
+it('TWCommentZ rejects invalid payload', () => {
+  const result = TWCommentZ.safeParse({ id: '1' });
   expect(result.success).toBe(false);
 });
 

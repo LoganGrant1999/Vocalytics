@@ -2,18 +2,21 @@ import { z } from 'zod';
 
 export const ToneEnum = z.enum(['friendly', 'concise', 'enthusiastic']);
 
-export const CommentSchema = z.object({
+// Canonical TWComment schema
+export const TWCommentZ = z.object({
   id: z.string(),
   videoId: z.string(),
-  channelId: z.string(),
-  authorDisplayName: z.string(),
-  authorChannelId: z.string(),
-  textDisplay: z.string(),
-  textOriginal: z.string(),
-  likeCount: z.number(),
+  author: z.string(),
+  text: z.string(),
   publishedAt: z.string(),
-  updatedAt: z.string(),
+  likeCount: z.number(),
+  replyCount: z.number(),
+  isReply: z.boolean(),
+  parentId: z.string().optional()
 });
+
+export type TWComment = z.infer<typeof TWCommentZ>;
+export const TWCommentArrayZ = z.array(TWCommentZ);
 
 export const SentimentScoreSchema = z.object({
   positive: z.number(),
@@ -30,17 +33,20 @@ export const AnalysisSchema = z.object({
 });
 
 export const FetchCommentsArgsSchema = z.object({
-  videoId: z.string().optional(),
-  channelId: z.string().optional(),
-  max: z.number().int().min(1).max(50).default(20),
-});
+  videoId: z.string().min(3).optional(),
+  channelId: z.string().min(3).optional(),
+  max: z.preprocess((v:any) => Number(v), z.number().int().min(1).max(100)).default(50),
+  pageToken: z.string().optional(),
+  includeReplies: z.boolean().default(false),
+  order: z.enum(["time","relevance"]).default("time"),
+}).refine(i => !!i.videoId || !!i.channelId, { message:"Provide videoId or channelId" });
 
 export const AnalyzeCommentsArgsSchema = z.object({
-  comments: z.array(CommentSchema),
+  comments: TWCommentArrayZ,
 });
 
 export const GenerateRepliesArgsSchema = z.object({
-  comment: CommentSchema,
+  comment: TWCommentZ,
   tones: z.array(ToneEnum),
 });
 

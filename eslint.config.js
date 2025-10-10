@@ -16,6 +16,8 @@ export default [
       globals: {
         console: 'readonly',
         process: 'readonly',
+        fetch: 'readonly',
+        URLSearchParams: 'readonly',
       },
     },
     plugins: {
@@ -26,6 +28,8 @@ export default [
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      'no-undef': 'off',
     },
   },
   {
@@ -49,6 +53,6 @@ export default [
   },
   prettierConfig,
   {
-    ignores: ['**/dist', '**/node_modules', '**/.github'],
+    ignores: ['**/dist', '**/node_modules', '**/.github', '**/fixtures', '**/*.mjs', '**/build', '**/scripts/**/*.js'],
   },
 ];

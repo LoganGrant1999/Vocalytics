@@ -1,0 +1,7 @@
+[
+  { "id":"c1","videoId":"vX","author":"Sam","text":"Love this tutorial! Super helpful.","publishedAt":"2025-01-01T00:00:00Z","likeCount":3,"replyCount":0,"isReply":false },
+  { "id":"c2","videoId":"vX","author":"Riley","text":"Meh, didn’t cover timestamps I needed.","publishedAt":"2025-01-01T00:05:00Z","likeCount":0,"replyCount":1,"isReply":false },
+  { "id":"c3","videoId":"vX","author":"Alex","text":"Constructive: audio peaks at 2:35—compressor?","publishedAt":"2025-01-01T00:10:00Z","likeCount":1,"replyCount":0,"isReply":false },
+  { "id":"c4","videoId":"vX","author":"BotX","text":"FREE iPhones!!! http://spam.biz","publishedAt":"2025-01-01T00:11:00Z","likeCount":0,"replyCount":0,"isReply":false },
+  { "id":"r1","videoId":"vX","author":"Sam","text":"@Riley timestamps are in the description","publishedAt":"2025-01-01T00:06:00Z","likeCount":0,"replyCount":0,"isReply":true,"parentId":"c2" }
+]

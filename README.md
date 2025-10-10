@@ -64,3 +64,26 @@ pnpm build     # Build ESM bundle with esbuild
 - **Prettier**: Code formatting
 - **Vitest**: Testing framework
 - **GitHub Actions**: Automated CI on push
+
+## Live LLM Mode
+
+TubeWhisperer can use real OpenAI APIs for comment moderation and reply generation. By default, it falls back to mock/rule-based behavior if no API key is configured.
+
+**To enable real moderation + GPT-4 replies:**
+
+```bash
+export OPENAI_API_KEY=sk-...
+
+# Optional overrides:
+export REPLIES_MODEL=gpt-4o-mini
+export MODERATION_MODEL=omni-moderation-latest
+```
+
+With these env vars set:
+- `analyzeComments()` will use OpenAI's moderation API as a first-pass filter to detect toxic/spam content
+- `generateReplies()` will use GPT-4o-mini to synthesize contextual replies in the requested tone
+- If any API call fails (timeout/rate limit/etc), the system gracefully falls back to mock templates
+
+**Without** `OPENAI_API_KEY`:
+- All tools work in mock mode using keyword heuristics and template replies
+- Smoke tests remain green
