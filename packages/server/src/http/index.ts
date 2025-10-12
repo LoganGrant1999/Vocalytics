@@ -117,7 +117,7 @@ export async function start() {
     await server.listen({ port: PORT, host: HOST });
     console.log(`HTTP server listening on ${HOST}:${PORT}`);
   } catch (err) {
-    server.log.error(err);
+    console.error(err);
     process.exit(1);
   }
 }

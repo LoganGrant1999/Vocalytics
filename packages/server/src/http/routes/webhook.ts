@@ -11,7 +11,7 @@ if (!stripeSecretKey) {
 }
 
 const stripe = new Stripe(stripeSecretKey, {
-  apiVersion: '2024-06-20'
+  apiVersion: '2025-09-30.clover' as any
 });
 
 export async function webhookRoute(fastify: FastifyInstance) {

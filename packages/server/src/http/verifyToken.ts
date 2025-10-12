@@ -31,7 +31,7 @@ export default function buildVerifyToken(): VerifyTokenFn {
   return async (token: string) => {
     try {
       // Verify JWT with Supabase
-      const { data, error } = await supabase.auth.getUser(token);
+      const { data, error } = await (supabase.auth as any).getUser(token);
       if (error || !data?.user) return null;
 
       const userId = data.user.id;
