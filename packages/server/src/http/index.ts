@@ -134,21 +134,15 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   start();
 }
 
-// Export for Vercel serverless
-let cachedApp: any = null;
-
+// Export for Vercel serverless - NO caching, fresh instance per cold start
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
-  if (!cachedApp) {
-    cachedApp = await createHttpServer();
-    await cachedApp.ready();
-  }
+  const app = await createHttpServer();
 
-  // Route through Fastify by handling the raw Node.js request
-  return new Promise((resolve, reject) => {
-    cachedApp.server.once('request', (incomingReq: any, incomingRes: any) => {
-      incomingRes.once('finish', resolve);
-      incomingRes.once('error', reject);
-    });
-    cachedApp.server.emit('request', req, res);
+  // Close after handling to prevent memory leaks
+  res.on('finish', () => {
+    app.close();
   });
+
+  // Directly pass req/res to Fastify's underlying HTTP server
+  app.server.emit('request', req, res);
 }
