@@ -1,5 +1,6 @@
 // IMPORTANT: Load .env FIRST, before any other imports
 // This ensures all modules see the correct environment variables
+// In production (Vercel), environment variables are injected directly
 import { config } from 'dotenv';
 import { resolve } from 'path';
 import { fileURLToPath } from 'url';
@@ -7,7 +8,11 @@ import { dirname } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-config({ path: resolve(__dirname, '../../../../.env') });
+
+// Only load .env file in development (Vercel injects env vars directly)
+if (process.env.NODE_ENV !== 'production') {
+  config({ path: resolve(__dirname, '../../../../.env') });
+}
 
 // Now import everything else
 import Fastify from 'fastify';
