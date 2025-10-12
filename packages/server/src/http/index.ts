@@ -137,6 +137,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 // Export for Vercel serverless - NO caching, fresh instance per cold start
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
   const app = await createHttpServer();
+  await app.ready();
 
   // Close after handling to prevent memory leaks
   res.on('finish', () => {
