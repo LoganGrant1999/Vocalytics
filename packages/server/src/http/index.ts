@@ -127,24 +127,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 }
 
 // Export for Vercel serverless
-let app: any;
+let cachedApp: any = null;
+
 export default async function handler(req: any, res: any) {
-  if (!app) {
-    app = await createHttpServer();
-    await app.ready();
+  if (!cachedApp) {
+    cachedApp = await createHttpServer();
+    await cachedApp.ready();
   }
-  // Inject Fastify request
-  await app.inject({
-    method: req.method,
-    url: req.url,
-    headers: req.headers,
-    payload: req.body,
-    remoteAddress: req.socket?.remoteAddress,
-  }).then((response: any) => {
-    res.statusCode = response.statusCode;
-    Object.entries(response.headers).forEach(([key, value]) => {
-      res.setHeader(key, value as string);
-    });
-    res.end(response.payload);
-  });
+
+  // Use Fastify's routing by calling it as middleware
+  return cachedApp.routing(req, res);
 }
