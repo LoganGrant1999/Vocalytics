@@ -17,7 +17,6 @@ if (process.env.NODE_ENV !== 'production') {
 // Now import everything else
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
-import awsLambdaFastify from '@fastify/aws-lambda';
 import authPlugin from './auth.js';
 import buildVerifyToken from './verifyToken.js';
 import { fetchCommentsRoute } from './routes/fetch-comments.js';
@@ -128,11 +127,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 }
 
 // Export for Vercel serverless
-let handler: any;
-export default async function (req: any, res: any) {
-  if (!handler) {
-    const app = await createHttpServer();
-    handler = awsLambdaFastify(app);
+let app: any;
+export default async function handler(req: any, res: any) {
+  if (!app) {
+    app = await createHttpServer();
+    await app.ready();
   }
-  return handler(req, res);
+  return app.server.emit('request', req, res);
 }
