@@ -70,13 +70,15 @@ export async function createHttpServer() {
     }
   );
 
-  // Serve static files (landing pages) at root
-  const staticPath = resolve(__dirname, '../../../../packages/web/public');
-  await fastify.register(fastifyStatic, {
-    root: staticPath,
-    prefix: '/',
-    decorateReply: false,
-  });
+  // Serve static files (landing pages) at root (only in development)
+  if (process.env.NODE_ENV !== 'production') {
+    const staticPath = resolve(__dirname, '../../../../packages/web/public');
+    await fastify.register(fastifyStatic, {
+      root: staticPath,
+      prefix: '/',
+      decorateReply: false,
+    });
+  }
 
   // Health check (no auth required)
   fastify.get('/healthz', async () => {
@@ -135,6 +137,6 @@ export default async function handler(req: any, res: any) {
     await cachedApp.ready();
   }
 
-  // Use Fastify's routing by calling it as middleware
-  return cachedApp.routing(req, res);
+  // Let Fastify handle the request directly
+  cachedApp.server.emit('request', req, res);
 }
