@@ -86,6 +86,18 @@ export async function createHttpServer() {
     });
   }
 
+  // Root route
+  fastify.get('/', async () => {
+    return {
+      message: 'Vocalytics API',
+      endpoints: {
+        health: '/healthz',
+        api: '/api/*',
+        webhook: '/webhook/stripe'
+      }
+    };
+  });
+
   // Health check (no auth required)
   fastify.get('/healthz', async () => {
     return { status: 'ok', service: 'vocalytics-http' };
