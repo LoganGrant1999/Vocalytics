@@ -121,7 +121,14 @@ export async function start() {
   }
 }
 
-// Run if main module
+// Run if main module (local dev)
 if (import.meta.url === `file://${process.argv[1]}`) {
   start();
+}
+
+// Export for Vercel serverless
+export default async function handler(req: any, res: any) {
+  const app = await createHttpServer();
+  await app.ready();
+  app.server.emit('request', req, res);
 }
