@@ -17,7 +17,6 @@ if (process.env.NODE_ENV !== 'production') {
 // Now import everything else
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
-import awsLambdaFastify from '@fastify/aws-lambda';
 import authPlugin from './auth.js';
 import buildVerifyToken from './verifyToken.js';
 import { fetchCommentsRoute } from './routes/fetch-comments.js';
@@ -27,6 +26,7 @@ import { summarizeSentimentRoute } from './routes/summarize-sentiment.js';
 import { meRoutes } from './routes/me.js';
 import { billingRoutes } from './routes/billing.js';
 import { webhookRoute } from './routes/webhook.js';
+import type { IncomingMessage, ServerResponse } from 'http';
 
 export async function createHttpServer() {
   const fastify = Fastify({
@@ -130,16 +130,20 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 }
 
 // Export for Vercel serverless
-let proxy: any = null;
+let cachedApp: any = null;
 
-export default async function handler(event: any, context: any) {
-  if (!proxy) {
-    const app = await createHttpServer();
-    proxy = awsLambdaFastify(app, {
-      binaryMimeTypes: ['application/octet-stream', 'image/*'],
-      enforceBase64: (request: any) => request.isBase64Encoded
-    });
+export default async function handler(req: IncomingMessage, res: ServerResponse) {
+  if (!cachedApp) {
+    cachedApp = await createHttpServer();
+    await cachedApp.ready();
   }
 
-  return proxy(event, context);
+  // Route through Fastify by handling the raw Node.js request
+  return new Promise((resolve, reject) => {
+    cachedApp.server.once('request', (incomingReq: any, incomingRes: any) => {
+      incomingRes.once('finish', resolve);
+      incomingRes.once('error', reject);
+    });
+    cachedApp.server.emit('request', req, res);
+  });
 }
