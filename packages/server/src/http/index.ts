@@ -36,6 +36,11 @@ export async function createHttpServer() {
   });
 
   // Add security headers and request ID tracking
+  fastify.addHook('onRequest', async (request, reply) => {
+    // Log incoming request details for debugging
+    fastify.log.info({ method: request.method, url: request.url, headers: request.headers }, 'Incoming request');
+  });
+
   fastify.addHook('onSend', async (request, reply) => {
     reply.header('X-Content-Type-Options', 'nosniff');
     reply.header('Referrer-Policy', 'strict-origin-when-cross-origin');
