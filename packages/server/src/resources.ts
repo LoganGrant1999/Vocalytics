@@ -18,7 +18,7 @@ export function registerResources(server: Server) {
         {
           uri: 'ui://widget/tw-summary.html',
           mimeType: 'text/html+skybridge',
-          name: 'TubeWhisperer Summary Widget',
+          name: 'Vocalytics Summary Widget',
           _meta: {
             'openai/widgetDescription':
               'Displays sentiment analysis summary for YouTube comments',
@@ -32,7 +32,7 @@ export function registerResources(server: Server) {
         {
           uri: 'ui://widget/tw-replies.html',
           mimeType: 'text/html+skybridge',
-          name: 'TubeWhisperer Replies Widget',
+          name: 'Vocalytics Replies Widget',
           _meta: {
             'openai/widgetDescription': 'Displays generated replies for YouTube comments',
             'openai/widgetPrefersBorder': true,

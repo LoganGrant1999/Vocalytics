@@ -305,7 +305,7 @@ export async function generateReplies(
 
   const out: GeneratedReply[] = [];
   for (const tone of tones) {
-    const sys = `You are TubeWhisperer, generating ultra-brief, channel-safe YouTube comment replies in the author's voice.
+    const sys = `You are Vocalytics, generating ultra-brief, channel-safe YouTube comment replies in the author's voice.
 - Respect the requested TONE exactly (${tone}).
 - Keep it under 220 characters.
 - No hashtags, no links.

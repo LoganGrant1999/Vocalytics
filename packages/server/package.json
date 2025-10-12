@@ -1,17 +1,23 @@
 {
-  "name": "@tubewhisperer/server",
+  "name": "@vocalytics/server",
   "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "tsx src/index.ts",
+    "dev:http": "tsx src/http/index.ts",
     "build": "tsc",
+    "build:http": "tsc",
     "start": "node dist/index.js",
+    "start:http": "node dist/http/index.js",
     "typecheck": "tsc --noEmit",
     "smoke": "tsx scripts/smoke.ts"
   },
   "dependencies": {
+    "@fastify/static": "^7.0.4",
     "@modelcontextprotocol/sdk": "^1.0.4",
+    "@supabase/supabase-js": "^2.75.0",
     "fastify": "^4.26.0",
+    "fastify-plugin": "^5.1.0",
     "zod": "^3.22.4"
   },
   "devDependencies": {

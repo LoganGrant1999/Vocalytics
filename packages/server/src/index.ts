@@ -7,7 +7,7 @@ import { registerTools } from './toolRegistry.js';
 
 const server = new Server(
   {
-    name: 'tubewhisperer',
+    name: 'vocalytics',
     version: '1.0.0',
   },
   {
@@ -30,7 +30,7 @@ async function main() {
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error('TubeWhisperer MCP server running on stdio');
+  console.error('Vocalytics MCP server running on stdio');
 }
 
 main().catch(console.error);

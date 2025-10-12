@@ -1,0 +1,180 @@
+════════════════════════════════════════════════════════════════
+  Vocalytics HTTP API Smoke Test
+════════════════════════════════════════════════════════════════
+Configuration:
+  BASE_URL: http://localhost:3000
+  SUPABASE_URL: https://aveujrwionxljrutvsze.supabase.co
+  TEST_EMAIL: test@vocalytics.app
+  EXPECT_ANALYZE_CAP: 2
+  EXPECT_REPLY_CAP: 1
+
+→ Checking dependencies...
+✓ All required tools found
+
+→ Checking environment variables...
+✓ All required environment variables set
+
+════════════════════════════════════════════════════════════════
+  1. Health Check
+════════════════════════════════════════════════════════════════
+✓ Health check passed (got 200)
+✓ Service status is ok
+
+════════════════════════════════════════════════════════════════
+  2. Security - Missing Auth Token
+════════════════════════════════════════════════════════════════
+✓ Request without auth rejected (got 401)
+
+════════════════════════════════════════════════════════════════
+  3. Authentication - Get JWT
+════════════════════════════════════════════════════════════════
+
+→ Obtaining JWT token via Supabase auth...
+✓ JWT token obtained (412 chars)
+
+════════════════════════════════════════════════════════════════
+  4. Subscription Baseline
+════════════════════════════════════════════════════════════════
+✓ Subscription endpoint accessible (got 200)
+✓ User tier is free
+
+════════════════════════════════════════════════════════════════
+  5. Analyze Comments - Free Tier Metering
+════════════════════════════════════════════════════════════════
+
+→ Analyzing comments (1/2)...
+✓ First analyze request succeeded (got 200)
+
+→ Analyzing comments (2/2)...
+✓ Second analyze request succeeded (got 200)
+
+→ Analyzing comments (3/2 - should hit paywall)...
+✓ Paywall enforced on analyze (got 402)
+✓ Paywall code is PAYWALL
+✓ Paywall reason is FREE_TIER_EXCEEDED
+✓ Paywall feature is analyze
+✓ Paywall includes upgradeUrl
+✓ Paywall includes manageUrl
+
+════════════════════════════════════════════════════════════════
+  6. Generate Replies - Daily Metering
+════════════════════════════════════════════════════════════════
+
+→ Generating reply (1/1)...
+✓ First reply generation succeeded (got 200)
+
+→ Generating reply (2/1 - should hit paywall)...
+✓ Paywall enforced on reply (got 402)
+✓ Paywall code is PAYWALL
+✓ Paywall feature is reply
+
+════════════════════════════════════════════════════════════════
+  7. Usage Endpoint Validation
+════════════════════════════════════════════════════════════════
+✓ Usage endpoint accessible (got 200)
+✓ Comments analyzed count matches cap
+✓ Replies generated count matches cap
+✓ Weekly analyze limit correct
+✓ Daily reply limit correct
+
+════════════════════════════════════════════════════════════════
+  8. Stripe Checkout Session
+════════════════════════════════════════════════════════════════
+
+→ Creating Stripe checkout session...
+✓ Checkout session created (got 200)
+✓ Checkout URL returned
+✓ Checkout URL: https://checkout.stripe.com/c/pay/cs_test_a1b2c3d4e5f6...
+
+⚠ MANUAL STEP REQUIRED:
+  1. Start Stripe webhook forwarding:
+     stripe listen --forward-to http://localhost:3000/api/webhook/stripe
+
+  2. Open checkout URL and complete payment with test card:
+     Card: 4242 4242 4242 4242
+     Expiry: any future date
+     CVC: any 3 digits
+     URL: https://checkout.stripe.com/c/pay/cs_test_a1b2c3d4e5f6...
+
+  3. Wait for webhook to process subscription
+
+Press Enter after completing checkout and seeing webhook event processed...
+
+[User completes checkout with test card]
+
+════════════════════════════════════════════════════════════════
+  9. Verify Pro Subscription Active
+════════════════════════════════════════════════════════════════
+
+→ Checking subscription status...
+⚠ Subscription not active yet (attempt 1/10), waiting 2s...
+⚠ Subscription not active yet (attempt 2/10), waiting 2s...
+✓ Subscription is active
+✓ User tier upgraded to pro
+✓ Stripe customer ID set
+✓ Stripe subscription ID set
+
+════════════════════════════════════════════════════════════════
+  10. Pro User - Paywall Bypass
+════════════════════════════════════════════════════════════════
+
+→ Analyzing comments as Pro user (should bypass paywall)...
+✓ Pro user can analyze without paywall (got 200)
+
+→ Checking usage (pro users may not increment counters)...
+✓ Pro user usage not counted (still at 2)
+
+════════════════════════════════════════════════════════════════
+  11. Billing Portal Session
+════════════════════════════════════════════════════════════════
+
+→ Creating billing portal session...
+✓ Portal session created (got 200)
+✓ Portal URL returned
+✓ Portal URL: https://billing.stripe.com/p/session/live_abc123...
+✓ Portal URL is HTTPS
+
+════════════════════════════════════════════════════════════════
+  12. Security - Bad Token
+════════════════════════════════════════════════════════════════
+✓ Bad token rejected (got 401)
+
+════════════════════════════════════════════════════════════════
+  13. Usage Reset Simulation (Manual)
+════════════════════════════════════════════════════════════════
+⚠ INFORMATIONAL - Manual Reset Procedures
+
+To reset counters manually (simulating cron jobs):
+
+1. Go to Supabase Dashboard > SQL Editor
+
+2. Reset daily reply counters (normally runs 00:00 UTC daily):
+   CALL public.reset_daily_replies();
+
+3. Reset weekly comment counters (normally runs Mon 00:00 UTC):
+   CALL public.reset_weekly_comments();
+
+4. Verify reset:
+   curl -H "Authorization: Bearer $JWT" http://localhost:3000/api/me/usage
+
+Expected: commentsAnalyzed=0, repliesGenerated=0
+
+
+════════════════════════════════════════════════════════════════
+  ✅ All Smoke Tests Passed!
+════════════════════════════════════════════════════════════════
+
+Summary:
+  ✓ Health check
+  ✓ Authentication & authorization
+  ✓ Free tier metering (analyze: 2, reply: 1)
+  ✓ Paywall enforcement (HTTP 402)
+  ✓ Usage tracking
+  ✓ Stripe checkout
+  ✓ Subscription activation
+  ✓ Pro tier bypass
+  ✓ Billing portal
+  ✓ Security (401 on bad auth)
+
+Checkout URL: https://checkout.stripe.com/c/pay/cs_test_a1b2c3d4e5f6...
+Portal URL: https://billing.stripe.com/p/session/live_abc123...

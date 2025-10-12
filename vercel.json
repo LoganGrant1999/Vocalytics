@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "packages/server/src/http/index.ts",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": ["packages/web/public/**"]
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(success|cancel|account)\\.html",
+      "dest": "packages/web/public/$1.html"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "packages/server/src/http/index.ts"
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  }
+}

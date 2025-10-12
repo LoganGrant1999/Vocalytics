@@ -1,0 +1,502 @@
+{
+  "info": {
+    "name": "Vocalytics HTTP API - Smoke Tests",
+    "description": "Production-style smoke tests for Vocalytics HTTP API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "vocalytics"
+  },
+  "item": [
+    {
+      "name": "1. Health Check",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Service status is ok\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.status).to.eql(\"ok\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/healthz",
+          "host": ["{{baseUrl}}"],
+          "path": ["healthz"]
+        }
+      }
+    },
+    {
+      "name": "2. Get Subscription (No Auth - 401)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 401\", function () {",
+              "    pm.response.to.have.status(401);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/me/subscription",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "me", "subscription"]
+        }
+      }
+    },
+    {
+      "name": "3. Get Subscription",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Response has tier field\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.have.property('tier');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/me/subscription",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "me", "subscription"]
+        }
+      }
+    },
+    {
+      "name": "4. Get Usage",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Response has usage fields\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.have.property('commentsAnalyzed');",
+              "    pm.expect(jsonData).to.have.property('repliesGenerated');",
+              "    pm.expect(jsonData).to.have.property('limits');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/me/usage",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "me", "usage"]
+        }
+      }
+    },
+    {
+      "name": "5. Analyze Comments - Attempt 1",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Response is array\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.be.an('array');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"comments\": [\n    {\n      \"id\": \"test1\",\n      \"videoId\": \"vid1\",\n      \"author\": \"Alice\",\n      \"text\": \"Great video!\",\n      \"publishedAt\": \"2025-10-10T12:00:00Z\",\n      \"likeCount\": 5,\n      \"replyCount\": 0,\n      \"isReply\": false\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/analyze-comments",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "analyze-comments"]
+        }
+      }
+    },
+    {
+      "name": "6. Analyze Comments - Attempt 2",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"comments\": [\n    {\n      \"id\": \"test2\",\n      \"videoId\": \"vid1\",\n      \"author\": \"Bob\",\n      \"text\": \"Thanks for sharing!\",\n      \"publishedAt\": \"2025-10-10T12:01:00Z\",\n      \"likeCount\": 3,\n      \"replyCount\": 0,\n      \"isReply\": false\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/analyze-comments",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "analyze-comments"]
+        }
+      }
+    },
+    {
+      "name": "7. Analyze Comments - Paywall (402)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 402\", function () {",
+              "    pm.response.to.have.status(402);",
+              "});",
+              "",
+              "pm.test(\"Paywall response structure\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.code).to.eql(\"PAYWALL\");",
+              "    pm.expect(jsonData.reason).to.eql(\"FREE_TIER_EXCEEDED\");",
+              "    pm.expect(jsonData.feature).to.eql(\"analyze\");",
+              "    pm.expect(jsonData).to.have.property('upgradeUrl');",
+              "    pm.expect(jsonData).to.have.property('manageUrl');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"comments\": [\n    {\n      \"id\": \"test3\",\n      \"videoId\": \"vid1\",\n      \"author\": \"Charlie\",\n      \"text\": \"Interesting!\",\n      \"publishedAt\": \"2025-10-10T12:02:00Z\",\n      \"likeCount\": 1,\n      \"replyCount\": 0,\n      \"isReply\": false\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/analyze-comments",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "analyze-comments"]
+        }
+      }
+    },
+    {
+      "name": "8. Generate Reply - Attempt 1",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Response is array\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.be.an('array');",
+              "    pm.expect(jsonData.length).to.be.greaterThan(0);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"comment\": {\n    \"id\": \"reply_test1\",\n    \"videoId\": \"vid1\",\n    \"author\": \"Alice\",\n    \"text\": \"Love this!\",\n    \"publishedAt\": \"2025-10-10T12:00:00Z\",\n    \"likeCount\": 10,\n    \"replyCount\": 0,\n    \"isReply\": false\n  },\n  \"tones\": [\"friendly\"]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/generate-replies",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "generate-replies"]
+        }
+      }
+    },
+    {
+      "name": "9. Generate Reply - Paywall (402)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 402\", function () {",
+              "    pm.response.to.have.status(402);",
+              "});",
+              "",
+              "pm.test(\"Paywall response structure\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.code).to.eql(\"PAYWALL\");",
+              "    pm.expect(jsonData.feature).to.eql(\"reply\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"comment\": {\n    \"id\": \"reply_test2\",\n    \"videoId\": \"vid1\",\n    \"author\": \"Bob\",\n    \"text\": \"Amazing content!\",\n    \"publishedAt\": \"2025-10-10T12:01:00Z\",\n    \"likeCount\": 8,\n    \"replyCount\": 0,\n    \"isReply\": false\n  },\n  \"tones\": [\"enthusiastic\"]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/generate-replies",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "generate-replies"]
+        }
+      }
+    },
+    {
+      "name": "10. Create Checkout Session",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Response has checkout URL\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.have.property('url');",
+              "    pm.expect(jsonData.url).to.include('https://');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/billing/checkout",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "billing", "checkout"]
+        }
+      }
+    },
+    {
+      "name": "11. Create Portal Session",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Response has portal URL\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.have.property('url');",
+              "    pm.expect(jsonData.url).to.include('https://');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/billing/portal",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "billing", "portal"]
+        }
+      }
+    },
+    {
+      "name": "12. Bad Auth Token (401)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 401\", function () {",
+              "    pm.response.to.have.status(401);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer invalid_token_12345",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/me/subscription",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "me", "subscription"]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "jwt",
+      "value": "YOUR_JWT_TOKEN_HERE",
+      "type": "string"
+    },
+    {
+      "key": "supabaseUrl",
+      "value": "https://xxx.supabase.co",
+      "type": "string"
+    },
+    {
+      "key": "supabaseAnon",
+      "value": "eyJhbGc...",
+      "type": "string"
+    },
+    {
+      "key": "expectAnalyzeCap",
+      "value": "2",
+      "type": "string"
+    },
+    {
+      "key": "expectReplyCap",
+      "value": "1",
+      "type": "string"
+    }
+  ]
+}

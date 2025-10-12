@@ -1,0 +1,161 @@
+###
+# Vocalytics HTTP API Smoke Tests
+# VS Code REST Client Format
+# Install: https://marketplace.visualstudio.com/items?itemName=humao.rest-client
+###
+
+### Variables
+@baseUrl = http://localhost:3000
+@jwt = YOUR_JWT_TOKEN_HERE
+
+### 1. Health Check
+GET {{baseUrl}}/healthz
+
+### 2. Get Subscription Status (No Auth - should fail with 401)
+GET {{baseUrl}}/api/me/subscription
+
+### 3. Get Subscription Status (With Auth)
+GET {{baseUrl}}/api/me/subscription
+Authorization: Bearer {{jwt}}
+
+### 4. Get Usage Stats
+GET {{baseUrl}}/api/me/usage
+Authorization: Bearer {{jwt}}
+
+### 5. Analyze Comments - Attempt 1
+POST {{baseUrl}}/api/analyze-comments
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+  "comments": [
+    {
+      "id": "test1",
+      "videoId": "vid1",
+      "author": "Alice",
+      "text": "Great video!",
+      "publishedAt": "2025-10-10T12:00:00Z",
+      "likeCount": 5,
+      "replyCount": 0,
+      "isReply": false
+    }
+  ]
+}
+
+### 6. Analyze Comments - Attempt 2
+POST {{baseUrl}}/api/analyze-comments
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+  "comments": [
+    {
+      "id": "test2",
+      "videoId": "vid1",
+      "author": "Bob",
+      "text": "Thanks for sharing!",
+      "publishedAt": "2025-10-10T12:01:00Z",
+      "likeCount": 3,
+      "replyCount": 0,
+      "isReply": false
+    }
+  ]
+}
+
+### 7. Analyze Comments - Attempt 3 (Should hit paywall - 402)
+POST {{baseUrl}}/api/analyze-comments
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+  "comments": [
+    {
+      "id": "test3",
+      "videoId": "vid1",
+      "author": "Charlie",
+      "text": "Interesting!",
+      "publishedAt": "2025-10-10T12:02:00Z",
+      "likeCount": 1,
+      "replyCount": 0,
+      "isReply": false
+    }
+  ]
+}
+
+### 8. Generate Replies - Attempt 1
+POST {{baseUrl}}/api/generate-replies
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+  "comment": {
+    "id": "reply_test1",
+    "videoId": "vid1",
+    "author": "Alice",
+    "text": "Love this!",
+    "publishedAt": "2025-10-10T12:00:00Z",
+    "likeCount": 10,
+    "replyCount": 0,
+    "isReply": false
+  },
+  "tones": ["friendly"]
+}
+
+### 9. Generate Replies - Attempt 2 (Should hit paywall - 402)
+POST {{baseUrl}}/api/generate-replies
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+  "comment": {
+    "id": "reply_test2",
+    "videoId": "vid1",
+    "author": "Bob",
+    "text": "Amazing content!",
+    "publishedAt": "2025-10-10T12:01:00Z",
+    "likeCount": 8,
+    "replyCount": 0,
+    "isReply": false
+  },
+  "tones": ["enthusiastic"]
+}
+
+### 10. Fetch Comments (No paywall)
+POST {{baseUrl}}/api/fetch-comments
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+  "videoId": "dQw4w9WgXcQ",
+  "max": 10
+}
+
+### 11. Summarize Sentiment (No paywall)
+POST {{baseUrl}}/api/summarize-sentiment
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+  "analysis": [
+    {
+      "commentId": "1",
+      "sentiment": {"positive": 0.85, "neutral": 0.1, "negative": 0.05},
+      "topics": ["general"],
+      "intent": "appreciation",
+      "toxicity": 0.05,
+      "category": "positive"
+    }
+  ]
+}
+
+### 12. Create Stripe Checkout Session
+POST {{baseUrl}}/api/billing/checkout
+Authorization: Bearer {{jwt}}
+
+### 13. Create Billing Portal Session
+POST {{baseUrl}}/api/billing/portal
+Authorization: Bearer {{jwt}}
+
+### 14. Test Bad Auth Token (Should fail with 401)
+GET {{baseUrl}}/api/me/subscription
+Authorization: Bearer invalid_token_12345

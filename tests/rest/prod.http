@@ -1,0 +1,209 @@
+###
+# Vocalytics Production API Tests
+# VS Code REST Client Format
+###
+
+### Variables
+@baseUrl = http://localhost:3000
+@jwt = YOUR_JWT_HERE
+
+### ============================================================================
+### Health & Basic Endpoints
+### ============================================================================
+
+### Health Check
+GET {{baseUrl}}/healthz
+
+### Get Subscription (No Auth - should 401)
+GET {{baseUrl}}/api/me/subscription
+
+### Get Subscription (With Auth)
+GET {{baseUrl}}/api/me/subscription
+Authorization: Bearer {{jwt}}
+
+### Get Usage Stats
+GET {{baseUrl}}/api/me/usage
+Authorization: Bearer {{jwt}}
+
+### ============================================================================
+### Analyze Comments - Quota Testing
+### ============================================================================
+
+### Analyze - Request 1 (Should succeed)
+POST {{baseUrl}}/api/analyze-comments
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+  "comments": [
+    {
+      "id": "prod_test_1",
+      "videoId": "test_video",
+      "author": "Alice",
+      "text": "Great video!",
+      "publishedAt": "2025-10-10T12:00:00Z",
+      "likeCount": 5,
+      "replyCount": 0,
+      "isReply": false
+    }
+  ]
+}
+
+### Analyze - Request 2 (Should succeed)
+POST {{baseUrl}}/api/analyze-comments
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+  "comments": [
+    {
+      "id": "prod_test_2",
+      "videoId": "test_video",
+      "author": "Bob",
+      "text": "Thanks for sharing!",
+      "publishedAt": "2025-10-10T12:01:00Z",
+      "likeCount": 3,
+      "replyCount": 0,
+      "isReply": false
+    }
+  ]
+}
+
+### Analyze - Request 3 (Should hit paywall - 402)
+POST {{baseUrl}}/api/analyze-comments
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+  "comments": [
+    {
+      "id": "prod_test_3",
+      "videoId": "test_video",
+      "author": "Charlie",
+      "text": "Interesting!",
+      "publishedAt": "2025-10-10T12:02:00Z",
+      "likeCount": 1,
+      "replyCount": 0,
+      "isReply": false
+    }
+  ]
+}
+
+### ============================================================================
+### Generate Replies - Quota Testing
+### ============================================================================
+
+### Generate Reply - Request 1 (Should succeed)
+POST {{baseUrl}}/api/generate-replies
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+  "comment": {
+    "id": "reply_test_1",
+    "videoId": "test_video",
+    "author": "Alice",
+    "text": "Love this content!",
+    "publishedAt": "2025-10-10T12:00:00Z",
+    "likeCount": 10,
+    "replyCount": 0,
+    "isReply": false
+  },
+  "tones": ["friendly"]
+}
+
+### Generate Reply - Request 2 (Should hit paywall - 402)
+POST {{baseUrl}}/api/generate-replies
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+  "comment": {
+    "id": "reply_test_2",
+    "videoId": "test_video",
+    "author": "Bob",
+    "text": "Amazing video!",
+    "publishedAt": "2025-10-10T12:01:00Z",
+    "likeCount": 8,
+    "replyCount": 0,
+    "isReply": false
+  },
+  "tones": ["enthusiastic"]
+}
+
+### ============================================================================
+### Billing Endpoints
+### ============================================================================
+
+### Create Checkout Session
+POST {{baseUrl}}/api/billing/checkout
+Authorization: Bearer {{jwt}}
+
+### Create Portal Session
+POST {{baseUrl}}/api/billing/portal
+Authorization: Bearer {{jwt}}
+
+### ============================================================================
+### Other Endpoints
+### ============================================================================
+
+### Fetch Comments
+POST {{baseUrl}}/api/fetch-comments
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+  "videoId": "dQw4w9WgXcQ",
+  "max": 5
+}
+
+### Summarize Sentiment
+POST {{baseUrl}}/api/summarize-sentiment
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+  "analysis": [
+    {
+      "commentId": "test1",
+      "sentiment": { "positive": 0.85, "neutral": 0.1, "negative": 0.05 },
+      "topics": ["general"],
+      "intent": "appreciation",
+      "toxicity": 0.05,
+      "category": "positive"
+    }
+  ]
+}
+
+### ============================================================================
+### Security Tests
+### ============================================================================
+
+### Bad Token Test (Should 401)
+GET {{baseUrl}}/api/me/subscription
+Authorization: Bearer invalid_token_12345
+
+### Missing Token Test (Should 401)
+GET {{baseUrl}}/api/me/subscription
+
+### CORS Test
+GET {{baseUrl}}/healthz
+Origin: https://malicious.example
+
+### Large Payload Test (Should 413 or 400)
+POST {{baseUrl}}/api/analyze-comments
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+  "comments": []
+}
+
+### Invalid Input Test (Should 400)
+POST {{baseUrl}}/api/analyze-comments
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+  "comments": "not an array"
+}

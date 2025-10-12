@@ -1,4 +1,4 @@
-// Canonical internal comment shape for TubeWhisperer
+// Canonical internal comment shape for Vocalytics
 export interface TWComment {
   id: string;
   videoId: string;

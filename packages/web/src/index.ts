@@ -1,3 +1,3 @@
-console.log('TubeWhisperer Web');
+console.log('Vocalytics Web');
 
 export {};
