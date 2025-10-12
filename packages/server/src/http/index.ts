@@ -133,5 +133,18 @@ export default async function handler(req: any, res: any) {
     app = await createHttpServer();
     await app.ready();
   }
-  return app.server.emit('request', req, res);
+  // Inject Fastify request
+  await app.inject({
+    method: req.method,
+    url: req.url,
+    headers: req.headers,
+    payload: req.body,
+    remoteAddress: req.socket?.remoteAddress,
+  }).then((response: any) => {
+    res.statusCode = response.statusCode;
+    Object.entries(response.headers).forEach(([key, value]) => {
+      res.setHeader(key, value as string);
+    });
+    res.end(response.payload);
+  });
 }
