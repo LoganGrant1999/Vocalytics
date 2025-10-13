@@ -26,6 +26,7 @@ import { summarizeSentimentRoute } from './routes/summarize-sentiment.js';
 import { meRoutes } from './routes/me.js';
 import { billingRoutes } from './routes/billing.js';
 import { webhookRoute } from './routes/webhook.js';
+import { youtubeRoutes } from './routes/youtube.js';
 import type { IncomingMessage, ServerResponse } from 'http';
 
 export async function createHttpServer() {
@@ -121,6 +122,7 @@ export async function createHttpServer() {
     await summarizeSentimentRoute(apiInstance);
     await meRoutes(apiInstance);
     await billingRoutes(apiInstance);
+    await youtubeRoutes(apiInstance);
   }, { prefix: '/api' });
 
   return fastify;

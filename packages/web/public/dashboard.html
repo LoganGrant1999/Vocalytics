@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vocalytics Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div class="max-w-7xl mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-gray-900">Vocalytics Dashboard</h1>
+      <p class="text-gray-600 mt-2">Analyze YouTube comments and generate intelligent replies</p>
+    </div>
+
+    <!-- YouTube Connection Status -->
+    <div id="connection-status" class="mb-6"></div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
+
+    <!-- Video Input Section -->
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+      <h2 class="text-xl font-semibold mb-4">Fetch Comments</h2>
+      <div class="flex gap-4">
+        <input
+          type="text"
+          id="video-input"
+          placeholder="Enter YouTube Video ID or URL (e.g., dQw4w9WgXcQ)"
+          class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
+        <button
+          id="fetch-btn"
+          class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Fetch Comments
+        </button>
+      </div>
+      <p class="text-sm text-gray-500 mt-2">Enter a video ID or full URL (we'll parse it)</p>
+    </div>
+
+    <!-- Comments Table -->
+    <div id="comments-section" class="bg-white rounded-lg shadow overflow-hidden hidden">
+      <div class="p-6 border-b border-gray-200">
+        <div class="flex justify-between items-center">
+          <h2 class="text-xl font-semibold">Comments (<span id="comment-count">0</span>)</h2>
+          <div class="space-x-3">
+            <button
+              id="analyze-btn"
+              class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:ring-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled
+            >
+              Analyze Selected
+            </button>
+            <button
+              id="generate-btn"
+              class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled
+            >
+              Generate Replies
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="w-12 px-6 py-3 text-left">
+                <input type="checkbox" id="select-all" class="rounded border-gray-300">
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Author</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Comment</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Published</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Analysis</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reply</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="comments-tbody" class="bg-white divide-y divide-gray-200">
+            <!-- Comments will be inserted here -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Parse JWT from localStorage (assuming user logged in via Supabase)
+    const JWT_KEY = 'supabase.auth.token';
+    let authToken = null;
+
+    // Try to get token from localStorage or cookie
+    try {
+      const stored = localStorage.getItem(JWT_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        authToken = parsed.currentSession?.access_token || parsed.access_token;
+      }
+    } catch (e) {
+      console.error('Failed to parse auth token:', e);
+    }
+
+    // Check for ?yt=connected in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('yt') === 'connected') {
+      showToast('YouTube connected successfully!', 'success');
+      // Clean URL
+      window.history.replaceState({}, '', '/dashboard');
+    }
+
+    // State
+    let comments = [];
+    let selectedComments = new Set();
+    let analysisResults = new Map();
+    let replyResults = new Map();
+
+    // Initialize
+    checkYouTubeConnection();
+
+    // Event listeners
+    document.getElementById('fetch-btn').addEventListener('click', fetchComments);
+    document.getElementById('analyze-btn').addEventListener('click', analyzeSelected);
+    document.getElementById('generate-btn').addEventListener('click', generateReplies);
+    document.getElementById('select-all').addEventListener('change', (e) => {
+      const checkboxes = document.querySelectorAll('.comment-checkbox');
+      checkboxes.forEach(cb => {
+        cb.checked = e.target.checked;
+        if (e.target.checked) {
+          selectedComments.add(cb.dataset.commentId);
+        } else {
+          selectedComments.delete(cb.dataset.commentId);
+        }
+      });
+      updateButtonStates();
+    });
+
+    async function checkYouTubeConnection() {
+      if (!authToken) {
+        document.getElementById('connection-status').innerHTML = `
+          <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-center justify-between">
+            <div>
+              <p class="text-yellow-800 font-medium">Not logged in</p>
+              <p class="text-yellow-700 text-sm">Please log in to use Vocalytics</p>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/me/subscription', {
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+
+        if (!res.ok) throw new Error('Failed to check connection');
+
+        const data = await res.json();
+
+        // Check if user has YouTube tokens (this would need a new endpoint or be added to /me/subscription)
+        // For now, we'll just show connect button
+        document.getElementById('connection-status').innerHTML = `
+          <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between">
+            <div>
+              <p class="text-blue-800 font-medium">Connect your YouTube account</p>
+              <p class="text-blue-700 text-sm">Required to fetch comments and post replies</p>
+            </div>
+            <a
+              href="/api/youtube/connect"
+              class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              Connect YouTube
+            </a>
+          </div>
+        `;
+      } catch (err) {
+        console.error('Error checking connection:', err);
+      }
+    }
+
+    function parseVideoId(input) {
+      // Extract video ID from URL or return as-is if already an ID
+      const urlMatch = input.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
+      return urlMatch ? urlMatch[1] : input;
+    }
+
+    async function fetchComments() {
+      const input = document.getElementById('video-input').value.trim();
+      if (!input) {
+        showToast('Please enter a video ID or URL', 'error');
+        return;
+      }
+
+      const videoId = parseVideoId(input);
+      const btn = document.getElementById('fetch-btn');
+      btn.disabled = true;
+      btn.textContent = 'Fetching...';
+
+      try {
+        const res = await fetch(`/api/youtube/comments?videoId=${videoId}`, {
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+
+        if (!res.ok) {
+          const error = await res.json();
+          if (error.needsConnect) {
+            showToast('Please connect your YouTube account first', 'error');
+            return;
+          }
+          throw new Error(error.message || 'Failed to fetch comments');
+        }
+
+        const data = await res.json();
+        comments = data.items || [];
+        selectedComments.clear();
+        analysisResults.clear();
+        replyResults.clear();
+
+        renderComments();
+        showToast(`Fetched ${comments.length} comments`, 'success');
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Fetch Comments';
+      }
+    }
+
+    function renderComments() {
+      const tbody = document.getElementById('comments-tbody');
+      const section = document.getElementById('comments-section');
+
+      if (comments.length === 0) {
+        section.classList.add('hidden');
+        return;
+      }
+
+      section.classList.remove('hidden');
+      document.getElementById('comment-count').textContent = comments.length;
+
+      tbody.innerHTML = comments.map(item => {
+        const comment = item.snippet?.topLevelComment?.snippet || item.snippet || {};
+        const commentId = item.id;
+        const author = comment.authorDisplayName || 'Unknown';
+        const text = comment.textDisplay || '';
+        const published = new Date(comment.publishedAt).toLocaleDateString();
+
+        const analysis = analysisResults.get(commentId);
+        const reply = replyResults.get(commentId);
+
+        return `
+          <tr class="hover:bg-gray-50">
+            <td class="px-6 py-4">
+              <input
+                type="checkbox"
+                class="comment-checkbox rounded border-gray-300"
+                data-comment-id="${commentId}"
+                onchange="handleCheckboxChange('${commentId}', this.checked)"
+              >
+            </td>
+            <td class="px-6 py-4 text-sm text-gray-900">${author}</td>
+            <td class="px-6 py-4 text-sm text-gray-700 max-w-md truncate">${text}</td>
+            <td class="px-6 py-4 text-sm text-gray-500">${published}</td>
+            <td class="px-6 py-4 text-sm">
+              ${analysis ? `
+                <span class="px-2 py-1 text-xs rounded-full ${getCategoryColor(analysis.category)}">
+                  ${analysis.category}
+                </span>
+              ` : '-'}
+            </td>
+            <td class="px-6 py-4 text-sm text-gray-700 max-w-xs truncate">
+              ${reply ? reply.reply : '-'}
+            </td>
+            <td class="px-6 py-4 text-sm">
+              ${reply ? `
+                <button
+                  onclick="postReply('${commentId}')"
+                  class="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Post to YouTube
+                </button>
+              ` : ''}
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function handleCheckboxChange(commentId, checked) {
+      if (checked) {
+        selectedComments.add(commentId);
+      } else {
+        selectedComments.delete(commentId);
+      }
+      updateButtonStates();
+    }
+
+    function updateButtonStates() {
+      const hasSelection = selectedComments.size > 0;
+      document.getElementById('analyze-btn').disabled = !hasSelection;
+      document.getElementById('generate-btn').disabled = !hasSelection;
+    }
+
+    async function analyzeSelected() {
+      if (selectedComments.size === 0) return;
+
+      const btn = document.getElementById('analyze-btn');
+      btn.disabled = true;
+      btn.textContent = 'Analyzing...';
+
+      try {
+        const selectedItems = comments.filter(item => selectedComments.has(item.id));
+        const commentsToAnalyze = selectedItems.map(item => {
+          const snippet = item.snippet?.topLevelComment?.snippet || item.snippet || {};
+          return {
+            id: item.id,
+            videoId: snippet.videoId || '',
+            author: snippet.authorDisplayName || 'Unknown',
+            text: snippet.textDisplay || '',
+            publishedAt: snippet.publishedAt || new Date().toISOString(),
+            likeCount: snippet.likeCount || 0,
+            replyCount: item.snippet?.totalReplyCount || 0,
+            isReply: false
+          };
+        });
+
+        const res = await fetch('/api/analyze-comments', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ comments: commentsToAnalyze })
+        });
+
+        if (!res.ok) throw new Error('Failed to analyze comments');
+
+        const results = await res.json();
+        results.forEach(result => {
+          analysisResults.set(result.commentId, result);
+        });
+
+        renderComments();
+        showToast(`Analyzed ${results.length} comments`, 'success');
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Analyze Selected';
+        updateButtonStates();
+      }
+    }
+
+    async function generateReplies() {
+      if (selectedComments.size === 0) return;
+
+      const btn = document.getElementById('generate-btn');
+      btn.disabled = true;
+      btn.textContent = 'Generating...';
+
+      try {
+        for (const commentId of selectedComments) {
+          const item = comments.find(c => c.id === commentId);
+          if (!item) continue;
+
+          const snippet = item.snippet?.topLevelComment?.snippet || item.snippet || {};
+          const comment = {
+            id: item.id,
+            videoId: snippet.videoId || '',
+            author: snippet.authorDisplayName || 'Unknown',
+            text: snippet.textDisplay || '',
+            publishedAt: snippet.publishedAt || new Date().toISOString(),
+            likeCount: snippet.likeCount || 0,
+            replyCount: item.snippet?.totalReplyCount || 0,
+            isReply: false
+          };
+
+          const res = await fetch('/api/generate-replies', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${authToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ comment, tones: ['friendly'] })
+          });
+
+          if (!res.ok) throw new Error('Failed to generate reply');
+
+          const results = await res.json();
+          if (results.length > 0) {
+            replyResults.set(commentId, results[0]);
+          }
+        }
+
+        renderComments();
+        showToast(`Generated ${selectedComments.size} replies`, 'success');
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Generate Replies';
+        updateButtonStates();
+      }
+    }
+
+    async function postReply(commentId) {
+      const reply = replyResults.get(commentId);
+      if (!reply) return;
+
+      try {
+        const res = await fetch('/api/youtube/reply', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            parentId: commentId,
+            text: reply.reply
+          })
+        });
+
+        if (!res.ok) {
+          const error = await res.json();
+          if (error.needsReconnect) {
+            showToast('Please reconnect YouTube with write permissions', 'error');
+            setTimeout(() => {
+              window.location.href = '/api/youtube/connect';
+            }, 2000);
+            return;
+          }
+          throw new Error(error.message || 'Failed to post reply');
+        }
+
+        showToast('Reply posted successfully!', 'success');
+        replyResults.delete(commentId);
+        renderComments();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    function getCategoryColor(category) {
+      const colors = {
+        positive: 'bg-green-100 text-green-800',
+        neutral: 'bg-gray-100 text-gray-800',
+        constructive: 'bg-blue-100 text-blue-800',
+        negative: 'bg-red-100 text-red-800',
+        spam: 'bg-yellow-100 text-yellow-800'
+      };
+      return colors[category] || colors.neutral;
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const colors = {
+        success: 'bg-green-500',
+        error: 'bg-red-500',
+        info: 'bg-blue-500'
+      };
+
+      const toast = document.createElement('div');
+      toast.className = `${colors[type]} text-white px-6 py-3 rounded-lg shadow-lg transform transition-all duration-300`;
+      toast.textContent = message;
+
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0');
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+  </script>
+</body>
+</html>
