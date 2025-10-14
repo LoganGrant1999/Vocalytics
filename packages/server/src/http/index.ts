@@ -17,6 +17,7 @@ if (process.env.NODE_ENV !== 'production') {
 // Now import everything else
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
+import fastifyCookie from '@fastify/cookie';
 import authPlugin from './auth.js';
 import buildVerifyToken from './verifyToken.js';
 import { fetchCommentsRoute } from './routes/fetch-comments.js';
@@ -42,6 +43,17 @@ export async function createHttpServer() {
     genReqId: (req) => {
       // Use provided request ID or generate one
       return (req.headers['x-request-id'] as string) || `req_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    },
+  });
+
+  // Register cookie plugin for JWT session management
+  await fastify.register(fastifyCookie, {
+    secret: process.env.COOKIE_SECRET || 'dev-cookie-secret-change-in-production',
+    parseOptions: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
     },
   });
 

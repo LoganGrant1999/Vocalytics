@@ -27,11 +27,15 @@ const authPlugin: FastifyPluginCallback<AuthPluginOpts> = (fastify, opts, done) 
   const { verifyToken } = opts;
 
   fastify.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
+    // Check for JWT in cookie first, then fall back to Bearer token
+    const cookieToken = request.cookies?.vocalytics_token;
     const authz = request.headers.authorization;
-    const token = authz?.startsWith('Bearer ') ? authz.slice(7) : undefined;
+    const bearerToken = authz?.startsWith('Bearer ') ? authz.slice(7) : undefined;
+
+    const token = cookieToken || bearerToken;
 
     if (!token) {
-      await reply.code(401).send({ error: 'Unauthorized', message: 'Missing Bearer token' });
+      await reply.code(401).send({ error: 'Unauthorized', message: 'Missing authentication token' });
       return; // CRITICAL: stop lifecycle
     }
 

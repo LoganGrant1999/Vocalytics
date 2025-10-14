@@ -1,16 +1,31 @@
 import { FastifyInstance } from 'fastify';
-import { getUserById } from '../../db/users.js';
-import { getCaps } from '../../config/env.js';
+import { createClient } from '@supabase/supabase-js';
+
+const SUPABASE_URL = process.env.SUPABASE_URL!;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 export async function meRoutes(fastify: FastifyInstance) {
   // Get subscription status
   fastify.get('/me/subscription', async (request: any, reply) => {
     const auth = request.auth;
+    const userId = auth?.userId || auth?.userDbId;
+
+    if (!userId) {
+      return reply.code(401).send({
+        error: 'Unauthorized',
+        message: 'Missing user ID'
+      });
+    }
 
     try {
-      const user = await getUserById(auth.userDbId);
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+      const { data: user, error } = await supabase
+        .from('profiles')
+        .select('tier, subscription_status, subscribed_until, stripe_customer_id, stripe_subscription_id, youtube_scope')
+        .eq('id', userId)
+        .single();
 
-      if (!user) {
+      if (error || !user) {
         return reply.code(404).send({
           error: 'Not Found',
           message: 'User not found'
@@ -22,7 +37,8 @@ export async function meRoutes(fastify: FastifyInstance) {
         subscription_status: user.subscription_status,
         subscribed_until: user.subscribed_until,
         stripe_customer_id: user.stripe_customer_id,
-        stripe_subscription_id: user.stripe_subscription_id
+        stripe_subscription_id: user.stripe_subscription_id,
+        scopes: user.youtube_scope ? user.youtube_scope.split(' ') : []
       });
     } catch (error: any) {
       console.error('Error fetching subscription:', error);
@@ -36,8 +52,9 @@ export async function meRoutes(fastify: FastifyInstance) {
   // Get usage stats
   fastify.get('/me/usage', async (request: any, reply) => {
     const auth = request.auth;
+    const userId = auth?.userId || auth?.userDbId;
 
-    if (!auth?.userDbId) {
+    if (!userId) {
       return reply.code(401).send({
         code: 'UNAUTHORIZED',
         message: 'Missing auth'
@@ -45,16 +62,23 @@ export async function meRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      const user = await getUserById(auth.userDbId);
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+      const { data: user, error } = await supabase
+        .from('profiles')
+        .select('comments_analyzed_count, replies_generated_count, reset_date, tier')
+        .eq('id', userId)
+        .single();
 
-      if (!user) {
+      if (error || !user) {
         return reply.code(404).send({
           error: 'Not Found',
           message: 'User not found'
         });
       }
 
-      const { weeklyAnalyze, dailyReply } = getCaps();
+      // Get limits based on tier
+      const weeklyAnalyze = user.tier === 'pro' ? 10000 : parseInt(process.env.FREE_LIMIT_ANALYZE_WEEKLY || '100');
+      const dailyReply = user.tier === 'pro' ? 1000 : parseInt(process.env.FREE_LIMIT_REPLY_DAILY || '50');
 
       return reply.send({
         commentsAnalyzed: user.comments_analyzed_count ?? 0,

@@ -2,6 +2,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { createClient } from '@supabase/supabase-js';
 import { createOAuth2Client, getAuthedYouTubeForUser } from '../../lib/google.js';
 import { google } from 'googleapis';
+import { generateToken } from '../../lib/jwt.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -195,11 +196,29 @@ export async function youtubeRoutes(fastify: FastifyInstance) {
 
       console.log('[youtube.ts] OAuth callback success, tokens stored for user:', userId);
 
+      // Generate JWT token for session
+      const jwtToken = generateToken({
+        userId,
+        email: profile.email!,
+        tier: existingUser?.tier || 'free',
+      });
+
+      // Set JWT as HTTP-only cookie
+      reply.setCookie('vocalytics_token', jwtToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 30 * 24 * 60 * 60, // 30 days
+      });
+
       // Redirect to web app with success indicator
       // In dev, redirect to Vite dev server; in prod, relative URL works
-      const redirectUrl = process.env.NODE_ENV === 'production'
-        ? '/app?yt=connected'
-        : 'http://localhost:5174/app?yt=connected';
+      const baseUrl = process.env.NODE_ENV === 'production'
+        ? '/app'
+        : 'http://localhost:5173/app';
+
+      const redirectUrl = `${baseUrl}?yt=connected`;
 
       return reply.redirect(redirectUrl);
     } catch (err: any) {

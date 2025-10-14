@@ -38,8 +38,11 @@
     "node": ">=20 <21"
   },
   "dependencies": {
+    "@fastify/cookie": "^9.4.0",
     "@supabase/supabase-js": "^2.75.0",
+    "@types/jsonwebtoken": "^9.0.10",
     "fastify-plugin": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
     "stripe": "^19.1.0"
   }
 }

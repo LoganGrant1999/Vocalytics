@@ -8,7 +8,8 @@ import { requestStore } from './requestStore';
  * Automatically tracks requests for debugging.
  */
 const client = createClient<paths>({
-  baseUrl: '/api',
+  baseUrl: '',
+  credentials: 'include', // Send cookies with cross-origin requests
 });
 
 // Middleware to track all requests
