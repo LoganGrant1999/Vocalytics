@@ -1,7 +1,18 @@
-import { getUserById } from '../db/users.js';
-import { tryConsumeAnalyze, tryConsumeReply, recordUsage } from '../db/usage.js';
-import type { User } from '../db/client.js';
+import { createClient } from '@supabase/supabase-js';
+import { tryConsumeAnalyze, tryConsumeReply } from '../db/usage.js';
 import { getCaps, getPublicUrls } from '../config/env.js';
+
+const SUPABASE_URL = process.env.SUPABASE_URL!;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+interface Profile {
+  id: string;
+  tier: 'free' | 'pro';
+  subscription_status: string | null;
+  subscribed_until: string | null;
+  comments_analyzed_count: number;
+  replies_generated_count: number;
+}
 
 export interface PaywallError {
   code: 'PAYWALL';
@@ -19,15 +30,15 @@ export interface PaywallError {
   };
 }
 
-export function isPro(user: User): boolean {
+export function isPro(profile: Profile): boolean {
   // User is pro if:
   // 1. Tier is explicitly 'pro'
   // 2. Subscription status is 'active'
   // 3. Subscribed until date is in the future
-  if (user.tier === 'pro') return true;
-  if (user.subscription_status === 'active') return true;
-  if (user.subscribed_until) {
-    const until = new Date(user.subscribed_until);
+  if (profile.tier === 'pro') return true;
+  if (profile.subscription_status === 'active') return true;
+  if (profile.subscribed_until) {
+    const until = new Date(profile.subscribed_until);
     if (until > new Date()) return true;
   }
   return false;
@@ -39,33 +50,43 @@ export async function enforceAnalyze(params: {
 }): Promise<{ allowed: true } | { allowed: false; error: PaywallError }> {
   const { userDbId, incrementBy } = params;
 
-  const user = await getUserById(userDbId);
-  if (!user) {
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+
+  const { data: profile, error } = await supabase
+    .from('profiles')
+    .select('id, tier, subscription_status, subscribed_until, comments_analyzed_count, replies_generated_count')
+    .eq('id', userDbId)
+    .single();
+
+  if (error || !profile) {
     throw new Error('User not found');
   }
 
-  // Pro users always allowed
-  if (isPro(user)) {
-    await recordUsage({
-      userId: userDbId,
-      action: 'analyze',
-      count: incrementBy,
-      metadata: { tier: 'pro' }
-    });
+  // Pro users always allowed (no quota tracking needed)
+  if (isPro(profile)) {
     return { allowed: true };
   }
 
   // Try to atomically consume quota for free tier
   const caps = getCaps();
+  console.log(`[paywall] enforceAnalyze: userDbId=${userDbId}, cap=${caps.weeklyAnalyze}, incrementBy=${incrementBy}`);
+
   const result = await tryConsumeAnalyze({
     userDbId,
     cap: caps.weeklyAnalyze,
     incrementBy
   });
 
+  console.log(`[paywall] enforceAnalyze result:`, result);
+
   if (!result.allowed) {
     // Get current counts for error message
-    const currentUser = await getUserById(userDbId);
+    const { data: currentProfile } = await supabase
+      .from('profiles')
+      .select('comments_analyzed_count, replies_generated_count')
+      .eq('id', userDbId)
+      .single();
+
     const urls = getPublicUrls();
     return {
       allowed: false,
@@ -80,8 +101,8 @@ export async function enforceAnalyze(params: {
           dailyReply: caps.dailyReply
         },
         usage: {
-          commentsAnalyzed: currentUser?.comments_analyzed_count ?? 0,
-          repliesGenerated: currentUser?.replies_generated_count ?? 0
+          commentsAnalyzed: currentProfile?.comments_analyzed_count ?? 0,
+          repliesGenerated: currentProfile?.replies_generated_count ?? 0
         }
       }
     };
@@ -96,19 +117,20 @@ export async function enforceReply(params: {
 }): Promise<{ allowed: true } | { allowed: false; error: PaywallError }> {
   const { userDbId, incrementBy } = params;
 
-  const user = await getUserById(userDbId);
-  if (!user) {
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+
+  const { data: profile, error } = await supabase
+    .from('profiles')
+    .select('id, tier, subscription_status, subscribed_until, comments_analyzed_count, replies_generated_count')
+    .eq('id', userDbId)
+    .single();
+
+  if (error || !profile) {
     throw new Error('User not found');
   }
 
-  // Pro users always allowed
-  if (isPro(user)) {
-    await recordUsage({
-      userId: userDbId,
-      action: 'reply',
-      count: incrementBy,
-      metadata: { tier: 'pro' }
-    });
+  // Pro users always allowed (no quota tracking needed)
+  if (isPro(profile)) {
     return { allowed: true };
   }
 
@@ -122,7 +144,12 @@ export async function enforceReply(params: {
 
   if (!result.allowed) {
     // Get current counts for error message
-    const currentUser = await getUserById(userDbId);
+    const { data: currentProfile } = await supabase
+      .from('profiles')
+      .select('comments_analyzed_count, replies_generated_count')
+      .eq('id', userDbId)
+      .single();
+
     const urls = getPublicUrls();
     return {
       allowed: false,
@@ -137,8 +164,8 @@ export async function enforceReply(params: {
           dailyReply: caps.dailyReply
         },
         usage: {
-          commentsAnalyzed: currentUser?.comments_analyzed_count ?? 0,
-          repliesGenerated: currentUser?.replies_generated_count ?? 0
+          commentsAnalyzed: currentProfile?.comments_analyzed_count ?? 0,
+          repliesGenerated: currentProfile?.replies_generated_count ?? 0
         }
       }
     };

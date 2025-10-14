@@ -181,3 +181,84 @@ export async function chatReply(system: string, user: string): Promise<string | 
     return null;
   }
 }
+
+/**
+ * Uses OpenAI to analyze sentiment and categorize a comment.
+ * Returns category and sentiment scores based on AI analysis.
+ */
+export async function analyzeSentiment(text: string): Promise<{
+  category: "positive" | "neutral" | "constructive" | "negative" | "spam";
+  sentiment: { positive: number; neutral: number; negative: number };
+  topics: string[];
+  intent: string;
+} | null> {
+  if (!OPENAI_API_KEY) {
+    return null;
+  }
+
+  try {
+    const system = `You are a sentiment analysis expert for YouTube comments. Analyze the comment and respond with ONLY a valid JSON object (no markdown, no extra text) with this exact structure:
+{
+  "category": "positive" | "neutral" | "constructive" | "negative" | "spam",
+  "sentiment": { "positive": 0-1, "neutral": 0-1, "negative": 0-1 },
+  "topics": ["topic1", "topic2"],
+  "intent": "appreciation" | "suggestion" | "critique" | "promotion" | "question" | "other"
+}
+
+Categories:
+- positive: supportive, appreciative, enthusiastic, loving
+- constructive: helpful suggestions, constructive feedback
+- negative: complaints, harsh criticism, hate
+- spam: promotional links, off-topic ads
+- neutral: general observations, questions
+
+Be generous with positive sentiment - phrases like "I love my mom!" should be clearly positive (0.85+).
+Sentiment scores should sum to 1.0.`;
+
+    const res = await safeFetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: CHAT_MODEL,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: text },
+        ] as ChatMessage[],
+        temperature: 0.3,
+        max_tokens: 200,
+      }),
+    });
+
+    if (!res.ok) {
+      console.error("analyzeSentiment status:", res.status, await res.text());
+      return null;
+    }
+
+    const json: any = await res.json();
+    const responseText: string | undefined = json?.choices?.[0]?.message?.content;
+
+    if (!responseText) {
+      console.warn("analyzeSentiment: empty response from OpenAI");
+      return null;
+    }
+
+    // Parse JSON response
+    const parsed = JSON.parse(responseText.trim());
+
+    // Validate and normalize sentiment scores
+    const total = parsed.sentiment.positive + parsed.sentiment.neutral + parsed.sentiment.negative;
+    if (total > 0) {
+      parsed.sentiment.positive /= total;
+      parsed.sentiment.neutral /= total;
+      parsed.sentiment.negative /= total;
+    }
+
+    return parsed;
+  } catch (err) {
+    console.error("analyzeSentiment error:", err);
+    return null;
+  }
+}

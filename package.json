@@ -12,7 +12,7 @@
     "format": "prettier --write .",
     "typecheck": "pnpm -r typecheck",
     "gen:api": "openapi-typescript openapi.yaml -o packages/web/src/types/api.d.ts",
-    "dev:server": "pnpm --filter server dev:http",
+    "dev:server": "FREE_LIMIT_ANALYZE_WEEKLY=100 FREE_LIMIT_REPLY_DAILY=50 pnpm --filter server dev:http",
     "dev:web": "pnpm --filter web dev",
     "dev:both": "concurrently -k -n server,web -c green,cyan \"pnpm dev:server\" \"pnpm dev:web\""
   },

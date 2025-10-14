@@ -192,8 +192,11 @@ export async function createHttpServer() {
   const verifyToken = buildVerifyToken();
 
   // Register YouTube OAuth routes (no auth required for connect/callback)
+  // These need to be public so users can initiate OAuth without being logged in
   await fastify.register(async (youtubeInstance) => {
-    await youtubeRoutes(youtubeInstance);
+    // Import and register only OAuth routes
+    const { youtubeOAuthRoutes } = await import('./routes/youtube-oauth.js');
+    await youtubeOAuthRoutes(youtubeInstance);
   }, { prefix: '/api' });
 
   // Register protected /api routes in a scoped context with auth
@@ -202,6 +205,8 @@ export async function createHttpServer() {
     await apiInstance.register(authPlugin, { verifyToken });
 
     // Register all protected routes in this scope
+    const { youtubeApiRoutes } = await import('./routes/youtube-api.js');
+    await youtubeApiRoutes(apiInstance);
     await fetchCommentsRoute(apiInstance);
     await analyzeCommentsRoute(apiInstance);
     await generateRepliesRoute(apiInstance);

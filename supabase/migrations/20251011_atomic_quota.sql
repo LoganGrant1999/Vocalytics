@@ -8,7 +8,7 @@ language sql
 security definer
 set search_path = public
 as $$
-  update public.users
+  update public.profiles
      set comments_analyzed_count = comments_analyzed_count + 1
    where id = _user_id
      and comments_analyzed_count < _cap
@@ -21,7 +21,7 @@ language sql
 security definer
 set search_path = public
 as $$
-  update public.users
+  update public.profiles
      set replies_generated_count = replies_generated_count + 1
    where id = _user_id
      and replies_generated_count < _cap

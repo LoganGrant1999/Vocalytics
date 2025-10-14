@@ -44,13 +44,8 @@ export async function tryConsumeAnalyze(params: {
 
   // Function returns a row if allowed, empty if not
   if (data && data.length > 0 && data[0].allowed) {
-    // Record usage event
-    await recordUsage({
-      userId: userDbId,
-      action: 'analyze',
-      count: incrementBy,
-      metadata: { tier: 'free' }
-    });
+    // Usage is already recorded in profiles table by the SQL function
+    // No need to also record in usage_events table (which has FK to users table)
 
     return { allowed: true, newCount: data[0].new_count };
   }
@@ -81,13 +76,8 @@ export async function tryConsumeReply(params: {
 
   // Function returns a row if allowed, empty if not
   if (data && data.length > 0 && data[0].allowed) {
-    // Record usage event
-    await recordUsage({
-      userId: userDbId,
-      action: 'reply',
-      count: incrementBy,
-      metadata: { tier: 'free' }
-    });
+    // Usage is already recorded in profiles table by the SQL function
+    // No need to also record in usage_events table (which has FK to users table)
 
     return { allowed: true, newCount: data[0].new_count };
   }

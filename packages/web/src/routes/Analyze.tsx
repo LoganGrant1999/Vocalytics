@@ -31,6 +31,7 @@ export default function Analyze() {
   const [selectedComment, setSelectedComment] = useState<CommentWithSentiment | null>(null);
   const [replies, setReplies] = useState<Reply[]>([]);
   const [retryAfter, setRetryAfter] = useState<number | null>(null);
+  const [hasAttemptedAnalysis, setHasAttemptedAnalysis] = useState(false);
 
   // Countdown timer for 429 retry
   useEffect(() => {
@@ -92,6 +93,7 @@ export default function Analyze() {
   } = useMutation({
     mutationFn: async (comments: Comment[]) => {
       analytics.track({ name: 'analyze_started', properties: { videoId } });
+      setHasAttemptedAnalysis(true);
 
       const result = await api.POST('/api/analyze-comments', {
         body: { comments },
@@ -112,7 +114,7 @@ export default function Analyze() {
 
       return result.data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       analytics.track({ name: 'analyze_success', properties: { videoId } });
     },
     onError: (error: Error) => {
@@ -210,16 +212,16 @@ export default function Analyze() {
     replyCount: item.snippet?.totalReplyCount || 0,
   }));
 
-  // Auto-analyze when comments are fetched
+  // Auto-analyze when comments are fetched (only once)
   useEffect(() => {
-    if (comments.length > 0 && !sentimentData && !isLoadingSentiments) {
+    if (comments.length > 0 && !sentimentData && !isLoadingSentiments && !hasAttemptedAnalysis) {
       analyzeSentiments(comments);
     }
-  }, [comments.length, sentimentData, isLoadingSentiments]);
+  }, [comments.length, sentimentData, isLoadingSentiments, hasAttemptedAnalysis]);
 
   // Merge comments with sentiments
   const commentsWithSentiments: CommentWithSentiment[] = comments.map((comment) => {
-    const sentiment = (sentimentData?.sentiments || []).find(
+    const sentiment = (sentimentData || []).find(
       (s) => s.commentId === comment.id
     );
     return { ...comment, sentiment };
@@ -233,13 +235,13 @@ export default function Analyze() {
   };
 
   commentsWithSentiments.forEach((comment) => {
-    const label = comment.sentiment?.label || 'neutral';
+    const label = comment.sentiment?.sentiment?.label || 'neutral';
     sentimentCounts[label as keyof typeof sentimentCounts]++;
   });
 
   // Get top impactful comments (negative + high engagement)
   const topImpactfulComments = commentsWithSentiments
-    .filter((c) => c.sentiment?.label === 'negative')
+    .filter((c) => c.sentiment?.sentiment?.label === 'negative')
     .sort((a, b) => (b.likeCount || 0) - (a.likeCount || 0))
     .slice(0, 3);
 
@@ -340,7 +342,7 @@ export default function Analyze() {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Analyzed:</span>
                 <span className="font-medium">
-                  {sentimentData?.sentiments?.length || 0}
+                  {sentimentData?.length || 0}
                 </span>
               </div>
             </div>

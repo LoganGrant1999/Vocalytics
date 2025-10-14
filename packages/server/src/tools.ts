@@ -1,6 +1,6 @@
 import type { TWComment } from './types.js';
 import { htmlToText } from './types.js';
-import { chatReply, moderateText } from './llm.js';
+import { chatReply, moderateText, analyzeSentiment } from './llm.js';
 
 // ---------------- Types used by the mock analyzers/replies/summary ----------------
 type SentimentScore = {
@@ -53,11 +53,34 @@ function classifyCategory(text: string): Category {
     return "constructive";
   }
 
-  // negative-ish
-  if (t.includes("meh") || t.includes("didn") || t.includes("bad") || t.includes("hate")) return "negative";
+  // negative-ish (check before positive to catch "hate")
+  if (t.includes("meh") || t.includes("didn't") || t.includes("didnt") || t.includes("bad") || t.includes("terrible") || t.includes("awful") || t.includes("worst")) return "negative";
 
-  // positive-ish
-  if (t.includes("love") || t.includes("helpful") || t.includes("great") || t.includes("thanks") || t.includes("thank you")) {
+  // positive-ish (expanded list with more common positive expressions)
+  if (
+    t.includes("love") ||
+    t.includes("❤") ||
+    t.includes("helpful") ||
+    t.includes("great") ||
+    t.includes("amazing") ||
+    t.includes("awesome") ||
+    t.includes("excellent") ||
+    t.includes("wonderful") ||
+    t.includes("fantastic") ||
+    t.includes("best") ||
+    t.includes("thank") ||
+    t.includes("thanks") ||
+    t.includes("appreciate") ||
+    t.includes("congrat") ||
+    t.includes("well done") ||
+    t.includes("good job") ||
+    t.includes("nice") ||
+    t.includes("beautiful") ||
+    t.includes("perfect") ||
+    t.includes("brilliant") ||
+    /\b(good|better)\b/.test(t) ||
+    /👍|😊|😍|🎉|💯/.test(t)
+  ) {
     return "positive";
   }
 
@@ -232,63 +255,108 @@ export async function analyzeComments(comments: TWComment[]): Promise<Analysis[]
   const results: Analysis[] = [];
   for (const comment of comments) {
     const baseText = comment.text ?? "";
-    let category = classifyCategory(baseText);
-    let toxicity = category === "spam" ? 0.7 :
-                   category === "negative" ? 0.4 :
-                   category === "constructive" ? 0.15 : 0.05;
 
-    // First-pass moderation (best-effort)
-    const mod = await moderateText(baseText);
-    if (mod.flagged) {
-      // Elevate category based on moderation; keep within our 5 PRD buckets
-      if (mod.category === "hate" || mod.category === "violence" || mod.category === "harassment") {
-        category = "negative";
-        toxicity = Math.max(toxicity, 0.6);
-      } else if (mod.category === "sexual" || mod.category === "self-harm") {
-        category = "negative";
+    // Try AI-based sentiment analysis first
+    console.log('[analyzeComments] Analyzing comment:', baseText.substring(0, 100));
+    const aiAnalysis = await analyzeSentiment(baseText);
+    console.log('[analyzeComments] AI analysis result:', aiAnalysis);
+
+    if (aiAnalysis) {
+      // Use AI analysis results
+      let { category, sentiment, topics, intent } = aiAnalysis;
+
+      // Calculate toxicity based on category and sentiment
+      let toxicity = category === "spam" ? 0.7 :
+                     category === "negative" ? Math.max(0.4, sentiment.negative) :
+                     category === "constructive" ? 0.15 :
+                     sentiment.negative * 0.6;
+
+      // First-pass moderation (best-effort) - override if needed
+      const mod = await moderateText(baseText);
+      if (mod.flagged) {
+        if (mod.category === "hate" || mod.category === "violence" || mod.category === "harassment") {
+          category = "negative";
+          toxicity = Math.max(toxicity, 0.6);
+        } else if (mod.category === "sexual" || mod.category === "self-harm") {
+          category = "negative";
+          toxicity = Math.max(toxicity, 0.7);
+        }
+      }
+
+      // URL heuristic → spam override
+      if (/\bhttps?:\/\//.test(baseText)) {
+        category = "spam";
         toxicity = Math.max(toxicity, 0.7);
       }
-    }
-    // URL heuristic → spam
-    if (/\bhttps?:\/\//.test(baseText) || /\bfree\b/i.test(baseText)) {
-      category = "spam";
-      toxicity = Math.max(toxicity, 0.7);
-    }
 
-    const sentiment: SentimentScore = (() => {
-      switch (category) {
-        case "positive": return { positive: 0.85, neutral: 0.1, negative: 0.05 };
-        case "constructive": return { positive: 0.45, neutral: 0.35, negative: 0.2 };
-        case "negative": return { positive: 0.1, neutral: 0.2, negative: 0.7 };
-        case "spam": return { positive: 0.05, neutral: 0.15, negative: 0.8 };
-        default: return { positive: 0.2, neutral: 0.7, negative: 0.1 };
+      results.push({
+        commentId: comment.id,
+        sentiment,
+        topics: topics.length > 0 ? topics : ["general"],
+        intent,
+        toxicity,
+        category
+      });
+    } else {
+      // Fallback to keyword-based classification if AI fails
+      let category = classifyCategory(baseText);
+      let toxicity = category === "spam" ? 0.7 :
+                     category === "negative" ? 0.4 :
+                     category === "constructive" ? 0.15 : 0.05;
+
+      // First-pass moderation (best-effort)
+      const mod = await moderateText(baseText);
+      if (mod.flagged) {
+        if (mod.category === "hate" || mod.category === "violence" || mod.category === "harassment") {
+          category = "negative";
+          toxicity = Math.max(toxicity, 0.6);
+        } else if (mod.category === "sexual" || mod.category === "self-harm") {
+          category = "negative";
+          toxicity = Math.max(toxicity, 0.7);
+        }
       }
-    })();
 
-    const topics = (() => {
-      const t: string[] = [];
-      const low = baseText.toLowerCase();
-      if (low.includes("audio")) t.push("audio");
-      if (low.includes("compressor")) t.push("post-processing");
-      if (low.includes("timestamp")) t.push("timestamps");
-      if (t.length === 0) t.push("general");
-      return t;
-    })();
+      // URL heuristic → spam
+      if (/\bhttps?:\/\//.test(baseText) || /\bfree\b/i.test(baseText)) {
+        category = "spam";
+        toxicity = Math.max(toxicity, 0.7);
+      }
 
-    const intent =
-      category === "constructive" ? "suggestion" :
-      category === "negative" ? "critique" :
-      category === "spam" ? "promotion" :
-      "appreciation";
+      const sentiment: SentimentScore = (() => {
+        switch (category) {
+          case "positive": return { positive: 0.85, neutral: 0.1, negative: 0.05 };
+          case "constructive": return { positive: 0.45, neutral: 0.35, negative: 0.2 };
+          case "negative": return { positive: 0.1, neutral: 0.2, negative: 0.7 };
+          case "spam": return { positive: 0.05, neutral: 0.15, negative: 0.8 };
+          default: return { positive: 0.2, neutral: 0.7, negative: 0.1 };
+        }
+      })();
 
-    results.push({
-      commentId: comment.id,
-      sentiment,
-      topics,
-      intent,
-      toxicity,
-      category
-    });
+      const topics = (() => {
+        const t: string[] = [];
+        const low = baseText.toLowerCase();
+        if (low.includes("audio")) t.push("audio");
+        if (low.includes("compressor")) t.push("post-processing");
+        if (low.includes("timestamp")) t.push("timestamps");
+        if (t.length === 0) t.push("general");
+        return t;
+      })();
+
+      const intent =
+        category === "constructive" ? "suggestion" :
+        category === "negative" ? "critique" :
+        category === "spam" ? "promotion" :
+        "appreciation";
+
+      results.push({
+        commentId: comment.id,
+        sentiment,
+        topics,
+        intent,
+        toxicity,
+        category
+      });
+    }
   }
   return results;
 }

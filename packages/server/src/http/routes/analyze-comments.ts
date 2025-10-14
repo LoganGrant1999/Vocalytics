@@ -33,10 +33,11 @@ export async function analyzeCommentsRoute(fastify: FastifyInstance) {
     const auth = request.auth;
 
     try {
-      // Enforce paywall
+      // Enforce paywall (increment by 1 per request, not per comment)
+      const userId = auth.userId || auth.userDbId;
       const enforcement = await enforceAnalyze({
-        userDbId: auth.userDbId,
-        incrementBy: comments.length
+        userDbId: userId,
+        incrementBy: 1
       });
 
       if (!enforcement.allowed) {
@@ -44,7 +45,24 @@ export async function analyzeCommentsRoute(fastify: FastifyInstance) {
       }
 
       // Process the request
-      const result = await analyzeComments(comments);
+      const analysis = await analyzeComments(comments);
+
+      // Transform the response to match what the frontend expects
+      const result = analysis.map((a) => ({
+        commentId: a.commentId,
+        sentiment: {
+          label: a.category === 'constructive' || a.category === 'spam'
+            ? 'neutral'
+            : a.category as 'positive' | 'neutral' | 'negative',
+          positive: a.sentiment.positive,
+          neutral: a.sentiment.neutral,
+          negative: a.sentiment.negative
+        },
+        topics: a.topics,
+        intent: a.intent,
+        toxicity: a.toxicity,
+        category: a.category
+      }));
 
       return reply.send(result);
     } catch (error: any) {
