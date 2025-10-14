@@ -1,17 +1,17 @@
 // IMPORTANT: Load .env FIRST, before any other imports
 // This ensures all modules see the correct environment variables
 // In production (Vercel), environment variables are injected directly
-import { config } from 'dotenv';
-import { resolve } from 'path';
 import { fileURLToPath } from 'url';
-import { dirname } from 'path';
+import { dirname, resolve } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Only load .env file in development (Vercel injects env vars directly)
+// Only load .env.local file in development (Vercel injects env vars directly)
 if (process.env.NODE_ENV !== 'production') {
-  config({ path: resolve(__dirname, '../../../../.env') });
+  // Dynamic import to load dotenv only in dev
+  const { config } = await import('dotenv');
+  config({ path: resolve(__dirname, '../../.env.local') });
 }
 
 // Now import everything else
@@ -27,29 +27,65 @@ import { meRoutes } from './routes/me.js';
 import { billingRoutes } from './routes/billing.js';
 import { webhookRoute } from './routes/webhook.js';
 import { youtubeRoutes } from './routes/youtube.js';
+import { createRateLimiter, startRateLimitCleanup } from './rateLimit.js';
+import { corsMiddleware } from './cors.js';
+import { validateEnv } from './envValidation.js';
+import { createClient } from '@supabase/supabase-js';
 import type { IncomingMessage, ServerResponse } from 'http';
 
 export async function createHttpServer() {
   const fastify = Fastify({
     logger: true,
-    // Body size limit - must trigger before paywall
-    bodyLimit: 5 * 1024 * 1024, // 5MB
+    // Body size limit for JSON payloads (public APIs)
+    bodyLimit: 1 * 1024 * 1024, // 1MB
+    requestIdHeader: 'x-request-id', // Use X-Request-Id header
+    genReqId: (req) => {
+      // Use provided request ID or generate one
+      return (req.headers['x-request-id'] as string) || `req_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    },
   });
 
-  // Add security headers and request ID tracking
-  fastify.addHook('onRequest', async (request, reply) => {
-    // Log incoming request details for debugging
-    fastify.log.info({ method: request.method, url: request.url, headers: request.headers }, 'Incoming request');
-  });
+  // CORS middleware (strict allowlist)
+  fastify.addHook('onRequest', corsMiddleware);
 
+  // Rate limiting (60 req/min default)
+  const globalRateLimit = createRateLimiter(60);
+  fastify.addHook('onRequest', globalRateLimit);
+
+  // Security headers
   fastify.addHook('onSend', async (request, reply) => {
     reply.header('X-Content-Type-Options', 'nosniff');
     reply.header('Referrer-Policy', 'strict-origin-when-cross-origin');
     reply.header('X-Frame-Options', 'DENY');
+    reply.header('X-XSS-Protection', '1; mode=block'); // Legacy but harmless
+    reply.header('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
 
-    // Echo back request ID (use custom header if provided, otherwise use Fastify's generated ID)
-    const requestId = request.headers['x-request-id'] || request.id;
-    reply.header('X-Request-Id', requestId);
+    // Request ID already set by Fastify
+    reply.header('X-Request-Id', request.id);
+  });
+
+  // Structured logging
+  fastify.addHook('onRequest', async (request) => {
+    const userId = (request as any).auth?.userId || (request as any).auth?.userDbId;
+    fastify.log.info({
+      requestId: request.id,
+      method: request.method,
+      url: request.url,
+      userId: userId || 'anonymous',
+    }, 'Incoming request');
+  });
+
+  fastify.addHook('onResponse', async (request, reply) => {
+    const userId = (request as any).auth?.userId || (request as any).auth?.userDbId;
+    const duration = reply.getResponseTime();
+    fastify.log.info({
+      requestId: request.id,
+      method: request.method,
+      url: request.url,
+      status: reply.statusCode,
+      duration: Math.round(duration),
+      userId: userId || 'anonymous',
+    }, 'Request completed');
   });
 
   // Add raw body support for webhooks
@@ -101,14 +137,52 @@ export async function createHttpServer() {
 
   // Health check (no auth required)
   fastify.get('/healthz', async () => {
-    return { status: 'ok', service: 'vocalytics-http' };
+    const SUPABASE_URL = process.env.SUPABASE_URL;
+    const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    // Check DB connectivity (lightweight)
+    let dbStatus = 'unknown';
+    if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
+      try {
+        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+        const { error } = await supabase.from('profiles').select('id').limit(1);
+        dbStatus = error ? 'error' : 'ok';
+      } catch {
+        dbStatus = 'error';
+      }
+    }
+
+    // Check Stripe webhook configuration
+    const stripeWebhook = process.env.STRIPE_WEBHOOK_SECRET ? 'configured' : 'not_configured';
+
+    return {
+      ok: true,
+      version: '1.0.0',
+      time: new Date().toISOString(),
+      db: dbStatus,
+      stripeWebhook,
+    };
   });
 
   // Register webhook route (no auth required)
   await webhookRoute(fastify);
 
+  // Dev-only env inspection route (no auth required)
+  if (process.env.NODE_ENV !== 'production') {
+    fastify.get('/api/me/env', async (_request, reply) => {
+      const { getEnvStatus } = await import('./envValidation.js');
+      const envStatus = getEnvStatus();
+      return reply.send(envStatus);
+    });
+  }
+
   // Build token verifier
   const verifyToken = buildVerifyToken();
+
+  // Register YouTube OAuth routes (no auth required for connect/callback)
+  await fastify.register(async (youtubeInstance) => {
+    await youtubeRoutes(youtubeInstance);
+  }, { prefix: '/api' });
 
   // Register protected /api routes in a scoped context with auth
   await fastify.register(async (apiInstance) => {
@@ -122,7 +196,6 @@ export async function createHttpServer() {
     await summarizeSentimentRoute(apiInstance);
     await meRoutes(apiInstance);
     await billingRoutes(apiInstance);
-    await youtubeRoutes(apiInstance);
   }, { prefix: '/api' });
 
   return fastify;
@@ -132,11 +205,19 @@ export async function start() {
   const PORT = Number(process.env.PORT || 3000);
   const HOST = process.env.HOST || '0.0.0.0';
 
+  // Validate environment variables on startup
+  validateEnv();
+
+  // Start rate limit cleanup job
+  startRateLimitCleanup();
+
   const server = await createHttpServer();
 
   try {
     await server.listen({ port: PORT, host: HOST });
-    console.log(`HTTP server listening on ${HOST}:${PORT}`);
+    console.log(`\n✅ HTTP server listening on ${HOST}:${PORT}`);
+    console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`   App ENV: ${process.env.APP_ENV || 'local'}\n`);
   } catch (err) {
     console.error(err);
     process.exit(1);

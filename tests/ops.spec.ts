@@ -113,12 +113,31 @@ describe('Operations Hygiene - STRICT', () => {
       // STRICT: Must be exactly 200
       expect(res.status).toBe(200);
 
-      // STRICT: Must have either "status" or "ok" field
-      const hasStatus = res.data.hasOwnProperty('status') || res.data.hasOwnProperty('ok');
-      expect(hasStatus).toBe(true);
+      // STRICT: Must have required fields
+      expect(res.data).toHaveProperty('ok');
+      expect(res.data).toHaveProperty('version');
+      expect(res.data).toHaveProperty('time');
+      expect(res.data).toHaveProperty('db');
+      expect(res.data).toHaveProperty('stripeWebhook');
+
+      // Validate types
+      expect(typeof res.data.ok).toBe('boolean');
+      expect(typeof res.data.version).toBe('string');
+      expect(typeof res.data.time).toBe('string');
+      expect(typeof res.data.db).toBe('string');
+      expect(typeof res.data.stripeWebhook).toBe('string');
+
+      // DB should be 'ok', 'error', or 'unknown'
+      expect(['ok', 'error', 'unknown']).toContain(res.data.db);
+
+      // Stripe webhook should be 'configured' or 'not_configured'
+      expect(['configured', 'not_configured']).toContain(res.data.stripeWebhook);
 
       console.log('  ✓ Health check returns 200');
-      console.log(`  ℹ️  Response shape: ${JSON.stringify(res.data)}`);
+      console.log(`  ✓ ok: ${res.data.ok}`);
+      console.log(`  ✓ version: ${res.data.version}`);
+      console.log(`  ✓ db: ${res.data.db}`);
+      console.log(`  ✓ stripeWebhook: ${res.data.stripeWebhook}`);
     });
 
     it('must not expose internal implementation details', async () => {

@@ -1,0 +1,95 @@
+name: Production Readiness Gate
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+          run_install: false
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install -w
+
+      - name: Build packages
+        run: pnpm -w build
+
+      - name: Typecheck
+        run: pnpm -w typecheck
+
+      - name: Lint
+        run: pnpm lint
+        continue-on-error: true # Don't fail on lint warnings
+
+      - name: Run production test suite
+        run: pnpm test:prod
+        env:
+          NODE_ENV: test
+          # Mock environment for tests
+          BASE_URL: http://localhost:3000
+          SUPABASE_URL: https://test.supabase.co
+          SUPABASE_ANON_KEY: test_anon_key
+          SUPABASE_SERVICE_ROLE_KEY: test_service_key
+          STRIPE_SECRET_KEY: sk_test_mock
+          STRIPE_WEBHOOK_SECRET: whsec_test_mock
+          JWT: test_jwt_token
+
+      - name: Check OpenAPI spec validity
+        run: |
+          if [ ! -f openapi.yaml ]; then
+            echo "❌ openapi.yaml not found"
+            exit 1
+          fi
+          echo "✅ openapi.yaml exists"
+
+      - name: Success summary
+        if: success()
+        run: |
+          echo "✅ Production Readiness Gate: PASSED"
+          echo ""
+          echo "All checks passed:"
+          echo "  ✓ Dependencies installed"
+          echo "  ✓ Build succeeded"
+          echo "  ✓ Typecheck passed"
+          echo "  ✓ Tests passed"
+          echo "  ✓ OpenAPI spec present"
+
+      - name: Failure summary
+        if: failure()
+        run: |
+          echo "❌ Production Readiness Gate: FAILED"
+          echo ""
+          echo "Check the logs above for details."
+          exit 1

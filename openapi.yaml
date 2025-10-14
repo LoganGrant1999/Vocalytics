@@ -1,0 +1,363 @@
+openapi: 3.0.3
+info:
+  title: Vocalytics API
+  version: 1.0.0
+  description: YouTube comment analytics and reply automation API
+servers:
+  - url: https://vocalytics-alpha.vercel.app
+    description: Production
+  - url: http://localhost:3000
+    description: Local development
+security:
+  - bearerAuth: []
+
+paths:
+  /healthz:
+    get:
+      summary: Health check
+      security: []
+      responses:
+        '200':
+          description: Service healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  version:
+                    type: string
+                  time:
+                    type: string
+                    format: date-time
+                  db:
+                    type: string
+                    enum: [ok, error, unknown]
+                  stripeWebhook:
+                    type: string
+                    enum: [configured, not_configured]
+
+  /api/analyze-comments:
+    post:
+      summary: Analyze YouTube comments
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [comments]
+              properties:
+                comments:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Comment'
+      responses:
+        '200':
+          description: Analysis results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sentiments:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Sentiment'
+        '402':
+          $ref: '#/components/responses/Paywall'
+
+  /api/generate-replies:
+    post:
+      summary: Generate AI replies to comments
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [comments]
+              properties:
+                comments:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Comment'
+                brandVoice:
+                  type: string
+                  maxLength: 500
+      responses:
+        '200':
+          description: Generated replies
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  replies:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        commentId:
+                          type: string
+                        text:
+                          type: string
+        '402':
+          $ref: '#/components/responses/Paywall'
+
+  /api/me/subscription:
+    get:
+      summary: Get subscription status
+      responses:
+        '200':
+          description: Subscription details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tier:
+                    type: string
+                    enum: [free, pro]
+                  subscription_status:
+                    type: string
+                  subscribed_until:
+                    type: string
+                    format: date-time
+                    nullable: true
+
+  /api/me/usage:
+    get:
+      summary: Get usage statistics
+      responses:
+        '200':
+          description: Usage stats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  commentsAnalyzed:
+                    type: integer
+                  repliesGenerated:
+                    type: integer
+                  limits:
+                    type: object
+                    properties:
+                      weeklyAnalyze:
+                        type: integer
+                      dailyReply:
+                        type: integer
+
+  /api/billing/checkout:
+    post:
+      summary: Create Stripe checkout session
+      responses:
+        '200':
+          description: Checkout session URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    format: uri
+
+  /api/billing/portal:
+    post:
+      summary: Create Stripe customer portal session
+      responses:
+        '200':
+          description: Portal session URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    format: uri
+
+  /api/youtube/connect:
+    get:
+      summary: Initiate YouTube OAuth flow
+      responses:
+        '302':
+          description: Redirect to Google OAuth consent screen
+
+  /api/youtube/comments:
+    get:
+      summary: Fetch comments from a YouTube video
+      parameters:
+        - name: videoId
+          in: query
+          required: true
+          schema:
+            type: string
+          example: dQw4w9WgXcQ
+        - name: pageToken
+          in: query
+          schema:
+            type: string
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [time, relevance]
+            default: time
+        - name: includeReplies
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Comment threads
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                  nextPageToken:
+                    type: string
+        '403':
+          description: YouTube not connected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  needsConnect:
+                    type: boolean
+
+  /api/youtube/reply:
+    post:
+      summary: Post a reply to a YouTube comment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [parentId, text]
+              properties:
+                parentId:
+                  type: string
+                  description: Comment thread ID
+                text:
+                  type: string
+                  maxLength: 220
+              example:
+                parentId: UgxKRExxxx
+                text: Thanks for watching!
+      responses:
+        '200':
+          description: Reply posted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  comment:
+                    type: object
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  needsReconnect:
+                    type: boolean
+                    description: User needs to re-authorize with write scope
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Supabase JWT token
+
+  schemas:
+    Comment:
+      type: object
+      required: [id, text, author]
+      properties:
+        id:
+          type: string
+        videoId:
+          type: string
+        author:
+          type: string
+        text:
+          type: string
+        publishedAt:
+          type: string
+          format: date-time
+        likeCount:
+          type: integer
+        replyCount:
+          type: integer
+
+    Sentiment:
+      type: object
+      properties:
+        commentId:
+          type: string
+        score:
+          type: number
+          minimum: 0
+          maximum: 1
+        label:
+          type: string
+          enum: [positive, neutral, negative]
+
+  responses:
+    Paywall:
+      description: Free tier limit exceeded
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [code, reason, feature, upgradeUrl]
+            properties:
+              code:
+                type: string
+                enum: [PAYWALL]
+              reason:
+                type: string
+                enum: [FREE_TIER_EXCEEDED]
+              feature:
+                type: string
+                enum: [analyze, reply]
+              upgradeUrl:
+                type: string
+                format: uri
+              manageUrl:
+                type: string
+                format: uri
+              limits:
+                type: object
+                properties:
+                  weeklyAnalyze:
+                    type: integer
+                  dailyReply:
+                    type: integer
+              usage:
+                type: object
+                properties:
+                  commentsAnalyzed:
+                    type: integer
+                  repliesGenerated:
+                    type: integer

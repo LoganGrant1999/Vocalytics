@@ -43,15 +43,15 @@ export async function getAuthedYouTubeForUser(
   // Create Supabase admin client (bypasses RLS)
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-  // Fetch user's YouTube tokens from DB
-  const { data: user, error } = await supabase
-    .from('users')
-    .select('youtube_access_token, youtube_refresh_token, youtube_token_expiry, youtube_scope, youtube_token_type, app_user_id')
-    .or(`id.eq.${userId},app_user_id.eq.${userId}`)
+  // Fetch user's YouTube tokens from profiles table (keyed to auth.uid())
+  const { data: profile, error} = await supabase
+    .from('profiles')
+    .select('youtube_access_token, youtube_refresh_token, youtube_token_expiry, youtube_scope, youtube_token_type')
+    .eq('id', userId)
     .single();
 
-  if (error || !user) {
-    throw new Error('YouTube not connected - user not found');
+  if (error || !profile) {
+    throw new Error('YouTube not connected - profile not found');
   }
 
   const {
@@ -60,7 +60,7 @@ export async function getAuthedYouTubeForUser(
     youtube_token_expiry: tokenExpiry,
     youtube_scope: scope,
     youtube_token_type: tokenType,
-  } = user;
+  } = profile;
 
   if (!accessToken) {
     throw new Error('YouTube not connected - no access token found. Please connect your YouTube account via /api/youtube/connect');
@@ -115,9 +115,9 @@ export async function getAuthedYouTubeForUser(
 
     if (Object.keys(updates).length > 0) {
       await supabase
-        .from('users')
+        .from('profiles')
         .update(updates)
-        .or(`id.eq.${userId},app_user_id.eq.${userId}`);
+        .eq('id', userId);
     }
   });
 

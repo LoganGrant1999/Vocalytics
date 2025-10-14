@@ -73,4 +73,5 @@ export async function meRoutes(fastify: FastifyInstance) {
       });
     }
   });
+
 }

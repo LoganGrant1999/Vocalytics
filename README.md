@@ -4,7 +4,7 @@ TypeScript monorepo with pnpm workspaces.
 
 ## Requirements
 
-- Node.js 20+
+- Node.js 20.x (use `nvm use` to switch to the correct version)
 - pnpm
 
 ## Setup
@@ -37,7 +37,10 @@ pnpm start     # Start production server
 
 ```bash
 cd packages/web
-pnpm build     # Build ESM bundle with esbuild
+pnpm dev       # Start Vite dev server on http://localhost:5173
+pnpm build     # Build static site for production
+pnpm preview   # Preview production build
+pnpm typecheck # Run TypeScript type checking
 ```
 
 ## Project Structure
@@ -45,13 +48,16 @@ pnpm build     # Build ESM bundle with esbuild
 ```
 .
 ├── packages/
-│   ├── server/          # Server package
+│   ├── server/          # Backend API (Hono + Supabase + Stripe)
 │   │   └── src/
-│   └── web/             # Web package (esbuild → ESM)
-│       └── src/
+│   └── web/             # Frontend web app (React + Vite)
+│       ├── src/
+│       ├── vercel.json  # Vercel deployment config
+│       └── .env.example # Environment variables template
 ├── .github/
 │   └── workflows/
-│       └── ci.yml       # CI: lint, typecheck, test, build
+│       ├── ci.yml       # CI: lint, typecheck, test, build
+│       └── web.yml      # Web build on PRs
 ├── package.json
 ├── pnpm-workspace.yaml
 └── tsconfig.json        # TypeScript strict mode
@@ -87,3 +93,58 @@ With these env vars set:
 **Without** `OPENAI_API_KEY`:
 - All tools work in mock mode using keyword heuristics and template replies
 - Smoke tests remain green
+
+## Web MVP
+
+The frontend React application provides a user-friendly interface for YouTube comment analysis and reply generation.
+
+### Features
+
+- **YouTube OAuth Integration** - Connect your YouTube account
+- **Video Selection** - Choose videos to analyze
+- **Sentiment Analysis** - View comment sentiment distribution
+- **AI Reply Generation** - Generate contextual replies for comments
+- **Usage Tracking** - Monitor free tier limits
+- **Stripe Integration** - Upgrade to Pro for unlimited usage
+- **Debug Console** - View API request history and request IDs
+- **Analytics** - Optional PostHog integration for user behavior tracking
+
+### Quick Start
+
+1. **Set up environment**:
+   ```bash
+   cd packages/web
+   cp .env.example .env
+   # Edit .env with your configuration
+   ```
+
+2. **Start development server**:
+   ```bash
+   pnpm --filter web dev
+   ```
+
+3. **Access the app**: Open `http://localhost:5173`
+
+### Deployment
+
+The web app is configured for Vercel deployment with automatic builds on pull requests.
+
+**Deploy to Vercel**:
+
+1. Import the repository to Vercel
+2. Select `packages/web` as the root directory
+3. Add environment variables:
+   - `VITE_ENABLE_POSTING=false` (optional)
+   - `VITE_POSTHOG_KEY=your_key` (optional)
+4. Update `packages/web/vercel.json` API rewrites to point to your backend
+
+See `packages/web/README.md` for detailed deployment instructions.
+
+### CI/CD
+
+GitHub Actions automatically:
+- Runs type checking on PRs
+- Builds the web package
+- Uploads build artifacts
+
+See `.github/workflows/web.yml` for CI configuration.

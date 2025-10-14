@@ -1,156 +1,174 @@
-# YouTube OAuth Integration - Smoke Test Guide
+# YouTube OAuth - Smoke Test Checklist
 
 ## Prerequisites
 
-1. **Google Cloud Console Setup**
-   - Create OAuth 2.0 credentials (type: **Web application**, NOT Desktop)
-   - Add authorized redirect URIs:
-     - Local: `http://localhost:3000/api/youtube/callback`
-     - Production: `https://your-app.vercel.app/api/youtube/callback`
-   - Enable YouTube Data API v3
-   - Copy Client ID and Client Secret
-
-2. **Environment Variables**
-   ```bash
-   GOOGLE_CLIENT_ID=your_client_id
-   GOOGLE_CLIENT_SECRET=your_client_secret
-   GOOGLE_REDIRECT_URI_LOCAL=http://localhost:3000/api/youtube/callback
-   GOOGLE_REDIRECT_URI_PROD=https://your-app.vercel.app/api/youtube/callback
-   APP_ENV=local  # or "production"
-
-   # Also ensure these are set:
-   SUPABASE_URL=...
-   SUPABASE_SERVICE_ROLE_KEY=...
-   OPENAI_API_KEY=...  # (optional, for AI features)
-   ```
-
-3. **Database Migration**
-   ```bash
-   # Apply the YouTube OAuth migration
-   psql "postgresql://postgres:[PASSWORD]@db.xxx.supabase.co:5432/postgres" \
-     -f supabase/migrations/20251013_youtube_oauth_tokens.sql
-   ```
+1. **Google Cloud Console** - OAuth credentials created (type: Web application)
+2. **Environment variables** - All Google OAuth vars set in `.env`
+3. **Supabase** - Database migration applied
+4. **Dependencies** - `googleapis` and `google-auth-library` installed
 
 ---
 
-## Smoke Test Checklist
-
-### 1. Start Local Development Server
+## Step 1: Install & Build
 
 ```bash
 cd /path/to/Vocalytics
-pnpm --filter server dev:http
+
+# Install dependencies
+pnpm -w install
+
+# Build all packages
+pnpm -w build
 ```
 
-Server should start at `http://localhost:3000`
+**Expected:** Build completes without errors.
 
 ---
 
-### 2. Log In to Get JWT
+## Step 2: Apply Database Migration
 
-If you don't have a JWT token yet:
+Apply the migration via Supabase Dashboard or `psql`:
 
 ```bash
-# Get JWT token using your test account
-export JWT=$(SUPABASE_URL=$SUPABASE_URL \
-  SUPABASE_ANON=$SUPABASE_ANON \
-  TEST_EMAIL=your@email.com \
-  TEST_PASS=yourpassword \
-  node scripts/get-jwt.js)
+# Option A: Supabase Dashboard SQL Editor
+# Copy/paste contents of supabase/migrations/20251013_youtube_oauth_tokens.sql
 
-echo $JWT
+# Option B: psql
+psql "postgresql://postgres:[PASSWORD]@[PROJECT].supabase.co:5432/postgres" \
+  -f supabase/migrations/20251013_youtube_oauth_tokens.sql
 ```
 
-Or log in via Supabase Auth UI and extract token from `localStorage['supabase.auth.token']`.
+**Expected:** Migration runs successfully. Verify columns exist:
+
+```sql
+SELECT column_name
+FROM information_schema.columns
+WHERE table_name = 'profiles'
+  AND column_name LIKE 'youtube_%';
+```
+
+Should return: `youtube_access_token`, `youtube_refresh_token`, `youtube_token_expiry`, `youtube_scope`, `youtube_token_type`
 
 ---
 
-### 3. Test OAuth Connect Flow
+## Step 3: Start Local Dev Server
 
-**Manual Browser Test:**
+```bash
+# Start HTTP server in development mode
+pnpm --filter server dev:http
 
-1. Visit `http://localhost:3000/api/youtube/connect` in your browser
-2. You should be redirected to Google consent screen
-3. Grant permissions:
-   - ✅ View your YouTube account
-   - ✅ Manage your YouTube account
-4. After consent, you should be redirected back to `/dashboard?yt=connected`
-5. Dashboard should show success toast
+# Server should start on http://localhost:3000
+```
 
-**Verify tokens in DB:**
+**Expected:** Server starts without errors. You should see Fastify startup logs.
+
+---
+
+## Step 4: Get JWT Token
+
+Log into your app (Supabase Auth) to obtain a JWT token.
+
+**Option A: Use existing script:**
+```bash
+export JWT=$(SUPABASE_URL=$SUPABASE_URL \
+  SUPABASE_ANON=$SUPABASE_ANON \
+  TEST_EMAIL=test@vocalytics.dev \
+  TEST_PASS=TestPass123! \
+  node scripts/get-jwt.js)
+
+echo "JWT: $JWT"
+```
+
+**Option B: Extract from browser:**
+- Log in via your web app
+- Open DevTools → Application → Local Storage
+- Find `supabase.auth.token`
+- Copy `access_token` value
+
+---
+
+## Step 5: Test OAuth Connect Flow
+
+**Browser Test:**
+
+1. Visit `http://localhost:3000/api/youtube/connect` in browser
+   - **Expected:** Redirects to Google OAuth consent screen
+
+2. Sign in with Google account and grant permissions:
+   - ✅ View your YouTube account (`youtube.readonly`)
+   - ✅ Manage your YouTube account (`youtube.force-ssl`)
+
+3. After consent, redirected to `/dashboard?yt=connected`
+   - **Expected:** Dashboard loads with success message
+
+---
+
+## Step 6: Verify Tokens Stored
+
+Check that tokens were written to `profiles` table:
 
 ```sql
 SELECT
   id,
-  email,
   youtube_access_token IS NOT NULL as has_access_token,
   youtube_refresh_token IS NOT NULL as has_refresh_token,
   youtube_token_expiry,
   youtube_scope
-FROM public.users
-WHERE email = 'your@email.com';
+FROM public.profiles
+WHERE id = '<your-auth-user-id>';
 ```
 
-Expected:
+**Expected:**
 - `has_access_token`: `true`
 - `has_refresh_token`: `true`
 - `youtube_scope`: Contains `youtube.readonly` and `youtube.force-ssl`
+- `youtube_token_expiry`: Timestamp ~1 hour in future
 
 ---
 
-### 4. Test Fetch Comments Endpoint
+## Step 7: Test Fetch Comments
 
 ```bash
-# Replace VIDEO_ID with a real YouTube video ID (e.g., dQw4w9WgXcQ)
-curl -X GET "http://localhost:3000/api/youtube/comments?videoId=VIDEO_ID" \
+# Replace VIDEO_ID with a real YouTube video (e.g., dQw4w9WgXcQ)
+VIDEO_ID="dQw4w9WgXcQ"
+
+curl -X GET "http://localhost:3000/api/youtube/comments?videoId=$VIDEO_ID" \
   -H "Authorization: Bearer $JWT" \
-  | jq
+  | jq '.items[0]'
 ```
 
 **Expected Response:**
 ```json
 {
-  "items": [
-    {
-      "id": "UgxKRExxxx...",
+  "id": "UgxKRExxxx...",
+  "snippet": {
+    "topLevelComment": {
       "snippet": {
-        "topLevelComment": {
-          "snippet": {
-            "authorDisplayName": "John Doe",
-            "textDisplay": "Great video!",
-            "publishedAt": "2024-10-12T10:30:00Z",
-            "likeCount": 5
-          }
-        },
-        "totalReplyCount": 0
+        "authorDisplayName": "John Doe",
+        "textDisplay": "Great video!",
+        "publishedAt": "2024-10-12T10:30:00Z",
+        "likeCount": 5
       }
-    }
-    // ... more comments
-  ],
-  "nextPageToken": "...",
-  "pageInfo": {
-    "totalResults": 50,
-    "resultsPerPage": 50
+    },
+    "totalReplyCount": 0
   }
 }
 ```
 
 **Common Issues:**
-
-- **403 "YouTube not connected"**: User needs to complete OAuth flow first
-- **401 Unauthorized**: Check JWT token
-- **400 "videoId required"**: Missing or invalid video ID
-- **404**: Video not found or has comments disabled
+- `403 "YouTube not connected"` → Complete OAuth flow first
+- `400 "videoId required"` → Check query param
+- `404` → Video not found or comments disabled
 
 ---
 
-### 5. Test Post Reply Endpoint
+## Step 8: Test Post Reply
 
-**GOTCHA**: Use the comment **thread ID** (items[].id), not the snippet ID!
+**IMPORTANT:** Use the comment **thread ID** (`items[].id`), not the snippet ID!
 
 ```bash
-# Get a comment ID from the previous step
-PARENT_ID="UgxKRExxxx..."  # Comment thread ID from items[].id
+# Get a thread ID from previous step
+PARENT_ID="UgxKRExxxx..."
 
 curl -X POST "http://localhost:3000/api/youtube/reply" \
   -H "Authorization: Bearer $JWT" \
@@ -177,113 +195,40 @@ curl -X POST "http://localhost:3000/api/youtube/reply" \
 ```
 
 **Common Issues:**
-
-- **403 "Insufficient Permissions"**: User only granted `youtube.readonly` scope
-  - Response will include `needsReconnect: true`
-  - User needs to reconnect via `/api/youtube/connect` to grant write permissions
-- **403 "YouTube not connected"**: Complete OAuth flow first
-- **400 "parentId and text required"**: Missing required fields
-- **400 Invalid parent ID**: Wrong comment ID format or non-existent comment
+- `403 "Insufficient Permissions"` → Only granted `readonly` scope
+  - Response includes `{ needsReconnect: true }`
+  - Re-visit `/api/youtube/connect` to grant write permissions
+- `400 "parentId and text required"` → Missing body fields
+- `400 Invalid parent ID` → Wrong ID format
 
 ---
 
-### 6. Test Token Auto-Refresh
+## Step 9: Test needsReconnect Flow
 
-**Simulate token expiry:**
+If user only granted `youtube.readonly` (without `youtube.force-ssl`), posting replies will fail with 403 and `{ needsReconnect: true }`.
 
-1. Manually set `youtube_token_expiry` to a past date in DB:
-   ```sql
-   UPDATE public.users
-   SET youtube_token_expiry = NOW() - INTERVAL '1 hour'
-   WHERE email = 'your@email.com';
-   ```
-
-2. Make a new API request (fetch comments or post reply)
-
-3. Check logs for: `[google.ts] Token expires soon, proactively refreshing`
-
-4. Verify new expiry date in DB:
-   ```sql
-   SELECT youtube_token_expiry FROM public.users WHERE email = 'your@email.com';
-   ```
-
-Expected: Token should be refreshed automatically before the request completes.
+**To test:**
+1. Revoke access in [Google Account Permissions](https://myaccount.google.com/permissions)
+2. Re-visit `/api/youtube/connect` but **only** grant "View" permission
+3. Try posting a reply → should get `403` with `needsReconnect: true`
+4. Dashboard should show "Re-connect to enable posting" button
+5. Click it → `/api/youtube/connect` → grant both permissions
+6. Try posting again → should succeed
 
 ---
 
-### 7. Test Rate Limiting
+## Smoke Test Checklist Summary
 
-```bash
-# Rapid-fire 15 requests (limit is 10/minute)
-for i in {1..15}; do
-  echo "Request $i"
-  curl -X GET "http://localhost:3000/api/youtube/comments?videoId=VIDEO_ID" \
-    -H "Authorization: Bearer $JWT" \
-    -s -o /dev/null -w "Status: %{http_code}\n"
-  sleep 0.1
-done
-```
-
-Expected:
-- First 10 requests: `200 OK`
-- Requests 11-15: `429 Too Many Requests`
-
----
-
-### 8. Test Dashboard UI
-
-1. Open `http://localhost:3000/dashboard` in browser
-2. Click "Connect YouTube" button → complete OAuth flow
-3. Enter a YouTube video ID or URL (e.g., `https://www.youtube.com/watch?v=dQw4w9WgXcQ`)
-4. Click "Fetch Comments"
-5. Select comments using checkboxes
-6. Click "Analyze Selected" → should show sentiment categories
-7. Click "Generate Replies" → should show generated reply text
-8. Click "Post to YouTube" → should post reply and show success toast
-
----
-
-## Important Gotchas
-
-### 1. **OAuth Client Type**
-- ❌ "Desktop" OAuth client types **will NOT** deliver refresh tokens to web callbacks
-- ✅ Use "Web application" type in Google Cloud Console
-
-### 2. **Refresh Token Retention**
-- Google only returns `refresh_token` on **first consent**
-- On subsequent authorizations, `refresh_token` may be `null`
-- Our code preserves the existing `refresh_token` if not returned
-- To force a new refresh token: revoke access in Google Account settings, then reconnect
-
-### 3. **Comment Thread IDs**
-- Use `items[].id` (the thread ID) as `parentId` for replies
-- Do **NOT** use `items[].snippet.topLevelComment.id` (the snippet ID)
-- Thread ID format: `Ugx...` or similar
-- Snippet ID format: `UgyABC...` (different structure)
-
-### 4. **Write Permissions**
-- If user only granted `youtube.readonly`, posting replies will fail with 403
-- API returns `{ needsReconnect: true }` to prompt re-authorization
-- User must visit `/api/youtube/connect` again to grant `youtube.force-ssl` scope
-
-### 5. **Serverless Rate Limiting**
-- Current rate limiter uses in-memory Map (not shared across serverless instances)
-- In production with multiple Vercel instances, consider:
-  - Upstash Redis for distributed rate limiting
-  - Or rely on YouTube API's own rate limits (10,000 units/day)
-
----
-
-## Troubleshooting
-
-| Issue | Solution |
-|-------|----------|
-| "YouTube not connected" | User needs to complete OAuth flow via `/api/youtube/connect` |
-| "Failed to refresh token" | Refresh token expired or revoked → user must reconnect |
-| 403 on posting reply | User lacks write scope → reconnect with `needsReconnect` prompt |
-| Comments not fetching | Check video ID, verify video exists and has comments enabled |
-| OAuth redirect loops | Check `APP_ENV` matches redirect URI, verify callback route is registered |
-| Tokens not persisting | Check Supabase migration applied, verify service role key has write access |
+- [ ] 1. `pnpm -w install` runs successfully
+- [ ] 2. `pnpm -w build` compiles without errors
+- [ ] 3. Database migration applies successfully
+- [ ] 4. `pnpm --filter server dev:http` starts server
+- [ ] 5. Log in to get JWT token
+- [ ] 6. Visit `/api/youtube/connect` → Google consent → back to `/dashboard?yt=connected`
+- [ ] 7. Verify `profiles.youtube_*` columns populated in DB
+- [ ] 8. `GET /api/youtube/comments?videoId=VIDEO_ID` returns items + `nextPageToken`
+- [ ] 9. `POST /api/youtube/reply` with valid `parentId` posts successfully
+- [ ] 10. If `403` with `needsReconnect: true`, repeat connect flow to grant write scope
 
 ---
 
@@ -291,41 +236,93 @@ Expected:
 
 Before deploying to Vercel:
 
-1. **Update Environment Variables**
-   ```bash
-   vercel env add GOOGLE_CLIENT_ID
-   vercel env add GOOGLE_CLIENT_SECRET
-   vercel env add GOOGLE_REDIRECT_URI_PROD
-   vercel env add APP_ENV production
-   ```
+### 1. Add Environment Variables
 
-2. **Update Google OAuth Redirect URIs**
-   - Add production URL to authorized redirects in Google Cloud Console
-   - Format: `https://your-app.vercel.app/api/youtube/callback`
+```bash
+vercel env add GOOGLE_CLIENT_ID
+# Paste your client ID
 
-3. **Apply Migration to Production DB**
-   ```bash
-   psql "postgresql://postgres:[PROD_PASSWORD]@db.xxx.supabase.co:5432/postgres" \
-     -f supabase/migrations/20251013_youtube_oauth_tokens.sql
-   ```
+vercel env add GOOGLE_CLIENT_SECRET
+# Paste your client secret
 
-4. **Test Production Flow**
-   - Visit `https://your-app.vercel.app/api/youtube/connect`
-   - Complete OAuth flow
-   - Verify tokens stored in production database
-   - Test comment fetching and reply posting
+vercel env add GOOGLE_REDIRECT_URI_PROD
+# Value: https://vocalytics-alpha.vercel.app/api/youtube/callback
+
+vercel env add APP_ENV
+# Value: production
+```
+
+### 2. Update Google Cloud Console
+
+Add production redirect URI to authorized redirects:
+- `https://vocalytics-alpha.vercel.app/api/youtube/callback`
+
+### 3. Apply Migration to Production DB
+
+```bash
+psql "postgresql://postgres:[PROD_PASSWORD]@[PROD_PROJECT].supabase.co:5432/postgres" \
+  -f supabase/migrations/20251013_youtube_oauth_tokens.sql
+```
+
+### 4. Deploy
+
+```bash
+git add .
+git commit -m "Add YouTube OAuth integration"
+git push origin main
+
+# Vercel auto-deploys on push
+```
+
+### 5. Test Production
+
+- Visit `https://vocalytics-alpha.vercel.app/api/youtube/connect`
+- Complete OAuth flow
+- Verify tokens in production database
+- Test comment fetching and reply posting
 
 ---
 
-## Success Criteria
+## Troubleshooting
 
-✅ OAuth flow completes successfully and redirects to `/dashboard?yt=connected`
-✅ Tokens (access + refresh) stored in `users` table
-✅ Fetch comments returns real YouTube data
-✅ Post reply successfully publishes to YouTube
-✅ Token auto-refresh works without user intervention
-✅ Rate limiting prevents abuse
-✅ Dashboard UI allows full comment workflow
+| Issue | Solution |
+|-------|----------|
+| "YouTube not connected" | Complete OAuth flow via `/api/youtube/connect` |
+| "Failed to refresh token" | Refresh token expired/revoked → reconnect |
+| 403 on posting reply | User lacks write scope → show `needsReconnect` prompt |
+| Comments not fetching | Check video ID, verify video exists and has comments enabled |
+| OAuth redirect loops | Verify `APP_ENV` matches redirect URI in Google Console |
+| Tokens not persisting | Check migration applied, verify `profiles` table has columns |
+| Rate limit (429) | Wait 1 minute, or temporarily increase limit in code |
+
+---
+
+## Important Gotchas
+
+### 1. OAuth Client Type
+- ❌ "Desktop" OAuth clients **do NOT** deliver refresh tokens to web callbacks
+- ✅ Use "Web application" type in Google Cloud Console
+
+### 2. Refresh Token Handling
+- Google only returns `refresh_token` on **first consent**
+- On subsequent authorizations, `refresh_token` may be `null`
+- Our code preserves existing `refresh_token` if not returned
+- To force new refresh token: revoke access in Google Account, then reconnect
+
+### 3. Comment Thread IDs
+- Use `items[].id` (thread ID) as `parentId` for replies
+- Do **NOT** use `items[].snippet.topLevelComment.id` (snippet ID)
+- Thread ID format: `Ugx...`
+
+### 4. Write Permissions
+- If user only granted `youtube.readonly`, posting fails with 403
+- API returns `{ needsReconnect: true }` to prompt re-authorization
+- User must visit `/api/youtube/connect` again to grant `youtube.force-ssl`
+
+### 5. Rate Limiting
+- Current: 10 requests/minute/user (in-memory, not shared across serverless instances)
+- In production with multiple Vercel instances, consider Upstash Redis
+- Or rely on YouTube API's own rate limits (10,000 units/day)
 
 ---
 

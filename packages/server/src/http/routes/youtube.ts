@@ -1,12 +1,16 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { createClient } from '@supabase/supabase-js';
-import { createOAuth2Client, getAuthedYouTubeForUser, getRedirectUri } from '../../lib/google.js';
+import { createOAuth2Client, getAuthedYouTubeForUser } from '../../lib/google.js';
+import { google } from 'googleapis';
 
 const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-// YouTube OAuth scopes
+// YouTube OAuth scopes + OpenID for profile info
 const YOUTUBE_SCOPES = [
+  'openid',
+  'email',
+  'profile',
   'https://www.googleapis.com/auth/youtube.readonly',
   'https://www.googleapis.com/auth/youtube.force-ssl',
 ];
@@ -36,7 +40,7 @@ function checkRateLimit(userId: string): boolean {
 export async function youtubeRoutes(fastify: FastifyInstance) {
   /**
    * GET /api/youtube/connect
-   * Protected by JWT middleware
+   * No auth required - YouTube OAuth IS the authentication method
    *
    * Initiates YouTube OAuth flow with Authorization Code grant.
    * Redirects user to Google consent screen.
@@ -46,19 +50,16 @@ export async function youtubeRoutes(fastify: FastifyInstance) {
    * web callbacks—ensure you're using a "Web application" type in Google Console.
    */
   fastify.get('/youtube/connect', async (request: any, reply: FastifyReply) => {
-    const userId = request.auth?.userId || request.auth?.userDbId;
-
-    if (!userId) {
-      return reply.code(401).send({ error: 'Unauthorized', message: 'User ID not found in JWT' });
-    }
-
     const oauth2Client = createOAuth2Client();
+
+    // Generate a random state token for CSRF protection
+    const state = Math.random().toString(36).substring(2, 15);
 
     const authUrl = oauth2Client.generateAuthUrl({
       access_type: 'offline', // Request refresh token
       prompt: 'consent', // Force consent screen (ensures refresh_token)
       scope: YOUTUBE_SCOPES,
-      state: userId, // Pass user ID through OAuth flow
+      state, // CSRF protection token
     });
 
     // Redirect user to Google consent screen
@@ -67,12 +68,13 @@ export async function youtubeRoutes(fastify: FastifyInstance) {
 
   /**
    * GET /api/youtube/callback
-   * Protected by JWT middleware (optional - we validate state param)
+   * No auth required - creates/updates user based on Google profile
    *
    * Handles OAuth callback from Google.
    * Exchanges authorization code for access + refresh tokens.
+   * Fetches Google profile to identify/create user.
    * Stores tokens in user's DB row.
-   * Redirects to /dashboard?yt=connected
+   * Redirects to /app?yt=connected
    *
    * GOTCHA: Google often only returns refresh_token on first consent.
    * If user previously consented and we already have a refresh_token in DB,
@@ -95,8 +97,6 @@ export async function youtubeRoutes(fastify: FastifyInstance) {
       });
     }
 
-    const userId = state; // User ID passed through state param
-
     const oauth2Client = createOAuth2Client();
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
@@ -111,12 +111,64 @@ export async function youtubeRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Fetch existing user to check for existing refresh_token
+      // Decode ID token to get user profile (no extra API call needed)
+      if (!tokens.id_token) {
+        return reply.code(500).send({
+          error: 'OAuth Error',
+          message: 'No ID token received from Google',
+        });
+      }
+
+      // Parse ID token (JWT) to get user info
+      const ticket = await oauth2Client.verifyIdToken({
+        idToken: tokens.id_token,
+        audience: process.env.GOOGLE_CLIENT_ID!,
+      });
+
+      const profile = ticket.getPayload();
+
+      if (!profile || !profile.sub || !profile.email) {
+        return reply.code(500).send({
+          error: 'OAuth Error',
+          message: 'Failed to extract user profile from ID token',
+        });
+      }
+
+      // Find or create user by Google ID (sub = Google user ID)
       const { data: existingUser } = await supabase
-        .from('users')
-        .select('youtube_refresh_token')
-        .or(`id.eq.${userId},app_user_id.eq.${userId}`)
+        .from('profiles')
+        .select('*')
+        .eq('google_id', profile.sub)
         .single();
+
+      let userId: string;
+
+      if (existingUser) {
+        userId = existingUser.id;
+      } else {
+        // Create new user
+        const { data: newUser, error: createError } = await supabase
+          .from('profiles')
+          .insert({
+            google_id: profile.sub,
+            email: profile.email,
+            name: profile.name || profile.email,
+            avatar_url: profile.picture,
+            tier: 'free',
+          })
+          .select()
+          .single();
+
+        if (createError || !newUser) {
+          console.error('[youtube.ts] Failed to create user:', createError);
+          return reply.code(500).send({
+            error: 'Database Error',
+            message: 'Failed to create user profile',
+          });
+        }
+
+        userId = newUser.id;
+      }
 
       // GOTCHA: Preserve existing refresh_token if Google didn't return a new one
       const refreshToken = tokens.refresh_token || existingUser?.youtube_refresh_token;
@@ -137,14 +189,19 @@ export async function youtubeRoutes(fastify: FastifyInstance) {
       }
 
       await supabase
-        .from('users')
+        .from('profiles')
         .update(updates)
-        .or(`id.eq.${userId},app_user_id.eq.${userId}`);
+        .eq('id', userId);
 
       console.log('[youtube.ts] OAuth callback success, tokens stored for user:', userId);
 
-      // Redirect to dashboard with success indicator
-      return reply.redirect('/dashboard?yt=connected');
+      // Redirect to web app with success indicator
+      // In dev, redirect to Vite dev server; in prod, relative URL works
+      const redirectUrl = process.env.NODE_ENV === 'production'
+        ? '/app?yt=connected'
+        : 'http://localhost:5174/app?yt=connected';
+
+      return reply.redirect(redirectUrl);
     } catch (err: any) {
       console.error('[youtube.ts] OAuth callback error:', err);
       return reply.code(500).send({
@@ -210,7 +267,7 @@ export async function youtubeRoutes(fastify: FastifyInstance) {
       // Strip replies if includeReplies is false
       if (includeReplies !== 'true' && includeReplies !== true) {
         items = items.map((item) => {
-          const { replies, ...rest } = item;
+          const { replies: _replies, ...rest } = item;
           return rest;
         });
       }
