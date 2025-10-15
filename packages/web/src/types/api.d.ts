@@ -457,6 +457,204 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/youtube/videos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List user's uploaded videos */
+        get: {
+            parameters: {
+                query?: {
+                    mine?: boolean;
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of videos */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["UserVideo"][];
+                    };
+                };
+                /** @description YouTube not connected */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error?: string;
+                            message?: string;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/analysis/{videoId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get latest analysis for a video */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    videoId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Analysis result */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AnalysisResult"];
+                    };
+                };
+                /** @description No analysis found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error?: string;
+                            message?: string;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Run sentiment analysis on a video */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    videoId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Analysis result */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AnalysisResult"];
+                    };
+                };
+                402: components["responses"]["Paywall"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/analysis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List all analyzed videos for user */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of analyses */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AnalysisResultWithVideo"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/analysis/trends": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get sentiment trends over time */
+        get: {
+            parameters: {
+                query?: {
+                    days?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Trend data */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TrendPoint"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -476,6 +674,45 @@ export interface components {
             score?: number;
             /** @enum {string} */
             label?: "positive" | "neutral" | "negative";
+        };
+        UserVideo: {
+            videoId: string;
+            title: string;
+            thumbnailUrl?: string;
+            /** Format: date-time */
+            publishedAt?: string;
+            stats: {
+                viewCount?: number;
+                likeCount?: number;
+                commentCount?: number;
+            };
+        };
+        AnalysisResult: {
+            videoId: string;
+            /** Format: date-time */
+            analyzedAt: string;
+            sentiment: {
+                pos: number;
+                neu: number;
+                neg: number;
+            };
+            /** @description Normalized positivity score (pos - neg) */
+            score: number;
+            topPositive?: Record<string, never>[];
+            topNegative?: Record<string, never>[];
+            summary?: string;
+        };
+        AnalysisResultWithVideo: components["schemas"]["AnalysisResult"] & {
+            title?: string;
+            thumbnailUrl?: string;
+            /** Format: date-time */
+            publishedAt?: string;
+        };
+        TrendPoint: {
+            /** Format: date-time */
+            date: string;
+            /** @description Average sentiment score for this date */
+            avgScore: number;
         };
     };
     responses: {

@@ -49,3 +49,25 @@ export interface StripeEvent {
   processed: boolean;
   created_at: string;
 }
+
+export interface UserVideoRow {
+  user_id: string;
+  video_id: string;
+  title: string;
+  thumbnail_url: string | null;
+  published_at: string | null;
+  stats: Record<string, any>;
+  fetched_at: string;
+}
+
+export interface VideoAnalysisRow {
+  user_id: string;
+  video_id: string;
+  analyzed_at: string;
+  sentiment: Record<string, any>;
+  score: number;
+  top_positive: any[] | null;
+  top_negative: any[] | null;
+  summary: string | null;
+  raw: Record<string, any> | null;
+}

@@ -281,6 +281,122 @@ paths:
                     type: boolean
                     description: User needs to re-authorize with write scope
 
+  /api/youtube/videos:
+    get:
+      summary: List user's uploaded videos
+      parameters:
+        - name: mine
+          in: query
+          schema:
+            type: boolean
+            default: true
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: List of videos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserVideo'
+        '403':
+          description: YouTube not connected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  message:
+                    type: string
+
+  /api/analysis/{videoId}:
+    post:
+      summary: Run sentiment analysis on a video
+      parameters:
+        - name: videoId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Analysis result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisResult'
+        '402':
+          $ref: '#/components/responses/Paywall'
+    get:
+      summary: Get latest analysis for a video
+      parameters:
+        - name: videoId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Analysis result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisResult'
+        '404':
+          description: No analysis found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  message:
+                    type: string
+
+  /api/analysis:
+    get:
+      summary: List all analyzed videos for user
+      responses:
+        '200':
+          description: List of analyses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AnalysisResultWithVideo'
+
+  /api/analysis/trends:
+    get:
+      summary: Get sentiment trends over time
+      parameters:
+        - name: days
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 365
+            default: 90
+      responses:
+        '200':
+          description: Trend data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TrendPoint'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -322,6 +438,86 @@ components:
         label:
           type: string
           enum: [positive, neutral, negative]
+
+    UserVideo:
+      type: object
+      required: [videoId, title, stats]
+      properties:
+        videoId:
+          type: string
+        title:
+          type: string
+        thumbnailUrl:
+          type: string
+        publishedAt:
+          type: string
+          format: date-time
+        stats:
+          type: object
+          properties:
+            viewCount:
+              type: integer
+            likeCount:
+              type: integer
+            commentCount:
+              type: integer
+
+    AnalysisResult:
+      type: object
+      required: [videoId, analyzedAt, sentiment, score]
+      properties:
+        videoId:
+          type: string
+        analyzedAt:
+          type: string
+          format: date-time
+        sentiment:
+          type: object
+          required: [pos, neu, neg]
+          properties:
+            pos:
+              type: number
+            neu:
+              type: number
+            neg:
+              type: number
+        score:
+          type: number
+          description: Normalized positivity score (pos - neg)
+        topPositive:
+          type: array
+          items:
+            type: object
+        topNegative:
+          type: array
+          items:
+            type: object
+        summary:
+          type: string
+
+    AnalysisResultWithVideo:
+      allOf:
+        - $ref: '#/components/schemas/AnalysisResult'
+        - type: object
+          properties:
+            title:
+              type: string
+            thumbnailUrl:
+              type: string
+            publishedAt:
+              type: string
+              format: date-time
+
+    TrendPoint:
+      type: object
+      required: [date, avgScore]
+      properties:
+        date:
+          type: string
+          format: date-time
+        avgScore:
+          type: number
+          description: Average sentiment score for this date
 
   responses:
     Paywall:

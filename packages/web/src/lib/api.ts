@@ -31,8 +31,6 @@ client.use({
   },
 });
 
-export const api = client;
-
 /**
  * Helper type for extracting response data from a successful API call
  */
@@ -62,3 +60,102 @@ export type ApiError<
       }[keyof Responses]
     : never
   : never;
+
+/**
+ * Typed API wrapper methods for convenience
+ */
+export const api = {
+  /**
+   * YouTube API methods
+   */
+  youtube: {
+    /**
+     * List user's uploaded videos with stats
+     */
+    listMyVideos: async ({ limit = 20 }: { limit?: number } = {}) => {
+      const result = await client.GET('/api/youtube/videos', {
+        params: {
+          query: {
+            mine: true,
+            limit,
+          },
+        },
+      });
+
+      if (result.error) {
+        throw new Error(result.error.error || 'Failed to fetch videos');
+      }
+
+      return result.data;
+    },
+  },
+
+  /**
+   * Analysis API methods
+   */
+  analysis: {
+    /**
+     * Run analysis on a video (triggers sentiment analysis)
+     */
+    run: async (videoId: string) => {
+      const result = await client.POST('/api/analysis/{videoId}', {
+        params: {
+          path: { videoId },
+        },
+      });
+
+      if (result.error) {
+        throw new Error(result.error.error || 'Failed to run analysis');
+      }
+
+      return result.data;
+    },
+
+    /**
+     * Get latest analysis for a specific video
+     */
+    get: async (videoId: string) => {
+      const result = await client.GET('/api/analysis/{videoId}', {
+        params: {
+          path: { videoId },
+        },
+      });
+
+      if (result.error) {
+        throw new Error(result.error.error || 'Failed to get analysis');
+      }
+
+      return result.data;
+    },
+
+    /**
+     * List all latest analyses for user
+     */
+    list: async () => {
+      const result = await client.GET('/api/analysis');
+
+      if (result.error) {
+        throw new Error(result.error.error || 'Failed to list analyses');
+      }
+
+      return result.data;
+    },
+
+    /**
+     * Get sentiment trends over time
+     */
+    trends: async ({ days = 90 }: { days?: number } = {}) => {
+      const result = await client.GET('/api/analysis/trends', {
+        params: {
+          query: { days },
+        },
+      });
+
+      if (result.error) {
+        throw new Error(result.error.error || 'Failed to get trends');
+      }
+
+      return result.data;
+    },
+  },
+};

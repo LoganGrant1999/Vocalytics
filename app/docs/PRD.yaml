@@ -1,363 +1,310 @@
-# ------------------------------------------------------------
-# PRD: YouTube Comment Assistant (ChatGPT Embedded App)
-# Codename: TubeWhisper
-# Version: v0.9-MVP
-# Target Launch: Nov 1, 2025
-# Owner: Logan Gibbons
-# ------------------------------------------------------------
-
 meta:
-  product_name: "YouTube Comment Assistant"
-  codename: "TubeWhisper"
-  owner: "Logan Gibbons"
-  date_created: "2025-10-07"
-  target_launch: "2025-11-01"
-  version: "v0.9-MVP"
-  stack:
-    backend: "Node.js + Fastify"
-    frontend: "ChatGPT App SDK (MCP tools + HTML widgets)"
-    database: "Firestore (lightweight metadata) + Supabase (auth + billing)"
-    external_apis:
-      - "YouTube Data API v3 (read-only: comments.list)"
-      - "OpenAI API (GPT-4o-mini / GPT-4-turbo)"
-      - "Stripe API (subscription billing)"
-    deployment:
-      - "Vercel (frontend + landing page)"
-      - "Render/Fly.io (backend API + MCP server)"
-      - "Supabase (auth + usage tracking)"
-  environment:
-    node_version: "20.x"
-    runtime: "pnpm workspaces"
-    build: "pnpm -r build"
-    package_entry: "packages/server/src/index.ts"
+product_name: "Vocalytics"
+codename: "TubeWhisper"
+owner: "Logan Gibbons"
+date_created: "2025-10-07"
+target_launch: "2025-11-01"
+version: "v1.0-MVP"
+stack:
+backend: "Node.js + Fastify (API + MCP Server)"
+frontend: "React + Vite (Next + ChatGPT App widgets)"
+database: "Supabase (PostgreSQL + Auth + Billing)"
+external_apis:
+- "YouTube Data API v3"
+- "OpenAI API (GPT-4o-mini / GPT-4-turbo)"
+- "Stripe API (subscription billing)"
+deployment:
+- "Vercel (frontend + landing page)"
+- "Render / Fly.io (API server)"
+- "Supabase (auth + usage + storage)"
+environment:
+node_version: "20.x"
+runtime: "pnpm workspaces"
+build: "pnpm -r build"
+package_entry: "packages/server/src/index.ts"
 
 problem_statement:
-  summary: >
-    YouTube creators waste significant time moderating and replying to comments.
-    Spam, negativity, and sheer volume make it hard to engage with real fans.
-    Existing tools are slow, lack sentiment insight, and offer no AI assistance —
-    especially for small creators without teams.
-
-  user_pain_points:
-    - "Creators spend 30–90 minutes daily responding manually."
-    - "YouTube’s default filters miss nuance."
-    - "Engagement is critical but mentally draining."
-    - "No simple way to summarize audience sentiment or auto-reply."
-    - "Small creators can’t afford enterprise social tools."
-
-  why_now:
-    - "ChatGPT App Store is launching — early discoverability window (Q4 2025)."
-    - "AI workflows are trending among creators."
-    - "OpenAI SDK + YouTube API + Stripe make this technically lightweight."
-    - "Subscription SaaS model mirrors existing creator spend."
+summary: >
+Creators struggle to keep up with comments across growing YouTube channels.
+Manual moderation drains hours, and default analytics ignore audience emotion.
+Existing tools give numbers, not feeling — and no way to act instantly.
+user_pain_points:
+- "Creators spend 30–90 min daily moderating manually."
+- "YouTube Studio shows metrics but no sentiment."
+- "Toxicity and spam blur real fan feedback."
+- "AI reply tools feel generic and disconnected from creator tone."
+why_now:
+- "ChatGPT App Store launch = early discoverability (Q4 2025)."
+- "Creators already experimenting with AI co-pilots."
+- "YouTube Data API + OpenAI make this technically lightweight."
+- "Low-friction subscription model mirrors creator spend."
 
 value_proposition:
-  statement: >
-    TubeWhisper saves creators hours by summarizing, classifying, and drafting
-    thoughtful replies directly inside ChatGPT — no new dashboard needed.
-  key_benefits:
-    - "Cut comment time by 80%."
-    - "Auto-filter spam and toxicity."
-    - "Generate authentic tone-matched replies."
-    - "Summarize sentiment trends over time."
-    - "Conversational, in one place: ChatGPT."
+statement: >
+Vocalytics becomes a creator’s emotional dashboard for YouTube — a single
+place to see how audiences feel and instantly craft authentic replies.
+key_benefits:
+- "Turns raw comments into clear emotional insight."
+- "Shows which videos spark positivity vs frustration."
+- "Auto-drafts authentic replies in the creator’s tone."
+- "Saves hours per week on community engagement."
+- "Feels native to YouTube and ChatGPT."
 
 target_users:
-  primary_persona:
-    name: "Indie Creator"
-    profile:
-      - "10k–250k subscribers"
-      - "Publishes 1–3 videos/week"
-      - "Manages own community engagement"
-      - "Tech-comfortable, uses ChatGPT casually"
-      - "Willing to pay $10–20/mo for time savings"
-  secondary_personas:
-    - "Podcast hosts posting episodes to YouTube"
-    - "Small brand interns managing channels"
-    - "Micro-agencies managing client pages"
+primary_persona:
+name: "Indie Creator"
+profile:
+- "10k–250k subs"
+- "1–3 uploads per week"
+- "Handles own comments"
+- "Comfortable with AI tools"
+- "Willing to pay $10–20 / mo for time savings"
+secondary_personas:
+- "Podcast hosts posting episodes to YouTube"
+- "Small-brand social managers"
+- "Micro-agencies servicing clients"
 
 success_metrics:
-  prelaunch_metrics:
-    - "10+ creator interviews by Oct 20"
-    - "3 private beta testers before launch"
-  postlaunch_metrics:
-    - "≥1000 installs by Dec 1"
-    - "≥5% paid conversion within 30 days"
-    - "≥70% weekly retention (free users)"
-    - "NPS ≥8 among first 100 paid users"
-    - "≥95% uptime on /healthz"
+prelaunch:
+- "10 creator interviews by Oct 20"
+- "3 private beta channels before launch"
+postlaunch:
+- "≥1000 installs by Dec 1"
+- "≥5 % paid conversion within 30 days"
+- "≥70 % weekly retention (free tier)"
+- "NPS ≥ 8 among first 100 paid users"
+- "≥95 % uptime on /healthz"
 
-MVP_scope:
-  scope_summary: >
-    Deliver a production-ready ChatGPT app that connects to YouTube,
-    retrieves recent comments, classifies sentiment, summarizes engagement,
-    and drafts AI replies — enforcing a clear free-tier usage limit via
-    Supabase + Stripe paywall.
+MVP Scope
 
-  core_features:
-    - id: F1
-      name: "YouTube OAuth Login"
-      description: >
-        Secure Google OAuth (scope: youtube.readonly) to access channel comments.
-      success_criteria: "User connects account in <60 s; no warnings."
+scope_summary: >
+Deliver a web + ChatGPT-embedded app where creators connect YouTube,
+instantly see their latest uploads in a personalized dashboard, analyze
+audience sentiment per video, generate AI replies, and upgrade via Stripe
+when free-tier limits are hit.
 
-    - id: F2
-      name: "Fetch Recent Comments"
-      description: >
-        Retrieve 20–50 latest comments for a selected video or channel.
-      success_criteria: "20–50 comments load in <3 s."
+Core Features
+ID	Name	Description	Success Criteria
+F1	YouTube OAuth Login	Secure Google OAuth (youtube.readonly) for channel access	User connects in < 60 s
+F2	Fetch User Videos	List 10–20 latest uploads (thumbnail, title, stats)	Videos appear instantly after OAuth
+F3	Persistent Video Analysis	Analyze and store sentiment + summary per video	Analysis persists and reloads in dashboard
+F4	AI Comment Classification	Label each comment Positive / Neutral / Negative / Spam	≥85 % accuracy
+F5	AI Reply Generation	1–3 tone-matched replies per comment	≥70 % tone alignment
+F6	Channel Dashboard	Show videos grid + sentiment heatmap + usage bars	Visible “channel health” insight
+F7	Video Detail Page	Tabs: Overview (sentiment chart + summary), Comments, Replies	Insight loads < 5 s
+F8	Trends & Analytics	Plot avg sentiment over time + rank videos by emotion	Trend chart populated after ≥3 analyses
+F9	Paywall Integration	Supabase + Stripe usage enforcement	Limits + upgrade flow work end-to-end
 
-    - id: F3
-      name: "AI Comment Classification"
-      description: >
-        Classify each comment as Positive, Neutral, Constructive,
-        Negative/Toxic, or Spam via GPT + moderation API.
-      success_criteria: "≥85 % accuracy in validation set."
+optional_features:
 
-    - id: F4
-      name: "AI Reply Suggestion"
-      description: >
-        Generate 1–3 replies per comment (friendly, concise, witty).
-      success_criteria: "Replies align with creator tone ≥70 % of feedback."
+id: F10
+name: "Analyze Next Recommendations"
+description: "Suggest un-analyzed videos to encourage continued use."
 
-    - id: F5
-      name: "Sentiment Overview Summary"
-      description: >
-        Aggregate sentiment percentages and highlight top comments.
-      success_criteria: "Summary computed in <10 s."
+id: F11
+name: "Tone Memory"
+description: "Persist creator style for future replies (Pro only)."
 
-    - id: F6
-      name: "Conversation Mode (ChatGPT App Embed)"
-      description: >
-        Handle the entire “Analyze my last 50 comments” flow inside ChatGPT
-        using MCP tools and HTML widgets.
-      success_criteria: "Query → summary → replies all within 1 min."
+id: F12
+name: "CSV Export"
+description: "Allow Pro users to download sentiment data."
 
-    - id: F7
-      name: "Paywall Integration (Supabase + Stripe)"
-      description: >
-        Track per-user usage; enforce limits for Free users; redirect to
-        Stripe Checkout for upgrades. After payment, Stripe → Supabase webhook
-        marks user as 'pro' and lifts limits.
-      success_criteria: >
-        Limits enforced correctly; upgrade link works; webhook updates tier;
-        Pro users experience no restriction.
+UX Flow
 
-  optional_features:
-    - id: F8
-      name: "CSV Export"
-      description: >
-        Allow Pro users to export analyzed data via signed link.
-    - id: F9
-      name: "Tone Memory"
-      description: >
-        Persist creator style for replies (Pro-only, post-MVP).
+entry_point: "Connect YouTube → auto-populate dashboard with channel videos"
 
-UX_flow:
-  entry_point: "ChatGPT App → TubeWhisper → 'Connect my YouTube account'"
-  main_journey:
-    - "Install app → OAuth YouTube"
-    - "Chat: 'Analyze my latest upload'"
-    - "App fetches 50 comments"
-    - "AI summarizes sentiment + displays categories"
-    - "User selects 'Generate replies'"
-    - "App produces tone-matched replies"
-    - "If free-tier limit reached → message with upgrade link to tubewhisper.app/upgrade"
-  empty_state: "No recent comments — upload a video to start engaging!"
-  tone_guidelines:
-    - "Friendly, confident, creator-to-creator"
-    - "Short, practical, optimistic"
+main_journey:
 
-monetization_model:
-  pricing_tiers:
-    - name: "Free"
-      features:
-        - "Analyze up to 50 comments/week"
-        - "Generate 3 replies/day"
-        - "Sentiment overview"
-      conversion_goal: "Show clear time savings; redirect to upgrade at limit."
-    - name: "Pro – $10 / mo"
-      features:
-        - "Unlimited comment analysis & replies"
-        - "Tone memory"
-        - "CSV export"
-        - "Priority sentiment insights"
-      checkout: "Stripe Checkout via tubewhisper.app/upgrade"
-  paywall_integration:
-    backend: "Supabase + Stripe"
-    flow:
-      - "Each ChatGPT user mapped in Supabase (id, email, tier, usage counters)."
-      - "Free tier limited to 50 comments/week or 3 replies/day."
-      - "When limit hit, backend returns upgrade message with external link."
-      - "Stripe Checkout completes at tubewhisper.app/upgrade."
-      - "Webhook updates Supabase tier to 'pro'."
-    success_criteria: >
-      Free limits enforced; Stripe payment and webhook verified end-to-end;
-      paid users bypass limits seamlessly.
+"Install Vocalytics → Connect YouTube"
 
-go_to_market:
-  prelaunch:
-    - "Interview 10 creators (r/NewTubers, r/SmallYouTubers)"
-    - "Launch teaser site: tubewhisper.app"
-    - "Post demo clip on X/TikTok/Reddit"
-  launch_channels:
-    - "ChatGPT App Store (native discoverability)"
-    - "Product Hunt (Week of Nov 1)"
-    - "Reddit threads (r/YouTube, r/Productivity)"
-  viral_hooks:
-    - "Shareable demo GIFs ('ChatGPT replies to 20 comments in 10 s!')"
-    - "Testimonials from beta creators"
-    - "'Tweet this reply' button on landing page"
+"Dashboard shows recent uploads with sentiment placeholders"
 
-milestones:
-  week_1 (Oct 7–13):
-    - "Validate top 5 creator pains"
-    - "Claude Code scaffold backend + YouTube API"
-  week_2 (Oct 14–20):
-    - "Implement OAuth + fetch"
-    - "Build classification + reply pipeline"
-    - "Integrate MCP tools + mock ChatGPT UI"
-  week_3 (Oct 21–27):
-    - "Add sentiment summary + tone presets"
-    - "Wire Supabase + Stripe paywall"
-    - "Run closed beta (3 creators)"
-  week_4 (Oct 28–Nov 1):
-    - "Final QA + llm-check + healthz/readyz endpoints"
-    - "Polish ChatGPT manifest & widgets"
-    - "Submit to GPT Store + Product Hunt"
+"User clicks ‘Analyze’ → AI sentiment + summary + top comments appear"
 
-risk_mitigation:
-  - "YouTube quota → per-minute cap + caching."
-  - "Transient LLM errors → 1-retry + concurrency gate."
-  - "Moderation false positives → allow override."
-  - "Low WTP → emphasize time saved in copy."
-  - "Store visibility → optimize name/keywords."
-  - "Payment failures → Stripe webhook retries + manual sync endpoint."
+"Trends chart updates automatically"
 
-north_star: >
-  Become the #1 ChatGPT app for YouTube creators —
-  the go-to AI assistant for managing comments, engagement, and sentiment.
+"User opens Replies tab → generate tone-matched responses"
 
-data_model:
-  database: "Supabase (PostgreSQL)"
-  description: >
-    Supabase handles authentication, usage tracking, and billing tier enforcement.
-    Each ChatGPT App user is stored with basic identity info and counters for free-tier limits.
-    Stripe webhooks update the user's tier and subscription status.
-  tables:
-    - name: users
-      description: "Primary user record; one per ChatGPT or OAuth user."
-      columns:
-        - name: id
-          type: uuid
-          description: "Primary key; matches ChatGPT user ID or OAuth subject."
-        - name: email
-          type: text
-          description: "Optional email from Google OAuth."
-        - name: tier
-          type: text
-          enum: ["free", "pro"]
-          default: "free"
-          description: "Current access level."
-        - name: comments_analyzed_count
-          type: integer
-          default: 0
-          description: "Number of comments analyzed this week."
-        - name: replies_generated_count
-          type: integer
-          default: 0
-          description: "Number of replies generated today."
-        - name: reset_date
-          type: date
-          description: "When usage counters last reset (for free-tier limits)."
-        - name: subscribed_until
-          type: timestamptz
-          description: "If Pro, date until which subscription is valid."
-        - name: stripe_customer_id
-          type: text
-          description: "Stripe Customer object reference."
-        - name: stripe_subscription_id
-          type: text
-          description: "Stripe Subscription object reference."
-        - name: created_at
-          type: timestamptz
-          default: "now()"
-        - name: updated_at
-          type: timestamptz
-          default: "now()"
+"Hit free limit → upgrade modal → Stripe checkout"
 
-    - name: usage_events
-      description: "Optional audit log of usage actions for analytics/debugging."
-      columns:
-        - name: id
-          type: bigint
-          auto_increment: true
-        - name: user_id
-          type: uuid
-          foreign_key: users.id
-        - name: action
-          type: text
-          enum: ["analyze", "reply"]
-        - name: count
-          type: integer
-          default: 1
-        - name: timestamp
-          type: timestamptz
-          default: "now()"
-        - name: metadata
-          type: jsonb
-          description: "Optional data (videoId, tone, etc.)."
+"Pro user returns to see full channel history and analytics"
 
-    - name: stripe_events
-      description: "Stores webhook events for billing verification and replay safety."
-      columns:
-        - name: id
-          type: bigint
-          auto_increment: true
-        - name: event_id
-          type: text
-          unique: true
-          description: "Stripe event.id (idempotency key)."
-        - name: type
-          type: text
-          description: "Stripe event type (checkout.session.completed, etc.)."
-        - name: payload
-          type: jsonb
-          description: "Full webhook body (for debugging)."
-        - name: processed
-          type: boolean
-          default: false
-        - name: created_at
-          type: timestamptz
-          default: "now()"
+empty_state: "Connected but no analyses yet — click Analyze to see audience emotion."
+tone_guidelines:
 
-data_model:
-  notes:
-    - "Backend uses Supabase service-role key; identifies users by ChatGPT app_user_id (opaque ID) or OAuth email if available."
-    - "No Supabase Auth login required for MVP; web upgrade page may add optional email capture."
-    - "Counters reset: comments = weekly; replies = daily."
-  constraints_and_indexes:
-    users:
-      - "CHECK (comments_analyzed_count >= 0)"
-      - "CHECK (replies_generated_count >= 0)"
-      - "INDEX ON (email) WHERE email IS NOT NULL"
-      - "INDEX ON (stripe_customer_id) WHERE stripe_customer_id IS NOT NULL"
-      - "INDEX ON (stripe_subscription_id) WHERE stripe_subscription_id IS NOT NULL"
-    usage_events:
-      - "INDEX ON (user_id, timestamp DESC)"
-    stripe_events:
-      - "UNIQUE (event_id)"
-      - "INDEX ON (processed, created_at DESC)"
-  counters_reset_policy:
-    comments_analyzed_count: "weekly (Monday 00:00 UTC)"
-    replies_generated_count: "daily (00:00 UTC)"
-  webhook_mapping:
-    on_checkout_completed:
-      - "Set users.tier = 'pro'"
-      - "Set users.subscribed_until = period_end (from subscription)"
-      - "Set users.stripe_customer_id"
-      - "Set users.stripe_subscription_id"
-    on_invoice_payment_failed_or_subscription_canceled:
-      - "Set users.tier = 'free'"
-      - "Null users.subscribed_until"
-      - "Keep stripe_customer_id for future reuse"
+"Friendly, creator-to-creator voice"
+
+"Quick, insightful, positive"
+
+Monetization Model
+
+pricing_tiers:
+
+name: "Free"
+features:
+
+"Analyze 3 videos / month"
+
+"10 AI replies / day"
+
+"Basic dashboard and sentiment overview"
+
+name: "Pro — $12 / mo"
+features:
+
+"Unlimited analyses + replies"
+
+"Auto-reply posting"
+
+"Trends analytics + Tone Memory + Export"
+checkout: "Stripe Checkout via vocalytics.app/upgrade"
+
+Go-to-Market
+
+prelaunch:
+
+"Interview 10 creators (reddit & DMs)"
+
+"Publish teaser site vocalytics.app"
+
+"Short demo clip on X / TikTok / Reddit"
+
+launch_channels:
+
+"ChatGPT App Store"
+
+"Product Hunt (Nov 1)"
+
+"Reddit r/YouTube & r/Productivity"
+
+viral_hooks:
+
+"‘Emotional scorecard’ share card per video"
+
+"Beta testimonials + before/after replies"
+
+Data Model (Updated)
+
+tables:
+
+name: users
+description: "Creator record + subscription tier + usage counts."
+columns:
+
+id: uuid PK
+
+email: text
+
+tier: text enum [free, pro]
+
+comments_analyzed_count: int
+
+replies_generated_count: int
+
+reset_date: date
+
+subscribed_until: timestamptz
+
+stripe_customer_id: text
+
+stripe_subscription_id: text
+
+created_at: timestamptz default now()
+
+updated_at: timestamptz default now()
+
+name: user_videos
+description: "Cached YouTube uploads per user for dashboard population."
+columns:
+
+user_id: uuid FK → users.id
+
+video_id: text
+
+title: text
+
+thumbnail_url: text
+
+published_at: timestamptz
+
+stats: jsonb (views, likes, comments)
+
+fetched_at: timestamptz default now()
+
+primary key: (user_id, video_id)
+
+name: video_analyses
+description: "Stored sentiment analyses for each (video, user)."
+columns:
+
+user_id: uuid FK → users.id
+
+video_id: text
+
+analyzed_at: timestamptz default now()
+
+sentiment: jsonb {pos, neu, neg}
+
+score: numeric
+
+top_positive: jsonb
+
+top_negative: jsonb
+
+summary: text
+
+raw: jsonb
+
+primary key: (user_id, video_id, analyzed_at)
+
+name: usage_events
+description: "Audit log for usage tracking."
+
+name: stripe_events
+description: "Webhook store for billing."
+
+API (Incremental Additions)
+
+GET /api/youtube/videos?mine=true — list recent uploads for connected user
+
+POST /api/analysis/:videoId?persist=true — run and store sentiment analysis
+
+GET /api/analysis/:videoId — fetch latest analysis for video
+
+GET /api/analysis — list all analyses for dashboard overview
+
+GET /api/analysis/trends — return sentiment timeseries
+
+(existing endpoints for fetch-comments, generate-replies, summarize-sentiment remain)
+
+Frontend UI Overview
+
+Landing Page: Hero + 3 feature cards (Sentiment Analysis, AI Replies, YouTube Integration) + Connect CTA
+
+Dashboard:
+
+Channel overview with video thumbnails + sentiment heatmap
+
+Quick stats (total videos analyzed, avg sentiment, replies sent)
+
+Trends chart (avg sentiment vs time)
+
+Upgrade prompt at limit
+
+Video Detail: Overview (tab sentiment + summary), Comments, Replies
+
+Billing: Free vs Pro comparison + Stripe integration
+
+Error & Paywall Dialogs, Cookie Banner, Debug Drawer (preserved)
+
+Milestones (Updated)
+
+week_1 (Oct 7-13): Backend auth + fetch comments
+week_2 (Oct 14-20): OAuth + list videos endpoint + mock dashboard
+week_3 (Oct 21-27): Persistent analysis tables + trends chart + UI integration
+week_4 (Oct 28-Nov 1): Stripe checkout + beta + launch submission
+
+North Star
+
+Become the creator’s emotional analytics co-pilot —
+the first place YouTubers check to understand how their audience feels and what to say next.

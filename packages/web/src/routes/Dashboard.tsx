@@ -1,16 +1,21 @@
 import { Button } from '@/components/ui/button';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Video, BarChart3, MessageSquare, TrendingUp, CheckCircle2, Crown } from 'lucide-react';
+import { Video, BarChart3, MessageSquare, TrendingUp, CheckCircle2, Crown, Loader2 } from 'lucide-react';
 import { useSession } from '@/hooks/useSession';
+import { useChannelData } from '@/hooks/useChannelData';
 import { UsageMeter } from '@/components/UsageMeter';
 import { ConnectYouTubeButton } from '@/components/ConnectYouTubeButton';
-import { useEffect } from 'react';
+import { VideoCard } from '@/components/VideoCard';
+import { TrendsChart } from '@/components/TrendsChart';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { session, isLoading, refetch } = useSession();
+  const { videos, trends, isLoading: isLoadingChannel, analyze, isAnalyzing } = useChannelData();
+  const [analyzingVideoId, setAnalyzingVideoId] = useState<string | null>(null);
 
   // Handle OAuth callback
   useEffect(() => {
@@ -35,6 +40,31 @@ export default function Dashboard() {
 
   const FREE_ANALYZE_LIMIT = 2; // per week
   const FREE_REPLY_LIMIT = 1; // per day
+
+  // Handle analyze click
+  const handleAnalyze = async (videoId: string) => {
+    setAnalyzingVideoId(videoId);
+    toast.info('Analyzing...', {
+      description: 'Running sentiment analysis on comments',
+      icon: <Loader2 className="h-4 w-4 animate-spin" />,
+    });
+
+    try {
+      await analyze(videoId);
+      toast.success('Analysis complete!', {
+        description: 'Sentiment analysis has been saved',
+        icon: <CheckCircle2 className="h-4 w-4" />,
+      });
+      // Navigate to analyze page to see results
+      navigate(`/analyze/${videoId}`);
+    } catch (error: any) {
+      toast.error('Analysis failed', {
+        description: error.message || 'Failed to analyze video',
+      });
+    } finally {
+      setAnalyzingVideoId(null);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -134,27 +164,36 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* Quick Actions */}
+      {/* Your Recent Uploads */}
       <div className="rounded-lg border p-6">
-        <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
-        <div className="flex gap-4">
-          <Button onClick={() => navigate('/videos')} size="lg">
-            <BarChart3 className="mr-2 h-4 w-4" />
-            Analyze a Video
-          </Button>
-          <Button variant="outline" onClick={() => navigate('/billing')}>
-            Upgrade to Pro
-          </Button>
-        </div>
+        <h2 className="text-lg font-semibold mb-4">Your Recent Uploads</h2>
+        {isLoadingChannel ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
+              <p className="text-muted-foreground">Fetching your channel...</p>
+            </div>
+          </div>
+        ) : videos.length === 0 ? (
+          <div className="text-center text-muted-foreground py-8">
+            No videos found. Make sure your YouTube channel is connected.
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {videos.map((video) => (
+              <VideoCard
+                key={video.videoId}
+                video={video}
+                onAnalyze={handleAnalyze}
+                isAnalyzing={isAnalyzing && analyzingVideoId === video.videoId}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Recent Activity */}
-      <div className="rounded-lg border p-6">
-        <h2 className="text-lg font-semibold mb-4">Recent Activity</h2>
-        <div className="text-center text-muted-foreground py-8">
-          No recent activity. Start by selecting a video to analyze.
-        </div>
-      </div>
+      {/* Sentiment Trend */}
+      {trends.length > 0 && <TrendsChart data={trends} />}
     </div>
   );
 }

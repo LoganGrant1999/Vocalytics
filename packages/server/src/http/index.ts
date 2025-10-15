@@ -206,7 +206,12 @@ export async function createHttpServer() {
 
     // Register all protected routes in this scope
     const { youtubeApiRoutes } = await import('./routes/youtube-api.js');
+    const youtubeVideosRoute = (await import('./routes/youtube-videos.js')).default;
+    const analysisRoute = (await import('./routes/analysis.js')).default;
+
     await youtubeApiRoutes(apiInstance);
+    await youtubeVideosRoute(apiInstance);
+    await analysisRoute(apiInstance);
     await fetchCommentsRoute(apiInstance);
     await analyzeCommentsRoute(apiInstance);
     await generateRepliesRoute(apiInstance);

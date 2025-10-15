@@ -150,3 +150,113 @@ export function createOAuth2Client(): OAuth2Client {
     redirectUri: getRedirectUri(),
   });
 }
+
+/**
+ * Gets the "uploads" playlist ID for the authenticated user's channel.
+ * This is a special YouTube playlist that contains all uploads by the user.
+ *
+ * @param userId - Supabase auth user ID
+ * @returns Uploads playlist ID (e.g., "UUxxx...")
+ */
+export async function getUploadsPlaylistId(userId: string): Promise<string> {
+  const youtube = await getAuthedYouTubeForUser(userId);
+
+  const response = await youtube.channels.list({
+    part: ['contentDetails'],
+    mine: true,
+  });
+
+  const channel = response.data.items?.[0];
+  if (!channel?.contentDetails?.relatedPlaylists?.uploads) {
+    throw new Error('Could not find uploads playlist for this channel');
+  }
+
+  return channel.contentDetails.relatedPlaylists.uploads;
+}
+
+interface PlaylistVideo {
+  videoId: string;
+  title: string;
+  thumbnailUrl?: string;
+  publishedAt?: string;
+}
+
+/**
+ * Lists videos from a playlist (typically the uploads playlist).
+ *
+ * @param userId - Supabase auth user ID
+ * @param playlistId - YouTube playlist ID (e.g., uploads playlist)
+ * @param limit - Maximum number of videos to return
+ * @returns Array of video metadata
+ */
+export async function listPlaylistVideos(
+  userId: string,
+  playlistId: string,
+  limit = 20
+): Promise<PlaylistVideo[]> {
+  const youtube = await getAuthedYouTubeForUser(userId);
+
+  const response = await youtube.playlistItems.list({
+    part: ['snippet'],
+    playlistId,
+    maxResults: Math.min(limit, 50),
+  });
+
+  const videos: PlaylistVideo[] = [];
+  for (const item of response.data.items || []) {
+    const snippet = item.snippet;
+    if (!snippet?.resourceId?.videoId) continue;
+
+    videos.push({
+      videoId: snippet.resourceId.videoId,
+      title: snippet.title || 'Untitled',
+      thumbnailUrl: snippet.thumbnails?.medium?.url || snippet.thumbnails?.default?.url,
+      publishedAt: snippet.publishedAt || undefined,
+    });
+  }
+
+  return videos;
+}
+
+interface VideoStats {
+  viewCount?: number;
+  likeCount?: number;
+  commentCount?: number;
+}
+
+/**
+ * Fetches statistics for multiple videos.
+ *
+ * @param userId - Supabase auth user ID
+ * @param videoIds - Array of YouTube video IDs
+ * @returns Map of videoId -> stats
+ */
+export async function getVideoStats(
+  userId: string,
+  videoIds: string[]
+): Promise<Record<string, VideoStats>> {
+  if (videoIds.length === 0) return {};
+
+  const youtube = await getAuthedYouTubeForUser(userId);
+
+  // YouTube API allows fetching up to 50 videos at a time
+  const response = await youtube.videos.list({
+    part: ['statistics'],
+    id: videoIds,
+  });
+
+  const statsMap: Record<string, VideoStats> = {};
+
+  for (const item of response.data.items || []) {
+    if (!item.id) continue;
+
+    const stats = item.statistics;
+    statsMap[item.id] = {
+      viewCount: stats?.viewCount ? parseInt(stats.viewCount, 10) : undefined,
+      likeCount: stats?.likeCount ? parseInt(stats.likeCount, 10) : undefined,
+      commentCount: stats?.commentCount ? parseInt(stats.commentCount, 10) : undefined,
+    };
+  }
+
+  return statsMap;
+}

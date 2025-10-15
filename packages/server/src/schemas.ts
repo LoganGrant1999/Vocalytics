@@ -218,3 +218,56 @@ export function normalizeToPages(rawInput: unknown): Array<z.infer<typeof Analys
     + `shapePreview=${shapePreview}`
   );
 }
+
+// ========== Mini Creator Studio schemas ==========
+
+export const zVideoStats = z.object({
+  viewCount: z.number().int().nonnegative().optional(),
+  likeCount: z.number().int().nonnegative().optional(),
+  commentCount: z.number().int().nonnegative().optional(),
+}).partial();
+
+export type VideoStats = z.infer<typeof zVideoStats>;
+
+export const zUserVideo = z.object({
+  videoId: z.string(),
+  title: z.string(),
+  thumbnailUrl: z.string().optional(),
+  publishedAt: z.string().datetime().optional(),
+  stats: zVideoStats,
+});
+
+export type UserVideo = z.infer<typeof zUserVideo>;
+
+export const zAnalysisRequest = z.object({
+  videoId: z.string(),
+});
+
+export type AnalysisRequest = z.infer<typeof zAnalysisRequest>;
+
+export const zSentiment = z.object({
+  pos: z.number(),
+  neu: z.number(),
+  neg: z.number(),
+});
+
+export type Sentiment = z.infer<typeof zSentiment>;
+
+export const zAnalysisResult = z.object({
+  videoId: z.string(),
+  analyzedAt: z.string().datetime(),
+  sentiment: zSentiment,
+  score: z.number(),
+  topPositive: z.array(z.any()).optional(),
+  topNegative: z.array(z.any()).optional(),
+  summary: z.string().optional(),
+});
+
+export type AnalysisResult = z.infer<typeof zAnalysisResult>;
+
+export const zTrendPoint = z.object({
+  date: z.string().datetime(),
+  avgScore: z.number(),
+});
+
+export type TrendPoint = z.infer<typeof zTrendPoint>;
