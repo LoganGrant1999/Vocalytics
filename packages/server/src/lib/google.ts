@@ -27,15 +27,15 @@ export function getRedirectUri(): string {
  * Creates and returns an authenticated YouTube API client for a specific user.
  *
  * Flow:
- * 1. Fetches user's stored YouTube OAuth tokens from Supabase
+ * 1. Fetches user's stored YouTube OAuth tokens from Supabase profiles table
  * 2. Creates OAuth2 client with stored credentials
  * 3. Proactively refreshes token if expiring within 60 seconds
  * 4. Listens for token refresh events and persists new tokens back to DB
  * 5. Returns configured youtube_v3.Youtube client
  *
- * @param userId - Supabase auth user ID (auth.uid())
+ * @param userId - Supabase user profile ID
  * @returns Authenticated YouTube API client
- * @throws Error if user has no tokens (needs to connect YouTube first)
+ * @throws Error with code 'YOUTUBE_NOT_CONNECTED' if user has no tokens
  */
 export async function getAuthedYouTubeForUser(
   userId: string
@@ -43,7 +43,7 @@ export async function getAuthedYouTubeForUser(
   // Create Supabase admin client (bypasses RLS)
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-  // Fetch user's YouTube tokens from profiles table (keyed to auth.uid())
+  // Fetch user's YouTube tokens from profiles table
   const { data: profile, error} = await supabase
     .from('profiles')
     .select('youtube_access_token, youtube_refresh_token, youtube_token_expiry, youtube_scope, youtube_token_type')
@@ -51,7 +51,9 @@ export async function getAuthedYouTubeForUser(
     .single();
 
   if (error || !profile) {
-    throw new Error('YouTube not connected - profile not found');
+    const err: any = new Error('YouTube not connected - profile not found');
+    err.code = 'YOUTUBE_NOT_CONNECTED';
+    throw err;
   }
 
   const {
@@ -62,8 +64,11 @@ export async function getAuthedYouTubeForUser(
     youtube_token_type: tokenType,
   } = profile;
 
-  if (!accessToken) {
-    throw new Error('YouTube not connected - no access token found. Please connect your YouTube account via /api/youtube/connect');
+  // Check if user has connected YouTube (must have at least refresh_token or access_token)
+  if (!accessToken && !refreshToken) {
+    const err: any = new Error('YouTube not connected - no access token found. Please connect your YouTube account via /api/youtube/connect');
+    err.code = 'YOUTUBE_NOT_CONNECTED';
+    throw err;
   }
 
   // Create OAuth2 client with proper redirect URI
@@ -77,7 +82,7 @@ export async function getAuthedYouTubeForUser(
   // GOTCHA: Google often only returns refresh_token on first consent.
   // We store it and reuse it for subsequent refreshes.
   oauth2.setCredentials({
-    access_token: accessToken,
+    access_token: accessToken || undefined,
     refresh_token: refreshToken || undefined,
     scope: scope || undefined,
     token_type: tokenType || 'Bearer',
@@ -87,7 +92,7 @@ export async function getAuthedYouTubeForUser(
   // Listen for token refresh events and persist to DB
   // This fires automatically when googleapis refreshes the token
   oauth2.on('tokens', async (tokens) => {
-    console.log('[google.ts] Token refresh detected, persisting to DB');
+    console.log('[google.ts] Token refresh detected, persisting to DB for user:', userId);
 
     const updates: any = {};
 
@@ -114,25 +119,32 @@ export async function getAuthedYouTubeForUser(
     }
 
     if (Object.keys(updates).length > 0) {
-      await supabase
+      const { error: updateError } = await supabase
         .from('profiles')
         .update(updates)
         .eq('id', userId);
+
+      if (updateError) {
+        console.error('[google.ts] Failed to persist refreshed tokens:', updateError);
+      }
     }
   });
 
-  // Proactively refresh if token expires within 60 seconds
+  // Proactively refresh if token expires within 60 seconds or if no valid access token
   const expiryMs = tokenExpiry ? new Date(tokenExpiry).getTime() : 0;
   const now = Date.now();
   const willExpireSoon = expiryMs > 0 && (expiryMs - now) < 60_000;
+  const needsRefresh = !accessToken || willExpireSoon;
 
-  if (willExpireSoon) {
-    console.log('[google.ts] Token expires soon, proactively refreshing');
+  if (needsRefresh) {
+    console.log('[google.ts] Token missing or expires soon, proactively refreshing for user:', userId);
     try {
       await oauth2.getAccessToken(); // This triggers token refresh and fires 'tokens' event
-    } catch (err) {
+    } catch (err: any) {
       console.error('[google.ts] Failed to refresh token:', err);
-      throw new Error('Failed to refresh YouTube token. Please reconnect your YouTube account.');
+      const error: any = new Error('Failed to refresh YouTube token. Please reconnect your YouTube account.');
+      error.code = 'YOUTUBE_NOT_CONNECTED';
+      throw error;
     }
   }
 
@@ -152,29 +164,53 @@ export function createOAuth2Client(): OAuth2Client {
 }
 
 /**
+ * Resolves the user's channel metadata including uploads playlist ID.
+ * Returns channel ID, title, and uploads playlist ID.
+ *
+ * @param userId - Supabase user profile ID
+ * @returns Channel metadata
+ */
+export async function resolveChannelAndUploads(userId: string): Promise<{
+  channelId: string | null;
+  channelTitle: string | null;
+  uploadsId: string | null;
+}> {
+  const yt = await getAuthedYouTubeForUser(userId);
+
+  const res = await yt.channels.list({
+    mine: true,
+    part: ['snippet', 'contentDetails'],
+    maxResults: 5,
+  });
+
+  const channel = res.data.items?.[0];
+
+  return {
+    channelId: channel?.id ?? null,
+    channelTitle: channel?.snippet?.title ?? null,
+    uploadsId: channel?.contentDetails?.relatedPlaylists?.uploads ?? null,
+  };
+}
+
+/**
  * Gets the "uploads" playlist ID for the authenticated user's channel.
  * This is a special YouTube playlist that contains all uploads by the user.
  *
- * @param userId - Supabase auth user ID
+ * @param userId - Supabase user profile ID
  * @returns Uploads playlist ID (e.g., "UUxxx...")
+ * @deprecated Use resolveChannelAndUploads instead
  */
 export async function getUploadsPlaylistId(userId: string): Promise<string> {
-  const youtube = await getAuthedYouTubeForUser(userId);
+  const { uploadsId } = await resolveChannelAndUploads(userId);
 
-  const response = await youtube.channels.list({
-    part: ['contentDetails'],
-    mine: true,
-  });
-
-  const channel = response.data.items?.[0];
-  if (!channel?.contentDetails?.relatedPlaylists?.uploads) {
+  if (!uploadsId) {
     throw new Error('Could not find uploads playlist for this channel');
   }
 
-  return channel.contentDetails.relatedPlaylists.uploads;
+  return uploadsId;
 }
 
-interface PlaylistVideo {
+export interface PlaylistVideo {
   videoId: string;
   title: string;
   thumbnailUrl?: string;
@@ -183,80 +219,112 @@ interface PlaylistVideo {
 
 /**
  * Lists videos from a playlist (typically the uploads playlist).
+ * Uses authenticated YouTube client bound to the user.
  *
- * @param userId - Supabase auth user ID
+ * @param userId - Supabase user profile ID
  * @param playlistId - YouTube playlist ID (e.g., uploads playlist)
  * @param limit - Maximum number of videos to return
  * @returns Array of video metadata
+ */
+export async function listPlaylistVideosAuthed(
+  userId: string,
+  playlistId: string,
+  limit = 20
+): Promise<PlaylistVideo[]> {
+  const yt = await getAuthedYouTubeForUser(userId);
+
+  const res = await yt.playlistItems.list({
+    playlistId,
+    part: ['snippet'],
+    maxResults: Math.min(limit, 50),
+  });
+
+  const items = res.data.items ?? [];
+  return items
+    .map((it) => {
+      const sn = it.snippet;
+      return sn && sn.resourceId?.videoId
+        ? {
+            videoId: sn.resourceId.videoId,
+            title: sn.title ?? '(Untitled)',
+            thumbnailUrl: sn.thumbnails?.medium?.url ?? sn.thumbnails?.default?.url,
+            publishedAt: sn.publishedAt ?? undefined,
+          }
+        : null;
+    })
+    .filter(Boolean) as PlaylistVideo[];
+}
+
+/**
+ * Lists videos from a playlist (typically the uploads playlist).
+ *
+ * @param userId - Supabase user profile ID
+ * @param playlistId - YouTube playlist ID (e.g., uploads playlist)
+ * @param limit - Maximum number of videos to return
+ * @returns Array of video metadata
+ * @deprecated Use listPlaylistVideosAuthed instead
  */
 export async function listPlaylistVideos(
   userId: string,
   playlistId: string,
   limit = 20
 ): Promise<PlaylistVideo[]> {
-  const youtube = await getAuthedYouTubeForUser(userId);
-
-  const response = await youtube.playlistItems.list({
-    part: ['snippet'],
-    playlistId,
-    maxResults: Math.min(limit, 50),
-  });
-
-  const videos: PlaylistVideo[] = [];
-  for (const item of response.data.items || []) {
-    const snippet = item.snippet;
-    if (!snippet?.resourceId?.videoId) continue;
-
-    videos.push({
-      videoId: snippet.resourceId.videoId,
-      title: snippet.title || 'Untitled',
-      thumbnailUrl: snippet.thumbnails?.medium?.url || snippet.thumbnails?.default?.url,
-      publishedAt: snippet.publishedAt || undefined,
-    });
-  }
-
-  return videos;
+  return listPlaylistVideosAuthed(userId, playlistId, limit);
 }
 
-interface VideoStats {
+export interface VideoStats {
   viewCount?: number;
   likeCount?: number;
   commentCount?: number;
 }
 
+export type VideoStatsMap = Record<string, VideoStats>;
+
+/**
+ * Fetches statistics for multiple videos.
+ * Uses authenticated YouTube client bound to the user.
+ *
+ * @param userId - Supabase user profile ID
+ * @param videoIds - Array of YouTube video IDs
+ * @returns Map of videoId -> stats
+ */
+export async function getVideoStatsAuthed(
+  userId: string,
+  videoIds: string[]
+): Promise<VideoStatsMap> {
+  if (!videoIds.length) return {};
+
+  const yt = await getAuthedYouTubeForUser(userId);
+
+  const res = await yt.videos.list({
+    id: videoIds,
+    part: ['statistics'],
+  });
+
+  const out: VideoStatsMap = {};
+  for (const v of res.data.items ?? []) {
+    const id = v.id!;
+    out[id] = {
+      viewCount: v.statistics?.viewCount ? Number(v.statistics.viewCount) : undefined,
+      likeCount: v.statistics?.likeCount ? Number(v.statistics.likeCount) : undefined,
+      commentCount: v.statistics?.commentCount ? Number(v.statistics.commentCount) : undefined,
+    };
+  }
+
+  return out;
+}
+
 /**
  * Fetches statistics for multiple videos.
  *
- * @param userId - Supabase auth user ID
+ * @param userId - Supabase user profile ID
  * @param videoIds - Array of YouTube video IDs
  * @returns Map of videoId -> stats
+ * @deprecated Use getVideoStatsAuthed instead
  */
 export async function getVideoStats(
   userId: string,
   videoIds: string[]
-): Promise<Record<string, VideoStats>> {
-  if (videoIds.length === 0) return {};
-
-  const youtube = await getAuthedYouTubeForUser(userId);
-
-  // YouTube API allows fetching up to 50 videos at a time
-  const response = await youtube.videos.list({
-    part: ['statistics'],
-    id: videoIds,
-  });
-
-  const statsMap: Record<string, VideoStats> = {};
-
-  for (const item of response.data.items || []) {
-    if (!item.id) continue;
-
-    const stats = item.statistics;
-    statsMap[item.id] = {
-      viewCount: stats?.viewCount ? parseInt(stats.viewCount, 10) : undefined,
-      likeCount: stats?.likeCount ? parseInt(stats.likeCount, 10) : undefined,
-      commentCount: stats?.commentCount ? parseInt(stats.commentCount, 10) : undefined,
-    };
-  }
-
-  return statsMap;
+): Promise<VideoStatsMap> {
+  return getVideoStatsAuthed(userId, videoIds);
 }

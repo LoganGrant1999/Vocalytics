@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { zUserVideo } from '../../schemas';
-import { getUploadsPlaylistId, listPlaylistVideos, getVideoStats } from '../../lib/google';
+import { resolveChannelAndUploads, listPlaylistVideosAuthed, getVideoStatsAuthed } from '../../lib/google';
 import { upsertUserVideos } from '../../db/videos';
 
 const qSchema = z.object({
@@ -9,72 +9,90 @@ const qSchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 
-interface AuthRequest extends FastifyRequest {
-  user?: {
-    id: string;
-    email?: string;
-  };
-  auth?: {
-    userId?: string;
-    userDbId?: string;
-  };
-}
-
 export default async function route(app: FastifyInstance) {
   app.get('/youtube/videos', async (req: FastifyRequest, reply) => {
-    const authReq = req as AuthRequest;
-    const { mine, limit } = qSchema.parse(req.query);
-
-    // Auth is handled by the auth plugin in the parent scope
-    const userId = authReq.auth?.userId || authReq.auth?.userDbId || authReq.user?.id;
-
-    if (!userId) {
-      return reply.status(401).send({ error: 'Unauthorized' });
-    }
-
-    if (!mine) {
-      return reply.status(400).send({
-        error: 'Only mine=true is supported for now',
-      });
-    }
+    const started = Date.now();
 
     try {
-      // Get the user's uploads playlist ID
-      const uploadsId = await getUploadsPlaylistId(userId);
+      // Auth is handled by the auth plugin in the parent scope
+      const userId = req.auth?.userId || req.auth?.userDbId || req.user?.id;
 
-      // List videos from the uploads playlist
-      const videos = await listPlaylistVideos(userId, uploadsId, limit);
+      if (!userId) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+      }
 
-      // Get statistics for all videos
-      const videoIds = videos.map((v) => v.videoId);
-      const statsMap = await getVideoStats(userId, videoIds);
+      const { mine, limit } = qSchema.parse(req.query);
 
-      // Merge stats into videos
-      const mapped = videos.map((v) => ({
-        videoId: v.videoId,
-        title: v.title,
-        thumbnailUrl: v.thumbnailUrl,
-        publishedAt: v.publishedAt,
-        stats: statsMap[v.videoId] ?? {},
-      }));
-
-      // Upsert into cache
-      await upsertUserVideos(userId, mapped);
-
-      return reply.send(mapped);
-    } catch (error: any) {
-      console.error('[youtube-videos] Error:', error);
-
-      if (error.message?.includes('YouTube not connected')) {
-        return reply.status(403).send({
-          error: 'YouTube not connected',
-          message: 'Please connect your YouTube account first',
+      if (!mine) {
+        return reply.status(400).send({
+          error: 'Only mine=true is supported for now',
         });
       }
 
-      return reply.status(500).send({
-        error: 'Failed to fetch videos',
-        message: error.message,
+      // Resolve channel and uploads playlist
+      const { channelId, channelTitle, uploadsId } = await resolveChannelAndUploads(userId);
+
+      if (!uploadsId) {
+        app.log.warn(
+          { userId, channelId, channelTitle },
+          'No uploads playlist found'
+        );
+        // Connected but no uploads playlist (brand account or no channel)
+        return reply.code(200).send([]);
+      }
+
+      // List videos from uploads playlist
+      const videos = await listPlaylistVideosAuthed(userId, uploadsId, limit);
+
+      // Get statistics for all videos
+      const stats = await getVideoStatsAuthed(
+        userId,
+        videos.map((v) => v.videoId)
+      );
+
+      // Merge stats into videos
+      const payload = videos.map((v) =>
+        zUserVideo.parse({
+          videoId: v.videoId,
+          title: v.title,
+          thumbnailUrl: v.thumbnailUrl,
+          publishedAt: v.publishedAt,
+          stats: stats[v.videoId] ?? {},
+        })
+      );
+
+      // Upsert into cache
+      await upsertUserVideos(userId, payload);
+
+      app.log.info(
+        {
+          userId,
+          count: payload.length,
+          ms: Date.now() - started,
+          channelTitle,
+        },
+        'Listed uploads'
+      );
+
+      // Hint to UI which channel is connected
+      reply.header('x-youtube-channel', channelTitle ?? '');
+      return reply.send(payload);
+    } catch (error: any) {
+      const userId = req.auth?.userId || req.auth?.userDbId || req.user?.id;
+
+      // Handle YouTube not connected error with specific error code
+      if (error.code === 'YOUTUBE_NOT_CONNECTED' || error.message?.includes('YouTube not connected')) {
+        app.log.warn({ userId }, 'YouTube not connected');
+        return reply.code(403).send({
+          error: 'YOUTUBE_NOT_CONNECTED',
+          message: 'YouTube account not connected. Please connect to list uploads.',
+        });
+      }
+
+      app.log.error({ err: error, userId }, 'youtube/videos error');
+      return reply.code(500).send({
+        error: 'VIDEOS_FETCH_FAILED',
+        message: 'Failed to list uploads',
       });
     }
   });

@@ -1,7 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, waitFor } from '@/test/testUtils';
-import { userEvent } from '@testing-library/user-event';
+import { renderWithProviders, screen, waitFor } from '@/test/testUtils';
+import userEvent from '@testing-library/user-event';
 import Dashboard from '../Dashboard';
+
+import { fixtures } from '@/test/fixtures';
 
 // Mock the useSession hook
 vi.mock('@/hooks/useSession', () => ({
@@ -19,20 +21,51 @@ vi.mock('@/hooks/useSession', () => ({
   }),
 }));
 
-// Mock useNavigate
+// Mock useAnalytics
+vi.mock('@/hooks/useAnalytics', () => ({
+  useAnalytics: () => ({
+    track: vi.fn(),
+  }),
+}));
+
+// Mock useChannelData to return fixture data directly
+vi.mock('@/hooks/useChannelData', () => ({
+  useChannelData: () => {
+    const analysisMap = new Map(
+      fixtures.analysesList.map((a) => [a.videoId, a.score])
+    );
+
+    const videos = fixtures.videos.map((v) => ({
+      ...v,
+      sentimentScore: analysisMap.get(v.videoId),
+    }));
+
+    return {
+      videos,
+      analyses: fixtures.analysesList,
+      trends: fixtures.trends,
+      isLoading: false,
+      analyze: vi.fn(),
+      isAnalyzing: false,
+    };
+  },
+}));
+
+// Mock useNavigate and useSearchParams
 const mockNavigate = vi.fn();
+const mockSetSearchParams = vi.fn();
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
   return {
     ...actual,
     useNavigate: () => mockNavigate,
-    useSearchParams: () => [new URLSearchParams(), vi.fn()],
+    useSearchParams: () => [new URLSearchParams(), mockSetSearchParams],
   };
 });
 
 describe('Dashboard', () => {
   it('should render "Your Recent Uploads" section', async () => {
-    render(<Dashboard />);
+    renderWithProviders(<Dashboard />);
 
     await waitFor(() => {
       expect(screen.getByText('Your Recent Uploads')).toBeInTheDocument();
@@ -40,42 +73,38 @@ describe('Dashboard', () => {
   });
 
   it('should display 3 video cards with titles', async () => {
-    render(<Dashboard />);
+    renderWithProviders(<Dashboard />);
 
-    await waitFor(() => {
-      expect(screen.getByText('How I Edit')).toBeInTheDocument();
-      expect(screen.getByText('My Gear Setup')).toBeInTheDocument();
-      expect(screen.getByText('Studio Tour')).toBeInTheDocument();
-    });
+    // Use findByText for async data
+    expect(await screen.findByText('How I Edit')).toBeInTheDocument();
+    expect(await screen.findByText('My Gear Setup')).toBeInTheDocument();
+    expect(await screen.findByText('Studio Tour')).toBeInTheDocument();
   });
 
   it('should show sentiment badge on analyzed video', async () => {
-    render(<Dashboard />);
+    renderWithProviders(<Dashboard />);
 
-    await waitFor(() => {
-      // vid-a has score 0.48 in fixtures
-      expect(screen.getByText('Score: 0.48')).toBeInTheDocument();
-    });
+    // vid-a has score 0.48 in fixtures
+    expect(await screen.findByText('Score: 0.48')).toBeInTheDocument();
   });
 
   it('should show "Not analyzed" badge on unanalyzed videos', async () => {
-    render(<Dashboard />);
+    renderWithProviders(<Dashboard />);
 
-    await waitFor(() => {
-      // vid-b and vid-c don't have analyses
-      const notAnalyzedBadges = screen.getAllByText('Not analyzed');
-      expect(notAnalyzedBadges.length).toBeGreaterThanOrEqual(2);
-    });
+    // Wait for data to load first
+    await screen.findByText('How I Edit');
+
+    // vid-b and vid-c don't have analyses
+    const notAnalyzedBadges = screen.getAllByText('Not analyzed');
+    expect(notAnalyzedBadges.length).toBeGreaterThanOrEqual(2);
   });
 
   it('should trigger analysis when Analyze button is clicked', async () => {
     const user = userEvent.setup();
-    render(<Dashboard />);
+    renderWithProviders(<Dashboard />);
 
     // Wait for videos to load
-    await waitFor(() => {
-      expect(screen.getByText('My Gear Setup')).toBeInTheDocument();
-    });
+    await screen.findByText('My Gear Setup');
 
     // Find all Analyze buttons
     const analyzeButtons = screen.getAllByRole('button', {
@@ -85,17 +114,16 @@ describe('Dashboard', () => {
     // Click the first Analyze button
     await user.click(analyzeButtons[0]);
 
-    // Should show "Analyzing..." toast or button state
+    // Should navigate to analyze page
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalled();
     });
   });
 
   it('should display trends chart when trend data exists', async () => {
-    render(<Dashboard />);
+    renderWithProviders(<Dashboard />);
 
-    await waitFor(() => {
-      expect(screen.getByText('Sentiment Trend')).toBeInTheDocument();
-    });
+    // Wait for async data
+    expect(await screen.findByText('Sentiment Trend')).toBeInTheDocument();
   });
 });

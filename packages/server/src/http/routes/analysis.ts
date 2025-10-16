@@ -11,25 +11,13 @@ const trendsQuerySchema = z.object({
   days: z.coerce.number().int().min(1).max(365).default(90),
 });
 
-interface AuthRequest extends FastifyRequest {
-  user?: {
-    id: string;
-    email?: string;
-  };
-  auth?: {
-    userId?: string;
-    userDbId?: string;
-  };
-}
-
 export default async function route(app: FastifyInstance) {
   // POST /analysis/:videoId - Run analysis on a video and persist
   app.post('/analysis/:videoId', async (req: FastifyRequest, reply) => {
-    const authReq = req as AuthRequest;
     const { videoId } = pSchema.parse(req.params);
 
     // Auth is handled by the auth plugin in the parent scope
-    const userId = authReq.auth?.userId || authReq.auth?.userDbId || authReq.user?.id;
+    const userId = req.auth?.userId || req.auth?.userDbId || req.user?.id;
 
     if (!userId) {
       return reply.status(401).send({ error: 'Unauthorized' });
@@ -126,10 +114,10 @@ export default async function route(app: FastifyInstance) {
     } catch (error: any) {
       console.error('[analysis] POST error:', error);
 
-      if (error.message?.includes('YouTube not connected')) {
+      if (error.code === 'YOUTUBE_NOT_CONNECTED' || error.message?.includes('YouTube not connected')) {
         return reply.status(403).send({
-          error: 'YouTube not connected',
-          message: 'Please connect your YouTube account first',
+          error: 'YOUTUBE_NOT_CONNECTED',
+          message: 'YouTube account not connected. Please connect your YouTube account first.',
         });
       }
 
@@ -142,10 +130,10 @@ export default async function route(app: FastifyInstance) {
 
   // GET /analysis/:videoId - Get latest analysis for a video
   app.get('/analysis/:videoId', async (req: FastifyRequest, reply) => {
-    const authReq = req as AuthRequest;
+    
     const { videoId } = pSchema.parse(req.params);
 
-    const userId = authReq.auth?.userId || authReq.auth?.userDbId || authReq.user?.id;
+    const userId = req.auth?.userId || req.auth?.userDbId || req.user?.id;
 
     if (!userId) {
       return reply.status(401).send({ error: 'Unauthorized' });
@@ -183,8 +171,8 @@ export default async function route(app: FastifyInstance) {
 
   // GET /analysis - List all latest analyses for user
   app.get('/analysis', async (req: FastifyRequest, reply) => {
-    const authReq = req as AuthRequest;
-    const userId = authReq.auth?.userId || authReq.auth?.userDbId || authReq.user?.id;
+    
+    const userId = req.auth?.userId || req.auth?.userDbId || req.user?.id;
 
     if (!userId) {
       return reply.status(401).send({ error: 'Unauthorized' });
@@ -218,8 +206,8 @@ export default async function route(app: FastifyInstance) {
 
   // GET /analysis/trends - Get trend data
   app.get('/analysis/trends', async (req: FastifyRequest, reply) => {
-    const authReq = req as AuthRequest;
-    const userId = authReq.auth?.userId || authReq.auth?.userDbId || authReq.user?.id;
+    
+    const userId = req.auth?.userId || req.auth?.userDbId || req.user?.id;
 
     if (!userId) {
       return reply.status(401).send({ error: 'Unauthorized' });

@@ -1,7 +1,7 @@
-import { ReactElement } from 'react';
+import { ReactElement, ReactNode } from 'react';
 import { render, RenderOptions } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom';
 
 // Create a new QueryClient for each test
 function createTestQueryClient() {
@@ -19,26 +19,28 @@ function createTestQueryClient() {
   });
 }
 
-interface AllTheProvidersProps {
-  children: React.ReactNode;
+interface RenderWithProvidersOptions extends Omit<RenderOptions, 'wrapper'> {
+  route?: string;
 }
 
-function AllTheProviders({ children }: AllTheProvidersProps) {
+export function renderWithProviders(
+  ui: ReactElement,
+  { route = '/', ...renderOptions }: RenderWithProvidersOptions = {}
+) {
   const queryClient = createTestQueryClient();
 
-  return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>{children}</BrowserRouter>
-    </QueryClientProvider>
-  );
-}
+  function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <MemoryRouter initialEntries={[route]}>
+        <QueryClientProvider client={queryClient}>
+          {children}
+        </QueryClientProvider>
+      </MemoryRouter>
+    );
+  }
 
-function customRender(
-  ui: ReactElement,
-  options?: Omit<RenderOptions, 'wrapper'>
-) {
-  return render(ui, { wrapper: AllTheProviders, ...options });
+  return render(ui, { wrapper: Wrapper, ...renderOptions });
 }
 
 export * from '@testing-library/react';
-export { customRender as render };
+export { renderWithProviders as render };

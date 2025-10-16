@@ -149,12 +149,25 @@ export async function youtubeOAuthRoutes(fastify: FastifyInstance) {
         updates.youtube_token_expiry = new Date(tokens.expiry_date).toISOString();
       }
 
-      await supabase
+      const { error: updateError } = await supabase
         .from('profiles')
         .update(updates)
         .eq('id', userId);
 
-      console.log('[youtube-oauth.ts] OAuth callback success, tokens stored for user:', userId);
+      if (updateError) {
+        console.error('[youtube-oauth.ts] Failed to store tokens:', updateError);
+        return reply.code(500).send({
+          error: 'Database Error',
+          message: 'Failed to store YouTube tokens',
+        });
+      }
+
+      console.log('[youtube-oauth.ts] OAuth callback success', {
+        userId,
+        hasRefreshToken: !!refreshToken,
+        isNewUser: !existingUser,
+        scopes: tokens.scope,
+      });
 
       // Generate JWT token for session
       const jwtToken = generateToken({

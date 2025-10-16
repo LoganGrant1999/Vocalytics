@@ -7,9 +7,12 @@ import posthog from 'posthog-js';
 export type AnalyticsEvent =
   | { name: 'connect_started' }
   | { name: 'connect_success'; properties?: { scopes?: string[] } }
+  | { name: 'videos_listed'; properties?: { count?: number } }
   | { name: 'analyze_started'; properties?: { videoId?: string } }
   | { name: 'analyze_success'; properties?: { videoId?: string; commentCount?: number } }
   | { name: 'analyze_failure'; properties?: { videoId?: string; error?: string } }
+  | { name: 'analysis_started'; properties?: { videoId?: string } }
+  | { name: 'analysis_completed'; properties?: { videoId?: string; score?: number } }
   | { name: 'replies_generated'; properties?: { commentId?: string; replyCount?: number } }
   | { name: 'paywall_viewed'; properties?: { context?: string } }
   | { name: 'checkout_started' }

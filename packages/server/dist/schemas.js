@@ -233,3 +233,37 @@ export function normalizeToPages(rawInput) {
         + 'Expect {analysis:{items:[]}} | {items:[]} | array of pages | array of items. '
         + `shapePreview=${shapePreview}`);
 }
+// ========== Mini Creator Studio schemas ==========
+export const zVideoStats = z.object({
+    viewCount: z.number().int().nonnegative().optional(),
+    likeCount: z.number().int().nonnegative().optional(),
+    commentCount: z.number().int().nonnegative().optional(),
+}).partial();
+export const zUserVideo = z.object({
+    videoId: z.string(),
+    title: z.string(),
+    thumbnailUrl: z.string().optional(),
+    publishedAt: z.string().datetime().optional(),
+    stats: zVideoStats,
+});
+export const zAnalysisRequest = z.object({
+    videoId: z.string(),
+});
+export const zSentiment = z.object({
+    pos: z.number(),
+    neu: z.number(),
+    neg: z.number(),
+});
+export const zAnalysisResult = z.object({
+    videoId: z.string(),
+    analyzedAt: z.string().datetime(),
+    sentiment: zSentiment,
+    score: z.number(),
+    topPositive: z.array(z.any()).optional(),
+    topNegative: z.array(z.any()).optional(),
+    summary: z.string().optional(),
+});
+export const zTrendPoint = z.object({
+    date: z.string().datetime(),
+    avgScore: z.number(),
+});

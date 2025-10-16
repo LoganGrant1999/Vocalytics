@@ -166,6 +166,9 @@ describe('POST /api/analysis/:videoId', () => {
         reason: 'FREE_TIER_EXCEEDED',
         feature: 'analyze',
         upgradeUrl: 'https://example.com/upgrade',
+        manageUrl: 'https://example.com/manage',
+        limits: { weeklyAnalyze: 2, dailyReply: 1 },
+        usage: { commentsAnalyzed: 2, repliesGenerated: 0 },
       },
     });
 

@@ -1,6 +1,42 @@
 import { VideoIdInput } from '@/components/VideoIdInput';
+import { useChannelData } from '@/hooks/useChannelData';
+import { VideoCard } from '@/components/VideoCard';
+import { ConnectYouTubeButton } from '@/components/ConnectYouTubeButton';
+import { Video, Loader2, CheckCircle2 } from 'lucide-react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 export default function Videos() {
+  const navigate = useNavigate();
+  const { videos, channelTitle, isLoading, isYouTubeNotConnected, analyze, isAnalyzing } = useChannelData();
+  const [analyzingVideoId, setAnalyzingVideoId] = useState<string | null>(null);
+
+  // Handle analyze click
+  const handleAnalyze = async (videoId: string) => {
+    setAnalyzingVideoId(videoId);
+    toast.info('Analyzing...', {
+      description: 'Running sentiment analysis on comments',
+      icon: <Loader2 className="h-4 w-4 animate-spin" />,
+    });
+
+    try {
+      await analyze(videoId);
+      toast.success('Analysis complete!', {
+        description: 'Sentiment analysis has been saved',
+        icon: <CheckCircle2 className="h-4 w-4" />,
+      });
+      // Navigate to analyze page to see results
+      navigate(`/analyze/${videoId}`);
+    } catch (error: any) {
+      toast.error('Analysis failed', {
+        description: error.message || 'Failed to analyze video',
+      });
+    } finally {
+      setAnalyzingVideoId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -12,8 +48,54 @@ export default function Videos() {
         </div>
       </div>
 
+      {/* Your Uploads Grid */}
+      {isLoading ? (
+        <div className="rounded-lg border p-6">
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
+              <p className="text-muted-foreground">Loading your videos...</p>
+            </div>
+          </div>
+        </div>
+      ) : isYouTubeNotConnected ? (
+        <div className="rounded-lg border p-6">
+          <div className="flex flex-col items-center justify-center py-12 px-4">
+            <Video className="h-16 w-16 mb-4 text-muted-foreground" />
+            <h3 className="text-xl font-semibold mb-2">Connect Your YouTube Channel</h3>
+            <p className="text-muted-foreground text-center mb-6 max-w-md">
+              Connect your YouTube account to see your uploads here. You can still analyze any video using the form below.
+            </p>
+            <ConnectYouTubeButton size="lg" />
+          </div>
+        </div>
+      ) : videos.length > 0 ? (
+        <div className="rounded-lg border p-6">
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold">Your Recent Uploads</h3>
+            {channelTitle && (
+              <p className="text-sm text-muted-foreground mt-1">
+                Connected as <span className="font-medium">{channelTitle}</span>
+              </p>
+            )}
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {videos.map((video) => (
+              <VideoCard
+                key={video.videoId}
+                video={video}
+                onAnalyze={handleAnalyze}
+                isAnalyzing={isAnalyzing && analyzingVideoId === video.videoId}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Manual Input (always available as fallback) */}
       <div className="space-y-6">
         <div className="rounded-lg border p-6 bg-muted/50">
+          <h3 className="text-lg font-semibold mb-2">Analyze Any Video</h3>
           <p className="text-sm text-muted-foreground mb-4">
             Enter a YouTube video URL or ID to analyze its comments.
           </p>

@@ -18,6 +18,9 @@ if (process.env.NODE_ENV !== 'production') {
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
 import fastifyCookie from '@fastify/cookie';
+import corsPlugin from './corsPlugin.js';
+import headersPlugin from './headersPlugin.js';
+import loggingPlugin from './loggingPlugin.js';
 import authPlugin from './auth.js';
 import buildVerifyToken from './verifyToken.js';
 import { fetchCommentsRoute } from './routes/fetch-comments.js';
@@ -29,7 +32,6 @@ import { billingRoutes } from './routes/billing.js';
 import { webhookRoute } from './routes/webhook.js';
 import { youtubeRoutes } from './routes/youtube.js';
 import { createRateLimiter, startRateLimitCleanup } from './rateLimit.js';
-import { corsMiddleware } from './cors.js';
 import { validateEnv } from './envValidation.js';
 import { createClient } from '@supabase/supabase-js';
 import type { IncomingMessage, ServerResponse } from 'http';
@@ -37,14 +39,18 @@ import type { IncomingMessage, ServerResponse } from 'http';
 export async function createHttpServer() {
   const fastify = Fastify({
     logger: true,
-    // Body size limit for JSON payloads (public APIs)
-    bodyLimit: 1 * 1024 * 1024, // 1MB
-    requestIdHeader: 'x-request-id', // Use X-Request-Id header
+    // Body size limit for JSON payloads (1MB max)
+    bodyLimit: 1_000_000,
+    requestIdHeader: 'x-request-id',
     genReqId: (req) => {
-      // Use provided request ID or generate one
       return (req.headers['x-request-id'] as string) || `req_${Date.now()}_${Math.random().toString(36).slice(2)}`;
     },
   });
+
+  // Register core plugins
+  await fastify.register(corsPlugin);
+  await fastify.register(headersPlugin);
+  await fastify.register(loggingPlugin);
 
   // Register cookie plugin for JWT session management
   await fastify.register(fastifyCookie, {
@@ -57,48 +63,9 @@ export async function createHttpServer() {
     },
   });
 
-  // CORS middleware (strict allowlist)
-  fastify.addHook('onRequest', corsMiddleware);
-
   // Rate limiting (60 req/min default)
   const globalRateLimit = createRateLimiter(60);
   fastify.addHook('onRequest', globalRateLimit);
-
-  // Security headers
-  fastify.addHook('onSend', async (request, reply) => {
-    reply.header('X-Content-Type-Options', 'nosniff');
-    reply.header('Referrer-Policy', 'strict-origin-when-cross-origin');
-    reply.header('X-Frame-Options', 'DENY');
-    reply.header('X-XSS-Protection', '1; mode=block'); // Legacy but harmless
-    reply.header('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
-
-    // Request ID already set by Fastify
-    reply.header('X-Request-Id', request.id);
-  });
-
-  // Structured logging
-  fastify.addHook('onRequest', async (request) => {
-    const userId = (request as any).auth?.userId || (request as any).auth?.userDbId;
-    fastify.log.info({
-      requestId: request.id,
-      method: request.method,
-      url: request.url,
-      userId: userId || 'anonymous',
-    }, 'Incoming request');
-  });
-
-  fastify.addHook('onResponse', async (request, reply) => {
-    const userId = (request as any).auth?.userId || (request as any).auth?.userDbId;
-    const duration = reply.getResponseTime();
-    fastify.log.info({
-      requestId: request.id,
-      method: request.method,
-      url: request.url,
-      status: reply.statusCode,
-      duration: Math.round(duration),
-      userId: userId || 'anonymous',
-    }, 'Request completed');
-  });
 
   // Add raw body support for webhooks
   fastify.addContentTypeParser(
@@ -208,6 +175,7 @@ export async function createHttpServer() {
     const { youtubeApiRoutes } = await import('./routes/youtube-api.js');
     const youtubeVideosRoute = (await import('./routes/youtube-videos.js')).default;
     const analysisRoute = (await import('./routes/analysis.js')).default;
+    const debugYoutubeRoute = (await import('./routes/debug-youtube.js')).default;
 
     await youtubeApiRoutes(apiInstance);
     await youtubeVideosRoute(apiInstance);
@@ -218,6 +186,11 @@ export async function createHttpServer() {
     await summarizeSentimentRoute(apiInstance);
     await meRoutes(apiInstance);
     await billingRoutes(apiInstance);
+
+    // Debug endpoint (development only - TODO: remove before production launch)
+    if (process.env.NODE_ENV !== 'production') {
+      await debugYoutubeRoute(apiInstance);
+    }
   }, { prefix: '/api' });
 
   return fastify;

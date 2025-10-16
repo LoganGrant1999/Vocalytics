@@ -5,9 +5,16 @@ import path from 'path';
 export default defineConfig({
   plugins: [react()],
   test: {
-    globals: true,
-    environment: 'happy-dom',
+    environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
+    env: {
+      VITE_API_BASE: '',
+    },
+    css: false,
+    globals: true,
+    restoreMocks: true,
+    clearMocks: true,
+    mockReset: true,
   },
   resolve: {
     alias: {

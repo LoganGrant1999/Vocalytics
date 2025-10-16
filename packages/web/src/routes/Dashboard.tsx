@@ -14,7 +14,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { session, isLoading, refetch } = useSession();
-  const { videos, trends, isLoading: isLoadingChannel, analyze, isAnalyzing } = useChannelData();
+  const { videos, channelTitle, trends, isLoading: isLoadingChannel, isYouTubeNotConnected, analyze, isAnalyzing } = useChannelData();
   const [analyzingVideoId, setAnalyzingVideoId] = useState<string | null>(null);
 
   // Handle OAuth callback
@@ -162,34 +162,6 @@ export default function Dashboard() {
           value="-"
           icon={<TrendingUp className="h-4 w-4 text-muted-foreground" />}
         />
-      </div>
-
-      {/* Your Recent Uploads */}
-      <div className="rounded-lg border p-6">
-        <h2 className="text-lg font-semibold mb-4">Your Recent Uploads</h2>
-        {isLoadingChannel ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="text-center">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
-              <p className="text-muted-foreground">Fetching your channel...</p>
-            </div>
-          </div>
-        ) : videos.length === 0 ? (
-          <div className="text-center text-muted-foreground py-8">
-            No videos found. Make sure your YouTube channel is connected.
-          </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {videos.map((video) => (
-              <VideoCard
-                key={video.videoId}
-                video={video}
-                onAnalyze={handleAnalyze}
-                isAnalyzing={isAnalyzing && analyzingVideoId === video.videoId}
-              />
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Sentiment Trend */}

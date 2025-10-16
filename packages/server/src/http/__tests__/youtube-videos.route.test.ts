@@ -15,6 +15,10 @@ vi.mock('../auth.js', async () => {
 
 // Mock the google lib
 vi.mock('../../lib/google.js', () => ({
+  resolveChannelAndUploads: vi.fn(),
+  listPlaylistVideosAuthed: vi.fn(),
+  getVideoStatsAuthed: vi.fn(),
+  // Legacy functions (deprecated but kept for compatibility)
   getUploadsPlaylistId: vi.fn(),
   listPlaylistVideos: vi.fn(),
   getVideoStats: vi.fn(),
@@ -92,9 +96,13 @@ describe('GET /api/youtube/videos', () => {
     };
 
     // Setup mocks
-    vi.mocked(googleLib.getUploadsPlaylistId).mockResolvedValue('UU123');
-    vi.mocked(googleLib.listPlaylistVideos).mockResolvedValue(mockVideos);
-    vi.mocked(googleLib.getVideoStats).mockResolvedValue(mockStats);
+    vi.mocked(googleLib.resolveChannelAndUploads).mockResolvedValue({
+      channelId: 'UC123',
+      channelTitle: 'Test Channel',
+      uploadsId: 'UU123',
+    });
+    vi.mocked(googleLib.listPlaylistVideosAuthed).mockResolvedValue(mockVideos);
+    vi.mocked(googleLib.getVideoStatsAuthed).mockResolvedValue(mockStats);
     vi.mocked(videosDb.upsertUserVideos).mockResolvedValue(undefined);
 
     const response = await app.inject({
@@ -112,19 +120,19 @@ describe('GET /api/youtube/videos', () => {
     expect(data[2].videoId).toBe('vid3');
 
     // Verify mocks were called
-    expect(googleLib.getUploadsPlaylistId).toHaveBeenCalled();
-    expect(googleLib.listPlaylistVideos).toHaveBeenCalled();
-    expect(googleLib.getVideoStats).toHaveBeenCalled();
+    expect(googleLib.resolveChannelAndUploads).toHaveBeenCalled();
+    expect(googleLib.listPlaylistVideosAuthed).toHaveBeenCalled();
+    expect(googleLib.getVideoStatsAuthed).toHaveBeenCalled();
     expect(videosDb.upsertUserVideos).toHaveBeenCalled();
   });
 
   it('should return 403 if YouTube not connected', async () => {
     const app = await createHttpServer();
 
-    // Mock YouTube not connected error
-    vi.mocked(googleLib.getUploadsPlaylistId).mockRejectedValue(
-      new Error('YouTube not connected')
-    );
+    // Mock YouTube not connected error with proper error code
+    const error: any = new Error('YouTube not connected');
+    error.code = 'YOUTUBE_NOT_CONNECTED';
+    vi.mocked(googleLib.resolveChannelAndUploads).mockRejectedValue(error);
 
     const response = await app.inject({
       method: 'GET',
@@ -133,15 +141,20 @@ describe('GET /api/youtube/videos', () => {
 
     expect(response.statusCode).toBe(403);
     const data = JSON.parse(response.body);
-    expect(data.error).toBe('YouTube not connected');
+    expect(data.error).toBe('YOUTUBE_NOT_CONNECTED');
+    expect(data.message).toContain('YouTube account not connected');
   });
 
   it('should respect limit parameter', async () => {
     const app = await createHttpServer();
 
-    vi.mocked(googleLib.getUploadsPlaylistId).mockResolvedValue('UU123');
-    vi.mocked(googleLib.listPlaylistVideos).mockResolvedValue([]);
-    vi.mocked(googleLib.getVideoStats).mockResolvedValue({});
+    vi.mocked(googleLib.resolveChannelAndUploads).mockResolvedValue({
+      channelId: 'UC123',
+      channelTitle: 'Test Channel',
+      uploadsId: 'UU123',
+    });
+    vi.mocked(googleLib.listPlaylistVideosAuthed).mockResolvedValue([]);
+    vi.mocked(googleLib.getVideoStatsAuthed).mockResolvedValue({});
     vi.mocked(videosDb.upsertUserVideos).mockResolvedValue(undefined);
 
     await app.inject({
@@ -149,6 +162,6 @@ describe('GET /api/youtube/videos', () => {
       url: '/api/youtube/videos?mine=true&limit=10',
     });
 
-    expect(googleLib.listPlaylistVideos).toHaveBeenCalled();
+    expect(googleLib.listPlaylistVideosAuthed).toHaveBeenCalled();
   });
 });

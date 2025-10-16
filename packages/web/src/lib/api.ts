@@ -62,9 +62,25 @@ export type ApiError<
   : never;
 
 /**
+ * Raw OpenAPI client - use for direct API calls
+ * Exported for legacy code and advanced use cases
+ */
+export const apiClient = client;
+
+/**
  * Typed API wrapper methods for convenience
  */
 export const api = {
+  /**
+   * Raw client methods for backward compatibility
+   * @deprecated Use specific api.youtube or api.analysis methods instead
+   */
+  GET: client.GET.bind(client),
+  POST: client.POST.bind(client),
+  PUT: client.PUT.bind(client),
+  PATCH: client.PATCH.bind(client),
+  DELETE: client.DELETE.bind(client),
+
   /**
    * YouTube API methods
    */
@@ -105,7 +121,7 @@ export const api = {
       });
 
       if (result.error) {
-        throw new Error(result.error.error || 'Failed to run analysis');
+        throw new Error(String((result.error as any)?.error || (result.error as any)?.code || 'Failed to run analysis'));
       }
 
       return result.data;
@@ -122,7 +138,7 @@ export const api = {
       });
 
       if (result.error) {
-        throw new Error(result.error.error || 'Failed to get analysis');
+        throw new Error(String((result.error as any)?.error || (result.error as any)?.code || 'Failed to get analysis'));
       }
 
       return result.data;
@@ -135,7 +151,8 @@ export const api = {
       const result = await client.GET('/api/analysis');
 
       if (result.error) {
-        throw new Error(result.error.error || 'Failed to list analyses');
+        // @ts-expect-error - Error type inference issue
+        throw new Error(result.error.error || result.error.code || 'Failed to list analyses');
       }
 
       return result.data;
@@ -152,7 +169,8 @@ export const api = {
       });
 
       if (result.error) {
-        throw new Error(result.error.error || 'Failed to get trends');
+        // @ts-expect-error - Error type inference issue
+        throw new Error(result.error.error || result.error.code || 'Failed to get trends');
       }
 
       return result.data;

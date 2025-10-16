@@ -15,11 +15,12 @@ const CRITICAL_ENV_VARS: EnvCheck[] = [
   { key: 'SUPABASE_SERVICE_ROLE_KEY', required: true, description: 'Supabase service role key' },
   { key: 'STRIPE_SECRET_KEY', required: true, description: 'Stripe secret key' },
   { key: 'STRIPE_WEBHOOK_SECRET', required: true, description: 'Stripe webhook secret' },
-  { key: 'GOOGLE_CLIENT_ID', required: false, description: 'Google OAuth client ID (YouTube)' },
-  { key: 'GOOGLE_CLIENT_SECRET', required: false, description: 'Google OAuth client secret (YouTube)' },
+  { key: 'GOOGLE_CLIENT_ID', required: true, description: 'Google OAuth client ID (required for YouTube OAuth)' },
+  { key: 'GOOGLE_CLIENT_SECRET', required: true, description: 'Google OAuth client secret (required for YouTube OAuth)' },
+  { key: 'GOOGLE_REDIRECT_URI_LOCAL', required: false, description: 'Google OAuth redirect URI (local dev)' },
   { key: 'GOOGLE_REDIRECT_URI_PROD', required: false, description: 'Google OAuth redirect URI (production)' },
   { key: 'CORS_ORIGINS', required: false, description: 'Comma-separated allowed CORS origins' },
-  { key: 'OPENAI_API_KEY', required: false, description: 'OpenAI API key for LLM features' },
+  { key: 'OPENAI_API_KEY', required: true, description: 'OpenAI API key for LLM features' },
 ];
 
 /**
