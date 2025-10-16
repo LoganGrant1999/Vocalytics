@@ -9,33 +9,7 @@ import { toast } from 'sonner';
 
 export default function Videos() {
   const navigate = useNavigate();
-  const { videos, channelTitle, isLoading, isYouTubeNotConnected, analyze, isAnalyzing } = useChannelData();
-  const [analyzingVideoId, setAnalyzingVideoId] = useState<string | null>(null);
-
-  // Handle analyze click
-  const handleAnalyze = async (videoId: string) => {
-    setAnalyzingVideoId(videoId);
-    toast.info('Analyzing...', {
-      description: 'Running sentiment analysis on comments',
-      icon: <Loader2 className="h-4 w-4 animate-spin" />,
-    });
-
-    try {
-      await analyze(videoId);
-      toast.success('Analysis complete!', {
-        description: 'Sentiment analysis has been saved',
-        icon: <CheckCircle2 className="h-4 w-4" />,
-      });
-      // Navigate to analyze page to see results
-      navigate(`/analyze/${videoId}`);
-    } catch (error: any) {
-      toast.error('Analysis failed', {
-        description: error.message || 'Failed to analyze video',
-      });
-    } finally {
-      setAnalyzingVideoId(null);
-    }
-  };
+  const { videos, channelTitle, isLoading, isYouTubeNotConnected } = useChannelData();
 
   return (
     <div className="space-y-6">
@@ -84,8 +58,6 @@ export default function Videos() {
               <VideoCard
                 key={video.videoId}
                 video={video}
-                onAnalyze={handleAnalyze}
-                isAnalyzing={isAnalyzing && analyzingVideoId === video.videoId}
               />
             ))}
           </div>

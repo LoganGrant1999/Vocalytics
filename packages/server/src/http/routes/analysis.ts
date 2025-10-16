@@ -34,8 +34,8 @@ export default async function route(app: FastifyInstance) {
         return reply.code(402).send(enforcement.error);
       }
 
-      // Fetch comments for the video
-      const { comments } = await fetchComments(videoId, undefined, 50);
+      // Fetch comments for the video using the user's authenticated YouTube access
+      const { comments } = await fetchComments(videoId, undefined, 20, undefined, false, 'time', userId);
 
       if (comments.length === 0) {
         return reply.code(400).send({
@@ -47,23 +47,33 @@ export default async function route(app: FastifyInstance) {
       // Run sentiment analysis
       const analysis = await analyzeComments(comments);
 
-      // Calculate aggregate sentiment
-      const sentimentCounts = { pos: 0, neu: 0, neg: 0 };
-      for (const a of analysis) {
-        if (a.category === 'positive') sentimentCounts.pos++;
-        else if (a.category === 'negative') sentimentCounts.neg++;
-        else sentimentCounts.neu++;
-      }
-
+      // Calculate aggregate sentiment as average of individual sentiment scores
       const total = analysis.length;
+      const sentimentSums = analysis.reduce(
+        (acc, a) => ({
+          pos: acc.pos + a.sentiment.positive,
+          neu: acc.neu + a.sentiment.neutral,
+          neg: acc.neg + a.sentiment.negative,
+        }),
+        { pos: 0, neu: 0, neg: 0 }
+      );
+
       const sentiment = {
-        pos: sentimentCounts.pos / total,
-        neu: sentimentCounts.neu / total,
-        neg: sentimentCounts.neg / total,
+        pos: sentimentSums.pos / total,
+        neu: sentimentSums.neu / total,
+        neg: sentimentSums.neg / total,
       };
 
       // Calculate score (normalized positivity)
       const score = sentiment.pos - sentiment.neg;
+
+      // Also calculate category counts for optional display
+      const categoryCounts = { pos: 0, neu: 0, neg: 0 };
+      for (const a of analysis) {
+        if (a.category === 'positive') categoryCounts.pos++;
+        else if (a.category === 'negative') categoryCounts.neg++;
+        else categoryCounts.neu++;
+      }
 
       // Get top positive and negative comments
       const positiveComments = analysis
@@ -71,7 +81,11 @@ export default async function route(app: FastifyInstance) {
         .map((a) => ({
           commentId: a.commentId,
           text: comments.find((c) => c.id === a.commentId)?.text || '',
-          sentiment: a.sentiment,
+          sentiment: {
+            pos: a.sentiment.positive,
+            neu: a.sentiment.neutral,
+            neg: a.sentiment.negative,
+          },
         }))
         .slice(0, 5);
 
@@ -80,7 +94,11 @@ export default async function route(app: FastifyInstance) {
         .map((a) => ({
           commentId: a.commentId,
           text: comments.find((c) => c.id === a.commentId)?.text || '',
-          sentiment: a.sentiment,
+          sentiment: {
+            pos: a.sentiment.positive,
+            neu: a.sentiment.neutral,
+            neg: a.sentiment.negative,
+          },
         }))
         .slice(0, 5);
 
@@ -94,6 +112,8 @@ export default async function route(app: FastifyInstance) {
         topPositive: positiveComments,
         topNegative: negativeComments,
         summary,
+        categoryCounts, // Include category counts for optional display
+        totalComments: total,
         raw: { analysis, comments: comments.map((c) => c.id) },
       };
 
@@ -102,7 +122,7 @@ export default async function route(app: FastifyInstance) {
       // Return result
       const result: any = {
         videoId,
-        analyzedAt: row.analyzed_at,
+        analyzedAt: new Date(row.analyzed_at).toISOString(),
         sentiment,
         score,
         topPositive: positiveComments,
@@ -151,7 +171,7 @@ export default async function route(app: FastifyInstance) {
 
       const result: any = {
         videoId: row.video_id,
-        analyzedAt: row.analyzed_at,
+        analyzedAt: new Date(row.analyzed_at).toISOString(),
         sentiment: row.sentiment,
         score: row.score,
         topPositive: row.top_positive,

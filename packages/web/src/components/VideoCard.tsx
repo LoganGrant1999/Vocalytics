@@ -1,11 +1,12 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { useNavigate } from 'react-router-dom';
 import type { VideoCard as VideoCardType } from '@/hooks/useChannelData';
 
 interface VideoCardProps {
   video: VideoCardType;
-  onAnalyze: (videoId: string) => void;
+  onAnalyze?: (videoId: string) => void;
   isAnalyzing?: boolean;
 }
 
@@ -48,9 +49,19 @@ function formatCount(count?: number): string {
 }
 
 export function VideoCard({ video, onAnalyze, isAnalyzing }: VideoCardProps) {
+  const navigate = useNavigate();
+
+  const handleClick = () => {
+    if (onAnalyze) {
+      onAnalyze(video.videoId);
+    } else {
+      navigate(`/analyze/${video.videoId}`);
+    }
+  };
+
   return (
-    <Card className="overflow-hidden">
-      <div className="aspect-video bg-muted relative">
+    <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
+      <div className="aspect-video bg-muted relative" onClick={handleClick}>
         {video.thumbnailUrl ? (
           <img
             src={video.thumbnailUrl}
@@ -65,7 +76,7 @@ export function VideoCard({ video, onAnalyze, isAnalyzing }: VideoCardProps) {
       </div>
 
       <CardContent className="p-4 space-y-2">
-        <h3 className="font-semibold line-clamp-2 min-h-[3rem]">
+        <h3 className="font-semibold line-clamp-2 min-h-[3rem]" onClick={handleClick}>
           {video.title}
         </h3>
 
@@ -94,12 +105,12 @@ export function VideoCard({ video, onAnalyze, isAnalyzing }: VideoCardProps) {
 
       <CardFooter className="p-4 pt-0">
         <Button
-          onClick={() => onAnalyze(video.videoId)}
+          onClick={handleClick}
           disabled={isAnalyzing}
           variant="outline"
           className="w-full"
         >
-          {isAnalyzing ? 'Analyzing...' : 'Analyze'}
+          {isAnalyzing ? 'Analyzing...' : video.sentimentScore !== undefined ? 'View Analysis' : 'Analyze'}
         </Button>
       </CardFooter>
     </Card>

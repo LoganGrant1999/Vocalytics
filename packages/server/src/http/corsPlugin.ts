@@ -3,7 +3,7 @@ import cors from '@fastify/cors';
 import type { FastifyPluginCallback } from 'fastify';
 
 const corsPlugin: FastifyPluginCallback = async (app) => {
-  const ALLOWLIST = (process.env.CORS_ALLOWLIST || '')
+  const ALLOWLIST = (process.env.CORS_ORIGINS || process.env.CORS_ALLOWLIST || 'localhost:5173,localhost:3000')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);

@@ -1,10 +1,19 @@
 import { Button } from '@/components/ui/button';
 import { BarChart3, MessageSquare, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { ConnectYouTubeButton } from '@/components/ConnectYouTubeButton';
+import { useAuth } from '@/contexts/AuthContext';
+import { useEffect } from 'react';
 
 export default function Landing() {
   const navigate = useNavigate();
+  const { isAuthenticated, isLoading } = useAuth();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated && !isLoading) {
+      navigate('/app');
+    }
+  }, [isAuthenticated, isLoading, navigate]);
 
   return (
     <div className="container mx-auto px-4">
@@ -27,15 +36,24 @@ export default function Landing() {
         </p>
 
         <div className="flex gap-4 justify-center">
-          <ConnectYouTubeButton size="lg" />
+          <Button
+            size="lg"
+            onClick={() => navigate('/register')}
+          >
+            Get Started Free
+          </Button>
           <Button
             size="lg"
             variant="outline"
-            onClick={() => navigate('/billing')}
+            onClick={() => navigate('/login')}
           >
-            View Pricing
+            Sign In
           </Button>
         </div>
+
+        <p className="text-sm text-muted-foreground mt-4">
+          No credit card required
+        </p>
       </div>
 
       {/* Features */}
@@ -67,9 +85,11 @@ export default function Landing() {
       <div className="py-20 border-t text-center">
         <h2 className="text-3xl font-bold mb-4">Ready to Get Started?</h2>
         <p className="text-muted-foreground mb-8 max-w-lg mx-auto">
-          Connect your YouTube channel and start analyzing comments in minutes.
+          Create your account and start analyzing comments in minutes.
         </p>
-        <ConnectYouTubeButton size="lg" />
+        <Button size="lg" onClick={() => navigate('/register')}>
+          Get Started Free
+        </Button>
       </div>
     </div>
   );

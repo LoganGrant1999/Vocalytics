@@ -147,13 +147,63 @@ export async function fetchComments(
   max: number = 50,
   pageToken?: string,
   includeReplies: boolean = false,
-  order: "time" | "relevance" = "time"
+  order: "time" | "relevance" = "time",
+  userId?: string
 ): Promise<{ comments: TWComment[]; nextPageToken?: string }> {
   if (!videoId && !channelId) throw new Error("Provide videoId or channelId");
 
+  // ---- Use authenticated YouTube client if userId provided ----
+  if (userId) {
+    try {
+      const { getAuthedYouTubeForUser } = await import('./lib/google.js');
+      const yt = await getAuthedYouTubeForUser(userId);
+
+      const params: any = {
+        part: includeReplies ? ['snippet', 'replies'] : ['snippet'],
+        order,
+        maxResults: Math.min(100, Math.max(1, max))
+      };
+      if (videoId) params.videoId = videoId;
+      if (channelId) params.channelId = channelId;
+      if (pageToken) params.pageToken = pageToken;
+
+      const res = await yt.commentThreads.list(params);
+
+      const comments: TWComment[] = [];
+      for (const th of res.data.items ?? []) {
+        // Add top-level comment
+        comments.push(mapYouTubeItemToTWComment(th));
+        // Add replies if requested
+        if (includeReplies && th.replies?.comments?.length) {
+          const topId = th.snippet?.topLevelComment?.id || th.id;
+          for (const reply of th.replies.comments) {
+            comments.push(mapYouTubeItemToTWComment(reply, topId));
+          }
+        }
+      }
+
+      if (includeReplies || order === "time") {
+        comments.sort(byPublishedDesc);
+      } else {
+        comments.sort(byLikesDesc);
+      }
+
+      return {
+        comments,
+        nextPageToken: res.data.nextPageToken
+      };
+    } catch (error: any) {
+      console.error('[fetchComments] Error fetching from YouTube API:', error);
+      // If YouTube not connected or error, fall through to mock data
+      if (error.code !== 'YOUTUBE_NOT_CONNECTED') {
+        throw error;
+      }
+    }
+  }
+
   const accessToken = process.env.GOOGLE_ACCESS_TOKEN;
 
-  // ---- MOCK (no token) ----
+  // ---- MOCK (no token or userId) ----
   if (!accessToken) {
     const all: TWComment[] = [];
     for (let i = 1; i <= 120; i++) {

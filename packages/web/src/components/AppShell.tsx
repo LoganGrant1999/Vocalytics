@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useLocation, Outlet } from 'react-router-dom';
+import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import {
   Youtube,
   LayoutDashboard,
@@ -9,11 +9,24 @@ import {
   X,
   Crown,
   Bug,
+  LogOut,
+  Settings,
+  User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { useSession } from '@/hooks/useSession';
+import { useAuth } from '@/contexts/AuthContext';
 import { DebugDrawer } from '@/components/DebugDrawer';
+import { toast } from 'sonner';
 
 const routes = [
   { path: '/app', label: 'Dashboard', icon: LayoutDashboard },
@@ -29,11 +42,23 @@ export function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const { session } = useSession();
+  const { user, logout } = useAuth();
 
   // Find the current route to display title
   const currentRoute = routes.find((r) => location.pathname.startsWith(r.path));
   const pageTitle = currentRoute?.label || 'Vocalytics';
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast.success('Logged out successfully');
+      navigate('/login');
+    } catch (error) {
+      toast.error('Failed to logout');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -81,9 +106,35 @@ export function AppShell() {
             >
               <Bug className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="sm">
-              Account
-            </Button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm">
+                  <User className="h-4 w-4 mr-2" />
+                  {user?.name || 'Account'}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">{user?.name}</p>
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {user?.email}
+                    </p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate('/settings')}>
+                  <Settings className="mr-2 h-4 w-4" />
+                  Settings
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </header>
