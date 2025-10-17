@@ -1,14 +1,12 @@
 import { useState } from 'react';
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import {
-  Youtube,
   LayoutDashboard,
   Video,
   CreditCard,
   Menu,
   X,
   Crown,
-  Bug,
   LogOut,
   Settings,
   User,
@@ -25,30 +23,25 @@ import {
 import { cn } from '@/lib/utils';
 import { useSession } from '@/hooks/useSession';
 import { useAuth } from '@/contexts/AuthContext';
-import { DebugDrawer } from '@/components/DebugDrawer';
 import { toast } from 'sonner';
 
 const routes = [
   { path: '/app', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/videos', label: 'Videos', icon: Video },
   { path: '/billing', label: 'Billing', icon: CreditCard },
+  { path: '/settings', label: 'Settings', icon: Settings },
 ];
 
 /**
- * Main application shell with navbar, sidebar, and content area.
+ * Main application shell with sidebar and content area.
  * Sidebar collapses to a sheet on mobile devices.
  */
 export function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [debugOpen, setDebugOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { session } = useSession();
   const { user, logout } = useAuth();
-
-  // Find the current route to display title
-  const currentRoute = routes.find((r) => location.pathname.startsWith(r.path));
-  const pageTitle = currentRoute?.label || 'Vocalytics';
 
   const handleLogout = async () => {
     try {
@@ -61,58 +54,71 @@ export function AppShell() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Top Navbar */}
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="flex h-14 items-center px-4 gap-4">
-          {/* Mobile menu button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-          >
-            {sidebarOpen ? (
-              <X className="h-5 w-5" />
-            ) : (
-              <Menu className="h-5 w-5" />
-            )}
-          </Button>
+    <div className="min-h-screen bg-background flex">
+      {/* Mobile menu button - Fixed top-left */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="md:hidden fixed top-4 left-4 z-50 bg-brand-secondary-light-explicit text-white hover:bg-brand-secondary-ghost"
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+      >
+        {sidebarOpen ? (
+          <X className="h-5 w-5" />
+        ) : (
+          <Menu className="h-5 w-5" />
+        )}
+      </Button>
 
-          {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2">
-            <Youtube className="h-6 w-6 text-primary" />
-            <span className="font-bold">Vocalytics</span>
-          </Link>
-
-          {/* Page title (desktop only) */}
-          <div className="flex-1 hidden md:block">
-            <h1 className="text-lg font-semibold">{pageTitle}</h1>
+      <div className="flex w-full">
+        {/* Sidebar - Desktop */}
+        <aside className="hidden md:flex w-56 flex-col bg-brand-secondary-light-explicit text-white h-screen sticky top-0">
+          {/* Logo at top */}
+          <div className="p-3 pb-0 overflow-visible flex justify-center">
+            <Link to="/" className="flex items-center">
+              <img src="/images/Banner.png" alt="Vocalytics" className="h-28" />
+            </Link>
           </div>
 
-          {/* Right side actions */}
-          <div className="flex items-center gap-2">
-            {session?.tier === 'pro' && (
-              <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold">
-                <Crown className="h-3 w-3" />
-                PRO
-              </div>
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setDebugOpen(true)}
-              title="Debug Console"
-            >
-              <Bug className="h-4 w-4" />
-            </Button>
+          {/* Navigation */}
+          <nav className="flex-1 space-y-1 p-3 pt-2 overflow-y-auto">
+            {routes.map((route) => {
+              const Icon = route.icon;
+              const isActive = location.pathname.startsWith(route.path);
+              return (
+                <Link
+                  key={route.path}
+                  to={route.path}
+                  className={cn(
+                    'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
+                    isActive
+                      ? 'text-white font-semibold'
+                      : 'text-white/80 hover:bg-brand-secondary-ghost hover:text-white'
+                  )}
+                  style={isActive ? { backgroundColor: '#E63946' } : undefined}
+                >
+                  <Icon className="h-4 w-4" />
+                  {route.label}
+                </Link>
+              );
+            })}
+          </nav>
 
+          {/* User profile footer - sticky at bottom */}
+          <div className="p-4 border-t border-white/10 mt-auto">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm">
-                  <User className="h-4 w-4 mr-2" />
-                  {user?.name || 'Account'}
-                </Button>
+                <button className="flex items-center gap-3 w-full rounded-lg px-3 py-2 text-sm text-white/80 hover:bg-brand-secondary-ghost hover:text-white transition-colors">
+                  <User className="h-4 w-4" />
+                  <div className="flex-1 text-left truncate">
+                    <div className="font-medium truncate">{user?.name || 'Account'}</div>
+                    {session?.tier === 'pro' && (
+                      <div className="flex items-center gap-1 text-xs">
+                        <Crown className="h-3 w-3 text-brand-primary" />
+                        <span className="text-brand-primary">PRO</span>
+                      </div>
+                    )}
+                  </div>
+                </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>
@@ -124,11 +130,6 @@ export function AppShell() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate('/settings')}>
-                  <Settings className="mr-2 h-4 w-4" />
-                  Settings
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout}>
                   <LogOut className="mr-2 h-4 w-4" />
                   Log out
@@ -136,56 +137,27 @@ export function AppShell() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-        </div>
-      </header>
-
-      <div className="flex">
-        {/* Sidebar - Desktop */}
-        <aside className="hidden md:flex w-64 flex-col border-r bg-background min-h-[calc(100vh-3.5rem)]">
-          <nav className="flex-1 space-y-1 p-4">
-            {routes.map((route) => {
-              const Icon = route.icon;
-              const isActive = location.pathname.startsWith(route.path);
-              return (
-                <Link
-                  key={route.path}
-                  to={route.path}
-                  className={cn(
-                    'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
-                    isActive
-                      ? 'bg-primary text-primary-foreground'
-                      : 'hover:bg-accent hover:text-accent-foreground'
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                  {route.label}
-                </Link>
-              );
-            })}
-          </nav>
-
-          {/* Debug footer */}
-          <div className="p-4 border-t text-xs text-muted-foreground">
-            <div className="space-y-1">
-              <div>Environment: Development</div>
-              <div id="debug-request-id" className="truncate">
-                Request ID: -
-              </div>
-            </div>
-          </div>
         </aside>
 
         {/* Sidebar - Mobile */}
         {sidebarOpen && (
           <div
-            className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm md:hidden"
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
             onClick={() => setSidebarOpen(false)}
           >
             <aside
-              className="fixed left-0 top-14 bottom-0 w-64 border-r bg-background"
+              className="fixed left-0 top-0 bottom-0 w-56 bg-brand-secondary-light-explicit text-white flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
-              <nav className="flex-1 space-y-1 p-4">
+              {/* Logo at top */}
+              <div className="p-3 pb-0 overflow-visible flex justify-center">
+                <Link to="/" className="flex items-center" onClick={() => setSidebarOpen(false)}>
+                  <img src="/images/Banner.png" alt="Vocalytics" className="h-28" />
+                </Link>
+              </div>
+
+              {/* Navigation */}
+              <nav className="flex-1 space-y-1 p-3 pt-2 overflow-y-auto">
                 {routes.map((route) => {
                   const Icon = route.icon;
                   const isActive = location.pathname.startsWith(route.path);
@@ -197,9 +169,10 @@ export function AppShell() {
                       className={cn(
                         'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
                         isActive
-                          ? 'bg-primary text-primary-foreground'
-                          : 'hover:bg-accent hover:text-accent-foreground'
+                          ? 'text-white font-semibold'
+                          : 'text-white/80 hover:bg-brand-secondary-ghost hover:text-white'
                       )}
+                      style={isActive ? { backgroundColor: '#E63946' } : undefined}
                     >
                       <Icon className="h-4 w-4" />
                       {route.label}
@@ -208,32 +181,49 @@ export function AppShell() {
                 })}
               </nav>
 
-              {/* Debug footer mobile */}
-              <div className="absolute bottom-0 left-0 right-0 p-4 border-t text-xs text-muted-foreground">
-                <div className="space-y-1">
-                  <div>Environment: Development</div>
-                  <div id="debug-request-id-mobile" className="truncate">
-                    Request ID: -
-                  </div>
-                </div>
+              {/* User profile footer - sticky at bottom */}
+              <div className="p-4 border-t border-white/10 mt-auto">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="flex items-center gap-3 w-full rounded-lg px-3 py-2 text-sm text-white/80 hover:bg-brand-secondary-ghost hover:text-white transition-colors">
+                      <User className="h-4 w-4" />
+                      <div className="flex-1 text-left truncate">
+                        <div className="font-medium truncate">{user?.name || 'Account'}</div>
+                        {session?.tier === 'pro' && (
+                          <div className="flex items-center gap-1 text-xs">
+                            <Crown className="h-3 w-3 text-brand-primary" />
+                            <span className="text-brand-primary">PRO</span>
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel>
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-medium leading-none">{user?.name}</p>
+                        <p className="text-xs leading-none text-muted-foreground">
+                          {user?.email}
+                        </p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleLogout}>
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Log out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </aside>
           </div>
         )}
 
         {/* Main content */}
-        <main className="flex-1 p-6">
-          {/* Page title mobile */}
-          <div className="md:hidden mb-4">
-            <h1 className="text-2xl font-bold">{pageTitle}</h1>
-          </div>
-
+        <main className="flex-1">
           <Outlet />
         </main>
       </div>
-
-      {/* Debug Drawer */}
-      <DebugDrawer isOpen={debugOpen} onClose={() => setDebugOpen(false)} />
     </div>
   );
 }

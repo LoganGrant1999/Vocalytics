@@ -66,7 +66,7 @@ export function TrendsChart({ data }: TrendsChartProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Sentiment Trend</CardTitle>
+        <CardTitle className="text-brand-text-primary">Sentiment Trend</CardTitle>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>
@@ -74,24 +74,29 @@ export function TrendsChart({ data }: TrendsChartProps) {
             data={data}
             margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
           >
-            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="var(--color-border)"
+            />
             <XAxis
               dataKey="date"
               tickFormatter={formatDate}
-              className="text-sm"
+              tick={{ fill: 'var(--color-secondary-muted)', fontSize: 12 }}
+              axisLine={{ stroke: 'var(--color-border)' }}
             />
             <YAxis
               domain={[-1, 1]}
               ticks={[-1, -0.5, 0, 0.5, 1]}
-              className="text-sm"
+              tick={{ fill: 'var(--color-secondary-muted)', fontSize: 12 }}
+              axisLine={{ stroke: 'var(--color-border)' }}
             />
             <Tooltip content={<CustomTooltip />} />
             <Line
               type="monotone"
               dataKey="avgScore"
-              stroke="hsl(var(--primary))"
+              stroke="var(--color-primary)"
               strokeWidth={2}
-              dot={{ fill: 'hsl(var(--primary))' }}
+              dot={{ fill: 'var(--color-primary)' }}
               activeDot={{ r: 6 }}
             />
           </LineChart>

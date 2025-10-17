@@ -95,72 +95,35 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Account Status */}
-      <div className="rounded-lg border p-4 bg-card">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">Account Tier:</span>
-              <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 text-primary font-semibold text-sm">
-                {session.tier === 'pro' && <Crown className="h-3 w-3" />}
-                {session.tier.toUpperCase()}
-              </div>
-            </div>
-            {session.user?.email && (
-              <span className="text-sm text-muted-foreground">
-                • {session.user.email}
-              </span>
-            )}
-          </div>
-          {session.tier === 'free' && (
-            <Button onClick={() => navigate('/billing')} size="sm">
-              Upgrade to Pro
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Usage Meters */}
-      <div className="rounded-lg border p-6">
-        <h2 className="text-lg font-semibold mb-4">Usage This Period</h2>
-        <div className="grid gap-4 md:grid-cols-2">
-          <UsageMeter
-            label="Sentiment Analyses"
-            used={session.comments_analyzed_count}
-            limit={session.tier === 'free' ? FREE_ANALYZE_LIMIT : 999999}
-            period="this week"
-          />
-          <UsageMeter
-            label="AI Replies"
-            used={session.replies_generated_count}
-            limit={session.tier === 'free' ? FREE_REPLY_LIMIT : 999999}
-            period="today"
-          />
-        </div>
+    <div className="px-6 py-8">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold tracking-tight mb-1 text-brand-text-primary">Dashboard</h1>
+        <p className="text-brand-text-secondary">
+          Monitor your channel performance and sentiment trends.
+        </p>
       </div>
 
       {/* Quick Stats */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-6">
         <StatCard
           title="Total Videos"
           value="0"
-          icon={<Video className="h-4 w-4 text-muted-foreground" />}
+          icon={<Video className="h-4 w-4 text-brand-text-secondary" />}
         />
         <StatCard
           title="Comments Analyzed"
           value={session.comments_analyzed_count.toString()}
-          icon={<BarChart3 className="h-4 w-4 text-muted-foreground" />}
+          icon={<BarChart3 className="h-4 w-4 text-brand-text-secondary" />}
         />
         <StatCard
           title="Replies Generated"
           value={session.replies_generated_count.toString()}
-          icon={<MessageSquare className="h-4 w-4 text-muted-foreground" />}
+          icon={<MessageSquare className="h-4 w-4 text-brand-text-secondary" />}
         />
         <StatCard
           title="Avg Sentiment"
           value="-"
-          icon={<TrendingUp className="h-4 w-4 text-muted-foreground" />}
+          icon={<TrendingUp className="h-4 w-4 text-brand-text-secondary" />}
         />
       </div>
 
@@ -180,14 +143,14 @@ function StatCard({
   icon: React.ReactNode;
 }) {
   return (
-    <div className="rounded-lg border p-4">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium text-muted-foreground">
+    <div className="rounded-xl border border-brand-border bg-brand-surface p-6 shadow-card transition hover:-translate-y-0.5 hover:shadow-md">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-sm font-medium text-brand-text-secondary">
           {title}
         </span>
         {icon}
       </div>
-      <div className="text-2xl font-bold">{value}</div>
+      <div className="text-2xl font-bold text-brand-text-primary">{value}</div>
     </div>
   );
 }

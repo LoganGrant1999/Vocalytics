@@ -1,8 +1,14 @@
 import { FastifyInstance } from 'fastify';
 import { createClient } from '@supabase/supabase-js';
+import Stripe from 'stripe';
 
 const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+
+const stripe = stripeSecretKey ? new Stripe(stripeSecretKey, {
+  apiVersion: '2025-09-30.clover' as any
+}) : null;
 
 export async function meRoutes(fastify: FastifyInstance) {
   // Get subscription status
@@ -32,10 +38,31 @@ export async function meRoutes(fastify: FastifyInstance) {
         });
       }
 
+      // Fetch subscription details from Stripe if user has an active subscription
+      let nextPaymentDate = null;
+      let cancelAtPeriodEnd = false;
+
+      if (user.stripe_subscription_id && stripe) {
+        try {
+          const subscription = await stripe.subscriptions.retrieve(user.stripe_subscription_id);
+          // Access current_period_end with type assertion for compatibility
+          const periodEnd = (subscription as any).current_period_end;
+          if (periodEnd) {
+            nextPaymentDate = new Date(periodEnd * 1000).toISOString();
+          }
+          cancelAtPeriodEnd = subscription.cancel_at_period_end;
+        } catch (stripeError) {
+          console.error('Error fetching Stripe subscription:', stripeError);
+          // Continue without Stripe data - don't fail the whole request
+        }
+      }
+
       return reply.send({
         tier: user.tier,
         subscription_status: user.subscription_status,
         subscribed_until: user.subscribed_until,
+        next_payment_date: nextPaymentDate,
+        cancel_at_period_end: cancelAtPeriodEnd,
         stripe_customer_id: user.stripe_customer_id,
         stripe_subscription_id: user.stripe_subscription_id,
         scopes: user.youtube_scope ? user.youtube_scope.split(' ') : []

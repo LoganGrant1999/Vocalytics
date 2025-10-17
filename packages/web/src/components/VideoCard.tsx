@@ -11,12 +11,12 @@ interface VideoCardProps {
 }
 
 /**
- * Get color class for sentiment score badge
+ * Get badge variant for sentiment score
  */
-function getSentimentColor(score: number): string {
-  if (score >= 0.6) return 'bg-green-500 hover:bg-green-600';
-  if (score >= 0.4) return 'bg-yellow-500 hover:bg-yellow-600';
-  return 'bg-red-500 hover:bg-red-600';
+function getSentimentVariant(score: number): 'success' | 'warning' | 'error' {
+  if (score >= 0.6) return 'success';
+  if (score >= 0.4) return 'warning';
+  return 'error';
 }
 
 /**
@@ -60,13 +60,13 @@ export function VideoCard({ video, onAnalyze, isAnalyzing }: VideoCardProps) {
   };
 
   return (
-    <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
+    <Card className="overflow-hidden cursor-pointer">
       <div className="aspect-video bg-muted relative" onClick={handleClick}>
         {video.thumbnailUrl ? (
           <img
             src={video.thumbnailUrl}
             alt={video.title}
-            className="object-cover w-full h-full"
+            className="object-cover w-full h-full rounded-t-xl border-b border-brand-border"
           />
         ) : (
           <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -76,11 +76,11 @@ export function VideoCard({ video, onAnalyze, isAnalyzing }: VideoCardProps) {
       </div>
 
       <CardContent className="p-4 space-y-2">
-        <h3 className="font-semibold line-clamp-2 min-h-[3rem]" onClick={handleClick}>
+        <h3 className="font-semibold line-clamp-2 min-h-[3rem] text-brand-text-primary" onClick={handleClick}>
           {video.title}
         </h3>
 
-        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+        <div className="flex items-center gap-3 text-sm text-brand-text-secondary">
           {video.stats.viewCount !== undefined && (
             <span>{formatCount(video.stats.viewCount)} views</span>
           )}
@@ -94,11 +94,11 @@ export function VideoCard({ video, onAnalyze, isAnalyzing }: VideoCardProps) {
 
         <div>
           {video.sentimentScore !== undefined ? (
-            <Badge className={getSentimentColor(video.sentimentScore)}>
+            <Badge variant={getSentimentVariant(video.sentimentScore)}>
               Score: {video.sentimentScore.toFixed(2)}
             </Badge>
           ) : (
-            <Badge variant="outline">Not analyzed</Badge>
+            <Badge variant="neutral">Not analyzed</Badge>
           )}
         </div>
       </CardContent>
@@ -107,7 +107,6 @@ export function VideoCard({ video, onAnalyze, isAnalyzing }: VideoCardProps) {
         <Button
           onClick={handleClick}
           disabled={isAnalyzing}
-          variant="outline"
           className="w-full"
         >
           {isAnalyzing ? 'Analyzing...' : video.sentimentScore !== undefined ? 'View Analysis' : 'Analyze'}

@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import Stripe from 'stripe';
-import { getUserById, updateUserStripe } from '../../db/users.js';
+import { supabase } from '../../db/client.js';
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 if (!stripeSecretKey) {
@@ -12,16 +12,33 @@ const stripe = new Stripe(stripeSecretKey, {
 });
 
 const STRIPE_PRICE_ID = process.env.STRIPE_PRICE_ID;
-const STRIPE_CHECKOUT_SUCCESS_URL = process.env.STRIPE_CHECKOUT_SUCCESS_URL || 'https://yourapp.com/success?session_id={CHECKOUT_SESSION_ID}';
-const STRIPE_CHECKOUT_CANCEL_URL = process.env.STRIPE_CHECKOUT_CANCEL_URL || 'https://yourapp.com/pricing';
-const STRIPE_PORTAL_RETURN_URL = process.env.STRIPE_PORTAL_RETURN_URL || 'https://yourapp.com/account';
+const STRIPE_CHECKOUT_SUCCESS_URL = process.env.STRIPE_CHECKOUT_SUCCESS_URL || 'http://localhost:5173/billing?success=true';
+const STRIPE_CHECKOUT_CANCEL_URL = process.env.STRIPE_CHECKOUT_CANCEL_URL || 'http://localhost:5173/billing?canceled=true';
+const STRIPE_PORTAL_RETURN_URL = process.env.STRIPE_PORTAL_RETURN_URL || 'http://localhost:5173/billing';
 
 export async function billingRoutes(fastify: FastifyInstance) {
+  console.log('[billing.ts] Registering billing routes');
+  console.log('[billing.ts] STRIPE_CHECKOUT_SUCCESS_URL:', STRIPE_CHECKOUT_SUCCESS_URL);
+  console.log('[billing.ts] STRIPE_CHECKOUT_CANCEL_URL:', STRIPE_CHECKOUT_CANCEL_URL);
+  console.log('[billing.ts] STRIPE_PORTAL_RETURN_URL:', STRIPE_PORTAL_RETURN_URL);
+
+  // Test route to verify registration works
+  fastify.get('/billing/test', async (request: any, reply) => {
+    console.log('[billing.ts] /billing/test handler called');
+    return reply.send({ message: 'Billing routes working!' });
+  });
+
   // Create checkout session
   fastify.post('/billing/checkout', async (request: any, reply) => {
+    console.log('[billing.ts] /billing/checkout handler called', {
+      userId: request.auth?.userId,
+      userDbId: request.auth?.userDbId,
+      auth: request.auth
+    });
     const auth = request.auth;
 
     if (!STRIPE_PRICE_ID) {
+      console.log('[billing.ts] STRIPE_PRICE_ID not configured');
       return reply.code(500).send({
         error: 'Configuration Error',
         message: 'STRIPE_PRICE_ID is not configured'
@@ -29,9 +46,17 @@ export async function billingRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      const user = await getUserById(auth.userDbId);
+      console.log('[billing.ts] Looking up user in profiles:', auth.userId);
+      const { data: user, error: userError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', auth.userId)
+        .single();
 
-      if (!user) {
+      console.log('[billing.ts] User found:', !!user, 'Error:', userError?.message);
+
+      if (!user || userError) {
+        console.log('[billing.ts] User not found in database');
         return reply.code(404).send({
           error: 'Not Found',
           message: 'User not found'
@@ -45,17 +70,29 @@ export async function billingRoutes(fastify: FastifyInstance) {
         const customer = await stripe.customers.create({
           email: user.email || undefined,
           metadata: {
-            app_user_id: auth.appUserId,
+            app_user_id: auth.userId,
             user_db_id: user.id
           }
         });
         customerId = customer.id;
 
         // Update user with customer ID
-        await updateUserStripe({
-          userId: user.id,
-          stripeCustomerId: customerId
-        });
+        await supabase
+          .from('profiles')
+          .update({ stripe_customer_id: customerId })
+          .eq('id', user.id);
+      }
+
+      // Check for existing active subscription
+      if (user.stripe_subscription_id) {
+        const existingSubscription = await stripe.subscriptions.retrieve(user.stripe_subscription_id);
+        if (existingSubscription && ['active', 'trialing'].includes(existingSubscription.status)) {
+          console.log('[billing.ts] User already has active subscription:', user.stripe_subscription_id);
+          return reply.code(400).send({
+            error: 'Already Subscribed',
+            message: 'You already have an active subscription. Use the billing portal to manage it.'
+          });
+        }
       }
 
       // Create checkout session
@@ -70,10 +107,10 @@ export async function billingRoutes(fastify: FastifyInstance) {
         ],
         success_url: STRIPE_CHECKOUT_SUCCESS_URL,
         cancel_url: STRIPE_CHECKOUT_CANCEL_URL,
-        client_reference_id: auth.appUserId,
+        client_reference_id: auth.userId,
         metadata: {
-          app_user_id: auth.appUserId,
-          user_db_id: user.id
+          user_id: auth.userId,
+          profile_id: user.id
         }
       });
 
@@ -94,9 +131,13 @@ export async function billingRoutes(fastify: FastifyInstance) {
     const auth = request.auth;
 
     try {
-      const user = await getUserById(auth.userDbId);
+      const { data: user, error: userError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', auth.userId)
+        .single();
 
-      if (!user) {
+      if (!user || userError) {
         return reply.code(404).send({
           error: 'Not Found',
           message: 'User not found'
@@ -110,17 +151,17 @@ export async function billingRoutes(fastify: FastifyInstance) {
         const customer = await stripe.customers.create({
           email: user.email || undefined,
           metadata: {
-            app_user_id: user.app_user_id || auth.userId,
+            app_user_id: auth.userId,
             user_db_id: user.id
           }
         });
         customerId = customer.id;
 
         // Update user with customer ID
-        await updateUserStripe({
-          userId: user.id,
-          stripeCustomerId: customerId
-        });
+        await supabase
+          .from('profiles')
+          .update({ stripe_customer_id: customerId })
+          .eq('id', user.id);
       }
 
       // Create portal session

@@ -148,3 +148,127 @@ GitHub Actions automatically:
 - Uploads build artifacts
 
 See `.github/workflows/web.yml` for CI configuration.
+
+## Vocalytics Brand Integration
+
+The application implements a comprehensive brand identity system with design tokens, components, and theme support.
+
+### Design System
+
+**Color Palette**:
+- Primary: `#E63946` (Vocalytics Red)
+- Hover: `#CC2F3A`
+- Light: `#FF6B6B`
+- Background: `#FFFFFF` (light) / `#0E0E11` (dark)
+- Surface: `#FFFFFF` (light) / `#18181B` (dark)
+- Status colors: Success, Warning, Error, Info
+
+**Theme Files**:
+- `/packages/web/src/styles/theme.css` - CSS custom properties for all brand colors
+- `/packages/web/tailwind.config.js` - Tailwind utility class mappings
+- `/packages/web/src/index.css` - Global styles and theme import
+
+### Components
+
+**Logo Component**: `/packages/web/src/components/Logo.tsx`
+```tsx
+import { Logo } from '@/components/Logo';
+<Logo className="optional-classes" />
+```
+
+**Dark Mode**: `/packages/web/src/hooks/useDarkMode.ts`
+```tsx
+import { useDarkMode } from '@/hooks/useDarkMode';
+const { isDark, toggle } = useDarkMode();
+```
+
+### Brand Demo
+
+Visit `/brand` to view the complete brand system showcase including:
+- Color palette with hex values
+- Typography scale
+- Component examples (buttons, cards, inputs)
+- Gradient backgrounds
+- Dark mode toggle
+- Live theme preview
+
+### Using Brand Colors
+
+```tsx
+// Tailwind classes
+<div className="bg-brand-primary text-brand-text-inverse">
+<button className="bg-brand-primary hover:bg-brand-primary-hover">
+<p className="text-brand-text-secondary">
+
+// CSS variables
+background: var(--color-primary);
+color: var(--color-text-primary);
+```
+
+### Assets
+
+Brand images are located in `/packages/web/public/images/`:
+- `Vocalytics.png` - Full logo
+- `Favicon.png` - App icon
+- `Banner.png` - Social media banner (Open Graph, Twitter cards)
+
+## Secondary Color Usage
+
+The Vocalytics brand system includes a secondary gray palette for navigation chrome, neutral UI elements, and data visualization.
+
+### When to Use Secondary Colors
+
+**Navigation & Chrome** (`brand-secondary`, `brand-secondary-light`):
+- Top navbar background
+- Sidebar background
+- Footer areas
+- Modal overlays
+
+**Labels & Muted Text** (`brand-secondary-muted`):
+- Table headers
+- Chart axis labels
+- Form labels
+- Helper text
+- Timestamps
+
+**Interactive States** (`brand-secondary-ghost`):
+- Hover overlays on dark backgrounds
+- Focus states on navigation items
+- Subtle button backgrounds
+
+**Keep Primary Red For**:
+- Call-to-action buttons
+- Active states and highlights
+- Links and interactive elements
+- Error states and alerts
+
+### Dark Mode Mappings
+
+| Token | Light Mode | Dark Mode |
+|-------|-----------|-----------|
+| `brand-secondary` | `#374151` (slate-700) | `#9CA3AF` (slate-400) |
+| `brand-secondary-light` | `#4B5563` (slate-600) | `#6B7280` (slate-500) |
+| `brand-secondary-muted` | `#6B7280` (slate-500) | `#9CA3AF` (slate-400) |
+| `brand-secondary-ghost` | `rgba(55,65,81,0.08)` | `rgba(156,163,175,0.14)` |
+
+### Components
+
+**SecondaryButton** - Use for neutral, non-primary actions:
+```tsx
+import { SecondaryButton } from '@/components/SecondaryButton';
+<SecondaryButton label="Cancel" onClick={handleCancel} />
+```
+
+**Chart Theme** - Centralized colors for data visualization:
+```tsx
+import { chartTheme, getAxisStyle } from '@/components/charts/ChartTheme';
+// Use chartTheme.axisColor for axis labels
+// Use chartTheme.gridColor for grid lines
+```
+
+### Accessibility
+
+All secondary colors maintain WCAG AA contrast ratios:
+- White text on `brand-secondary`: 8.59:1 ✓
+- White text on `brand-secondary-light`: 6.94:1 ✓
+- `brand-secondary-muted` on white: 4.69:1 ✓

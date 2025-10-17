@@ -76,27 +76,6 @@ export default function Billing() {
       </div>
 
       <PricingTable currentTier={session?.tier} />
-
-      {/* Current Usage */}
-      {session && (
-        <div className="rounded-lg border p-6 max-w-5xl mx-auto">
-          <h3 className="text-lg font-semibold mb-4">Current Usage</h3>
-          <div className="grid gap-4 md:grid-cols-2">
-            <UsageMeter
-              label="Sentiment Analyses"
-              used={session.comments_analyzed_count}
-              limit={session.tier === 'free' ? FREE_ANALYZE_LIMIT : 999999}
-              period="this week"
-            />
-            <UsageMeter
-              label="AI Replies"
-              used={session.replies_generated_count}
-              limit={session.tier === 'free' ? FREE_REPLY_LIMIT : 999999}
-              period="today"
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -80,12 +80,20 @@ export default function Register() {
   };
 
   return (
-    <div className="container mx-auto px-4 min-h-screen flex items-center justify-center py-12">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-2xl">Create Account</CardTitle>
-          <CardDescription>
-            Sign up for Vocalytics
+    <div className="container mx-auto px-4 min-h-screen flex items-center justify-center py-12 relative">
+      {/* Background gradient */}
+      <div className="absolute inset-0 -z-10 bg-gradient-to-br from-[#E63946]/5 via-transparent to-[#4B5563]/5" />
+
+      <Card className="w-full max-w-md shadow-xl border-2 relative overflow-hidden">
+        {/* Decorative gradient accent */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#E63946] via-[#FF6B6B] to-[#E63946]" />
+
+        <CardHeader className="space-y-1 pb-6">
+          <CardTitle className="text-2xl text-center bg-gradient-to-r from-[#E63946] to-[#FF6B6B] bg-clip-text text-transparent">
+            Create Account
+          </CardTitle>
+          <CardDescription className="text-center">
+            Start analyzing your YouTube comments today
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -165,7 +173,7 @@ export default function Register() {
               />
             </div>
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button type="submit" className="w-full shadow-lg hover:shadow-xl transition-shadow" disabled={isLoading}>
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -179,7 +187,7 @@ export default function Register() {
 
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
+              <span className="w-full border-t border-[#E63946]/20" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
               <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
@@ -189,7 +197,7 @@ export default function Register() {
           <Button
             type="button"
             variant="outline"
-            className="w-full"
+            className="w-full hover:bg-[#E63946]/5 hover:border-[#E63946]/50 transition-all"
             onClick={handleGoogleSignup}
             disabled={isLoading}
           >
@@ -214,10 +222,10 @@ export default function Register() {
             Google
           </Button>
         </CardContent>
-        <CardFooter className="flex flex-col space-y-2">
+        <CardFooter className="flex flex-col space-y-2 border-t pt-6">
           <div className="text-sm text-muted-foreground text-center">
             Already have an account?{' '}
-            <Link to="/login" className="text-primary hover:underline">
+            <Link to="/login" className="text-[#E63946] font-semibold hover:text-[#FF6B6B] transition-colors">
               Sign in
             </Link>
           </div>

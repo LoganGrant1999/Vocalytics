@@ -64,7 +64,7 @@ export function VideoIdInput() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="https://youtube.com/watch?v=... or dQw4w9WgXcQ"
-              className="w-full px-3 py-2 pr-10 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full px-3 py-2 pr-10 border border-brand-border rounded-xl bg-brand-surface text-brand-text-primary placeholder:text-brand-text-secondary focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/30"
             />
             <div className="absolute right-3 top-1/2 -translate-y-1/2">
               {validationState === 'valid' && (

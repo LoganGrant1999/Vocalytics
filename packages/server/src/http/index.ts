@@ -11,7 +11,7 @@ const __dirname = dirname(__filename);
 if (process.env.NODE_ENV !== 'production') {
   // Dynamic import to load dotenv only in dev
   const { config } = await import('dotenv');
-  config({ path: resolve(__dirname, '../../.env.local') });
+  config({ path: resolve(__dirname, '../../.env.local'), override: true });
 }
 
 // Now import everything else

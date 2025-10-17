@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import Stripe from 'stripe';
 import { recordStripeEvent, markStripeEventProcessed } from '../../db/stripe.js';
-import { getUserByStripeCustomerId, updateUserStripe } from '../../db/users.js';
+import { supabase } from '../../db/client.js';
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -123,27 +123,23 @@ async function processStripeEvent(event: Stripe.Event): Promise<void> {
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promise<void> {
   const customerId = session.customer as string;
-  const appUserId = session.client_reference_id || session.metadata?.app_user_id;
+  const appUserId = session.client_reference_id || session.metadata?.user_id;
 
   if (!customerId) {
     console.error('No customer ID in checkout session');
     return;
   }
 
-  // Find user by customer ID
-  const user = await getUserByStripeCustomerId(customerId);
+  // Find user by customer ID in profiles table
+  const { data: user, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('stripe_customer_id', customerId)
+    .single();
 
-  if (!user) {
-    console.error(`User not found for customer ${customerId}`);
+  if (!user || error) {
+    console.error(`User not found for customer ${customerId}:`, error?.message);
     return;
-  }
-
-  // Update customer ID if not set
-  if (!user.stripe_customer_id) {
-    await updateUserStripe({
-      userId: user.id,
-      stripeCustomerId: customerId
-    });
   }
 
   console.log(`Checkout completed for user ${user.id}`);
@@ -152,11 +148,15 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
 async function handleSubscriptionChange(subscription: Stripe.Subscription): Promise<void> {
   const customerId = subscription.customer as string;
 
-  // Find user by customer ID
-  const user = await getUserByStripeCustomerId(customerId);
+  // Find user by customer ID in profiles table
+  const { data: user, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('stripe_customer_id', customerId)
+    .single();
 
-  if (!user) {
-    console.error(`User not found for customer ${customerId}`);
+  if (!user || error) {
+    console.error(`User not found for customer ${customerId}:`, error?.message);
     return;
   }
 
@@ -166,14 +166,18 @@ async function handleSubscriptionChange(subscription: Stripe.Subscription): Prom
   const currentPeriodEnd = periodEnd ? new Date(periodEnd * 1000) : null;
 
   // Update user subscription info
-  await updateUserStripe({
-    userId: user.id,
-    stripeSubscriptionId: subscription.id,
-    subscriptionStatus: status,
-    subscribedUntil: currentPeriodEnd,
+  const updates: any = {
+    stripe_subscription_id: subscription.id,
+    subscription_status: status,
+    subscribed_until: currentPeriodEnd?.toISOString() || null,
     // Set tier to pro if subscription is active
     tier: status === 'active' ? 'pro' : user.tier
-  });
+  };
+
+  await supabase
+    .from('profiles')
+    .update(updates)
+    .eq('id', user.id);
 
   console.log(`Subscription ${status} for user ${user.id}, valid until ${currentPeriodEnd}`);
 }
@@ -181,21 +185,27 @@ async function handleSubscriptionChange(subscription: Stripe.Subscription): Prom
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Promise<void> {
   const customerId = subscription.customer as string;
 
-  // Find user by customer ID
-  const user = await getUserByStripeCustomerId(customerId);
+  // Find user by customer ID in profiles table
+  const { data: user, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('stripe_customer_id', customerId)
+    .single();
 
-  if (!user) {
-    console.error(`User not found for customer ${customerId}`);
+  if (!user || error) {
+    console.error(`User not found for customer ${customerId}:`, error?.message);
     return;
   }
 
-  // Update user subscription info
-  await updateUserStripe({
-    userId: user.id,
-    subscriptionStatus: 'canceled',
-    subscribedUntil: null,
-    tier: 'free'
-  });
+  // Update user subscription info - downgrade to free
+  await supabase
+    .from('profiles')
+    .update({
+      subscription_status: 'canceled',
+      subscribed_until: null,
+      tier: 'free'
+    })
+    .eq('id', user.id);
 
   console.log(`Subscription canceled for user ${user.id}`);
 }

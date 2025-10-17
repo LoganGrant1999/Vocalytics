@@ -1,0 +1,57 @@
+/* Vocalytics Brand Theme */
+
+:root {
+  /* Primary Brand Colors */
+  --color-primary: #E63946;
+  --color-primary-hover: #CC2F3A;
+  --color-primary-light: #FF6B6B;
+
+  /* Secondary Gray Scale */
+  --color-secondary: #374151;        /* slate-700 */
+  --color-secondary-light: #4B5563;  /* slate-600 */
+  --color-secondary-muted: #6B7280;  /* slate-500 for labels/icons */
+  --color-secondary-ghost: rgba(55, 65, 81, 0.08); /* hover overlays */
+
+  /* Background Colors */
+  --color-bg: #F9FAFB;             /* slightly off-white page bg */
+  --color-bg-alt: #F7F8FA;         /* panels & alt sections */
+  --color-surface: #FFFFFF;        /* cards */
+  --color-border: #E5E7EB;
+  --color-shadow: 0 1px 6px rgba(0,0,0,0.05);
+
+  /* Text Colors */
+  --color-text-primary: #111827;
+  --color-text-secondary: #6B7280;
+  --color-text-inverse: #FFFFFF;
+  --color-text-accent: #E63946;
+
+  /* Status Colors */
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
+
+  /* Gradients */
+  --gradient-primary: linear-gradient(90deg, #E63946 0%, #FF6B6B 100%);
+  --gradient-sentiment: linear-gradient(90deg, #10B981, #F59E0B, #EF4444);
+  --gradient-bg: linear-gradient(180deg, #FFFFFF 0%, #F7F8FA 100%);
+}
+
+:root.dark {
+  /* Dark Mode Overrides */
+  --color-bg: #0E0E11;
+  --color-surface: #18181B;
+  --color-bg-alt: #18181B;
+  --color-text-primary: #F3F4F6;
+  --color-text-secondary: #9CA3AF;
+  --color-border: #27272A;
+  --color-primary: #F05252; /* brighter red for dark */
+  --color-primary-hover: #E63946;
+  --color-shadow: 0 1px 6px rgba(0,0,0,0.3);
+
+  /* Secondary Gray Scale - Dark Mode */
+  --color-secondary: #9CA3AF;        /* slate-400 for contrast on dark */
+  --color-secondary-light: #6B7280;  /* slate-500 */
+  --color-secondary-muted: #9CA3AF;  /* readable labels on dark */
+  --color-secondary-ghost: rgba(156, 163, 175, 0.14);
+}

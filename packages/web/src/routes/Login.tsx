@@ -48,11 +48,19 @@ export default function Login() {
   };
 
   return (
-    <div className="container mx-auto px-4 min-h-screen flex items-center justify-center">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-2xl">Login</CardTitle>
-          <CardDescription>
+    <div className="container mx-auto px-4 min-h-screen flex items-center justify-center relative">
+      {/* Background gradient */}
+      <div className="absolute inset-0 -z-10 bg-gradient-to-br from-[#E63946]/5 via-transparent to-[#4B5563]/5" />
+
+      <Card className="w-full max-w-md shadow-xl border-2 relative overflow-hidden">
+        {/* Decorative gradient accent */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#E63946] via-[#FF6B6B] to-[#E63946]" />
+
+        <CardHeader className="space-y-1 pb-6">
+          <CardTitle className="text-2xl text-center bg-gradient-to-r from-[#E63946] to-[#FF6B6B] bg-clip-text text-transparent">
+            Welcome Back
+          </CardTitle>
+          <CardDescription className="text-center">
             Sign in to your Vocalytics account
           </CardDescription>
         </CardHeader>
@@ -90,7 +98,7 @@ export default function Login() {
               />
             </div>
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button type="submit" className="w-full shadow-lg hover:shadow-xl transition-shadow" disabled={isLoading}>
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -104,7 +112,7 @@ export default function Login() {
 
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
+              <span className="w-full border-t border-[#E63946]/20" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
               <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
@@ -114,7 +122,7 @@ export default function Login() {
           <Button
             type="button"
             variant="outline"
-            className="w-full"
+            className="w-full hover:bg-[#E63946]/5 hover:border-[#E63946]/50 transition-all"
             onClick={handleGoogleLogin}
             disabled={isLoading}
           >
@@ -139,10 +147,10 @@ export default function Login() {
             Google
           </Button>
         </CardContent>
-        <CardFooter className="flex flex-col space-y-2">
+        <CardFooter className="flex flex-col space-y-2 border-t pt-6">
           <div className="text-sm text-muted-foreground text-center">
             Don't have an account?{' '}
-            <Link to="/register" className="text-primary hover:underline">
+            <Link to="/register" className="text-[#E63946] font-semibold hover:text-[#FF6B6B] transition-colors">
               Sign up
             </Link>
           </div>

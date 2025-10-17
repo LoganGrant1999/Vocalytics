@@ -14,6 +14,7 @@ import Videos from '@/routes/Videos';
 import Analyze from '@/routes/Analyze';
 import Billing from '@/routes/Billing';
 import Settings from '@/routes/Settings';
+import Brand from '@/routes/Brand';
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/brand" element={<Brand />} />
 
             {/* Protected routes - require authentication */}
             <Route element={<ProtectedRoute />}>
