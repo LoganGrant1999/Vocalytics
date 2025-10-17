@@ -45,8 +45,32 @@ export async function meRoutes(fastify: FastifyInstance) {
       if (user.stripe_subscription_id && stripe) {
         try {
           const subscription = await stripe.subscriptions.retrieve(user.stripe_subscription_id);
-          // Access current_period_end with type assertion for compatibility
-          const periodEnd = (subscription as any).current_period_end;
+
+          // Try to get current_period_end, fallback to calculating from billing_cycle_anchor
+          let periodEnd = (subscription as any).current_period_end;
+
+          if (!periodEnd && subscription.billing_cycle_anchor && subscription.plan) {
+            // Calculate next billing date based on interval
+            const anchor = subscription.billing_cycle_anchor;
+            const interval = subscription.plan.interval; // 'month', 'year', etc.
+            const intervalCount = subscription.plan.interval_count || 1;
+
+            const anchorDate = new Date(anchor * 1000);
+            const now = new Date();
+
+            // Calculate periods elapsed since anchor
+            let nextBillingDate = new Date(anchorDate);
+            while (nextBillingDate <= now) {
+              if (interval === 'month') {
+                nextBillingDate.setMonth(nextBillingDate.getMonth() + intervalCount);
+              } else if (interval === 'year') {
+                nextBillingDate.setFullYear(nextBillingDate.getFullYear() + intervalCount);
+              }
+            }
+
+            periodEnd = Math.floor(nextBillingDate.getTime() / 1000);
+          }
+
           if (periodEnd) {
             nextPaymentDate = new Date(periodEnd * 1000).toISOString();
           }

@@ -11,6 +11,10 @@ export interface Session {
     email?: string;
     name?: string;
   };
+  subscription_status?: string | null;
+  next_payment_date?: string | null;
+  cancel_at_period_end?: boolean;
+  subscribed_until?: string | null;
 }
 
 /**
@@ -42,6 +46,10 @@ export function useSession() {
         comments_analyzed_count: usageResult.data.commentsAnalyzed || 0,
         replies_generated_count: usageResult.data.repliesGenerated || 0,
         scopes: (subResult.data as any).scopes || [],
+        subscription_status: (subResult.data as any).subscription_status,
+        next_payment_date: (subResult.data as any).next_payment_date,
+        cancel_at_period_end: (subResult.data as any).cancel_at_period_end,
+        subscribed_until: (subResult.data as any).subscribed_until,
       } as Session;
     },
     retry: false,
