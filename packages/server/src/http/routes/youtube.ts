@@ -213,8 +213,10 @@ export async function youtubeRoutes(fastify: FastifyInstance) {
       });
 
       // Redirect to web app with success indicator
-      // In dev, redirect to Vite dev server; in prod, relative URL works
-      const baseUrl = process.env.NODE_ENV === 'production'
+      // Use APP_URL env var if set, otherwise fall back to NODE_ENV check
+      const baseUrl = process.env.APP_URL
+        ? `${process.env.APP_URL}/app`
+        : process.env.NODE_ENV === 'production'
         ? '/app'
         : 'http://localhost:5173/app';
 
