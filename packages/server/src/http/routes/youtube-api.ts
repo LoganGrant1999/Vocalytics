@@ -64,20 +64,22 @@ export async function youtubeApiRoutes(fastify: FastifyInstance) {
         textFormat: 'plainText',
       });
 
-      let items = response.data.items || [];
+      const items = response.data?.items || [];
+      const nextPageToken = response.data?.nextPageToken;
+      const pageInfo = response.data?.pageInfo;
 
       // Strip replies if includeReplies is false
-      if (includeReplies !== 'true' && includeReplies !== true) {
-        items = items.map((item) => {
-          const { replies: _replies, ...rest } = item;
-          return rest;
-        });
-      }
+      const processedItems = (includeReplies !== 'true' && includeReplies !== true)
+        ? items.map((item: any) => {
+            const { replies: _replies, ...rest } = item;
+            return rest;
+          })
+        : items;
 
       return reply.send({
-        items,
-        nextPageToken: response.data.nextPageToken,
-        pageInfo: response.data.pageInfo,
+        items: processedItems,
+        nextPageToken,
+        pageInfo,
       });
     } catch (err: any) {
       console.error('[youtube-api.ts] Error fetching comments:', err);

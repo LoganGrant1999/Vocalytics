@@ -301,7 +301,7 @@ export async function fetchComments(
   };
 }
 
-export async function analyzeComments(comments: TWComment[]): Promise<Analysis[]> {
+export async function analyzeComments(comments: Partial<TWComment>[]): Promise<Analysis[]> {
   const results: Analysis[] = [];
   for (const comment of comments) {
     const baseText = comment.text ?? "";
@@ -412,7 +412,7 @@ export async function analyzeComments(comments: TWComment[]): Promise<Analysis[]
 }
 
 export async function generateReplies(
-  comment: TWComment,
+  comment: Partial<TWComment>,
   tones: string[],
   toneProfile?: {
     tone: string;

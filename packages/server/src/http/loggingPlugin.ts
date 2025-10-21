@@ -11,14 +11,21 @@ const loggingPlugin: FastifyPluginCallback = async (app) => {
   // Log response completion
   app.addHook('onResponse', async (req, reply) => {
     const ms = reply.elapsedTime ?? reply.getResponseTime?.() ?? 0;
-    app.log.info({
+    const logData = {
       reqId: req.id,
       method: req.method,
       url: req.url,
       status: reply.statusCode,
       ms: Math.round(ms),
       userId: (req as any).user?.id ?? (req as any).auth?.userId ?? null,
-    });
+    };
+
+    // Use generic log method that works with all loggers
+    if (typeof app.log.info === 'function') {
+      app.log.info(logData);
+    } else {
+      console.log('[LOG]', logData);
+    }
   });
 };
 

@@ -52,7 +52,7 @@ ${sampleReplies.map((r, i) => `${i + 1}. "${r}"`).join('\n')}
 
 Analyze these replies and extract the tone profile.`;
 
-  const completion = await openai.beta.chat.completions.parse({
+  const completion = await openai.chat.completions.create({
     model: 'gpt-4o-2024-08-06',
     messages: [
       {
@@ -65,7 +65,7 @@ Analyze these replies and extract the tone profile.`;
       }
     ],
     response_format: {
-      type: 'json_schema',
+      type: 'json_schema' as const,
       json_schema: {
         name: 'tone_profile',
         strict: true,
@@ -129,10 +129,11 @@ Analyze these replies and extract the tone profile.`;
     }
   });
 
-  const result = completion.choices[0]?.message?.parsed;
-  if (!result) {
-    throw new Error('Failed to parse tone analysis from GPT-4o');
+  const content = completion.choices[0]?.message?.content;
+  if (!content) {
+    throw new Error('Failed to get tone analysis from GPT-4o');
   }
 
+  const result = JSON.parse(content);
   return ToneProfileSchema.parse(result);
 }

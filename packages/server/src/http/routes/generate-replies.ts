@@ -47,7 +47,7 @@ export async function generateRepliesRoute(fastify: FastifyInstance) {
       });
 
       if (!enforcement.allowed) {
-        return reply.code(402).send(enforcement.error);
+        return reply.code(402).send('error' in enforcement ? enforcement.error : { error: 'Payment required' });
       }
 
       // Check if user has a tone profile (Pro users only)

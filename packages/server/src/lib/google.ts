@@ -340,7 +340,13 @@ export async function fetchCreatorReplies(
   accessToken: string,
   maxResults: number = 50
 ): Promise<Array<{ text: string; videoId: string; publishedAt: string }>> {
-  const youtube = google.youtube({ version: 'v3', auth: createOAuth2Client(accessToken) });
+  const oauth2 = new OAuth2Client({
+    clientId: GOOGLE_CLIENT_ID,
+    clientSecret: GOOGLE_CLIENT_SECRET,
+    redirectUri: getRedirectUri(),
+  });
+  oauth2.setCredentials({ access_token: accessToken });
+  const youtube = google.youtube({ version: 'v3', auth: oauth2 });
 
   // First, get the channel ID of the authenticated user
   const channelsResponse = await youtube.channels.list({
@@ -403,7 +409,13 @@ export async function postCommentReply(
   commentId: string,
   replyText: string
 ): Promise<void> {
-  const youtube = google.youtube({ version: 'v3', auth: createOAuth2Client(accessToken) });
+  const oauth2 = new OAuth2Client({
+    clientId: GOOGLE_CLIENT_ID,
+    clientSecret: GOOGLE_CLIENT_SECRET,
+    redirectUri: getRedirectUri(),
+  });
+  oauth2.setCredentials({ access_token: accessToken });
+  const youtube = google.youtube({ version: 'v3', auth: oauth2 });
 
   await youtube.comments.insert({
     part: ['snippet'],

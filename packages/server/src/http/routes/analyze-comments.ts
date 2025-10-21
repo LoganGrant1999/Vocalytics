@@ -41,7 +41,7 @@ export async function analyzeCommentsRoute(fastify: FastifyInstance) {
       });
 
       if (!enforcement.allowed) {
-        return reply.code(402).send(enforcement.error);
+        return reply.code(402).send('error' in enforcement ? enforcement.error : { error: 'Payment required' });
       }
 
       // Process the request

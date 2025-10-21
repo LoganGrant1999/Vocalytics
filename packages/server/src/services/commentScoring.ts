@@ -99,7 +99,7 @@ Return ONLY a JSON object with an "analyses" array containing exactly ${batch.le
 
       // Map back to comment IDs
       analyses.forEach((analysis: any, index: number) => {
-        if (batch[index]) {
+        if (batch[index]?.id) {
           resultMap.set(batch[index].id, analysis);
         }
       });

@@ -126,13 +126,13 @@ export async function publicAuthRoutes(fastify: FastifyInstance) {
       const body = loginSchema.parse(request.body);
 
       // Find user by email
-      const { data: user } = await supabase
+      const { data: user, error: userError } = await supabase
         .from('profiles')
         .select('*')
         .eq('email', body.email)
         .single();
 
-      if (!user) {
+      if (userError || !user) {
         return reply.code(401).send({
           error: 'Invalid credentials',
           message: 'Invalid email or password',

@@ -7,6 +7,7 @@ import {
   SummarizeSentimentArgsSchema,
   normalizeToPages,
   AnalysisPage,
+  TWComment,
 } from './schemas.js';
 import {
   fetchComments,
@@ -343,6 +344,7 @@ export function registerTools(server: Server) {
 
       case 'analyze_comments': {
         const validated = AnalyzeCommentsArgsSchema.parse(args);
+        // analyzeComments expects TWComment[] which is already validated by the schema
         const analysis = await analyzeComments(validated.comments);
 
         function labelFor(text: string): "positive"|"neutral"|"constructive"|"negative"|"spam" {
@@ -410,6 +412,7 @@ export function registerTools(server: Server) {
         }
 
         const validated = GenerateRepliesArgsSchema.parse(normalizeArgs(args));
+        // generateReplies expects TWComment which is already validated by the schema
         const replies = await generateReplies(validated.comment, validated.tones);
 
         return {

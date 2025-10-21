@@ -30,6 +30,7 @@ import { summarizeSentimentRoute } from './routes/summarize-sentiment.js';
 import { meRoutes } from './routes/me.js';
 import { billingRoutes } from './routes/billing.js';
 import { webhookRoute } from './routes/webhook.js';
+// NOTE: youtubeRoutes moved to youtube-oauth.ts (registered as public OAuth routes)
 import { toneRoutes } from './routes/tone.js';
 import { commentsRoutes } from './routes/comments.js';
 import { createRateLimiter, startRateLimitCleanup } from './rateLimit.js';

@@ -303,7 +303,7 @@ export async function commentsRoutes(fastify: FastifyInstance) {
           .in('video_id', videoIds);
 
         const videoTitles = new Map((analyses || []).map((a: any) => [a.video_id, a.video_title]));
-        comments.forEach(c => {
+        comments.forEach((c: any) => {
           c.videoTitle = videoTitles.get(c.videoId) || 'Unknown Video';
         });
 
@@ -386,8 +386,13 @@ export async function commentsRoutes(fastify: FastifyInstance) {
             const replies = await generateReplies(
               {
                 id: score.comment_id,
+                videoId: score.video_id,
                 text: score.comment_text,
-                author: score.author_name
+                author: score.author_name,
+                publishedAt: score.published_at,
+                likeCount: score.like_count,
+                replyCount: 0,
+                isReply: false
               },
               ['friendly'],
               toneProfile
@@ -477,8 +482,13 @@ export async function commentsRoutes(fastify: FastifyInstance) {
       const replies = await generateReplies(
         {
           id: score.comment_id,
+          videoId: score.video_id,
           text: score.comment_text,
-          author: score.author_name
+          author: score.author_name,
+          publishedAt: score.published_at,
+          likeCount: score.like_count,
+          replyCount: 0,
+          isReply: false
         },
         ['friendly'],
         toneProfile

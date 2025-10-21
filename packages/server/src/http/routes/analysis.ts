@@ -42,7 +42,7 @@ export default async function route(app: FastifyInstance) {
         });
 
         if (!enforcement.allowed) {
-          return reply.code(402).send(enforcement.error);
+          return reply.code(402).send('error' in enforcement ? enforcement.error : { error: 'Payment required' });
         }
       }
 

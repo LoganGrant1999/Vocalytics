@@ -23,7 +23,7 @@ export async function billingRoutes(fastify: FastifyInstance) {
   console.log('[billing.ts] STRIPE_PORTAL_RETURN_URL:', STRIPE_PORTAL_RETURN_URL);
 
   // Test route to verify registration works
-  fastify.get('/billing/test', async (request: any, reply) => {
+  fastify.get('/billing/test', async (_request: any, reply) => {
     console.log('[billing.ts] /billing/test handler called');
     return reply.send({ message: 'Billing routes working!' });
   });
