@@ -1,53 +1,20 @@
 {
-  "version": 2,
-  "builds": [
+  "buildCommand": "pnpm install && pnpm --filter web build",
+  "outputDirectory": "packages/web/dist",
+  "installCommand": "pnpm install",
+  "framework": null,
+  "rewrites": [
     {
-      "src": "packages/web/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "packages/web/dist"
-      }
+      "source": "/api/:path*",
+      "destination": "/api"
     },
     {
-      "src": "packages/server/src/http/index.ts",
-      "use": "@vercel/node"
+      "source": "/webhook/:path*",
+      "destination": "/api"
+    },
+    {
+      "source": "/healthz",
+      "destination": "/api"
     }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "packages/server/src/http/index.ts"
-    },
-    {
-      "src": "/webhook/(.*)",
-      "dest": "packages/server/src/http/index.ts"
-    },
-    {
-      "src": "/healthz",
-      "dest": "packages/server/src/http/index.ts"
-    },
-    {
-      "src": "/images/(.*)",
-      "dest": "packages/web/dist/images/$1"
-    },
-    {
-      "src": "/assets/(.*)",
-      "dest": "packages/web/dist/assets/$1"
-    },
-    {
-      "src": "/(.*)\\.html",
-      "dest": "packages/web/dist/$1.html"
-    },
-    {
-      "src": "/favicon.ico",
-      "dest": "packages/web/dist/favicon.ico"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "packages/web/dist/index.html"
-    }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  }
+  ]
 }
