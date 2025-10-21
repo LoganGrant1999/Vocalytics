@@ -413,7 +413,18 @@ export async function analyzeComments(comments: TWComment[]): Promise<Analysis[]
 
 export async function generateReplies(
   comment: TWComment,
-  tones: string[]
+  tones: string[],
+  toneProfile?: {
+    tone: string;
+    formality_level: string;
+    emoji_usage: string;
+    common_emojis?: string[];
+    avg_reply_length: string;
+    common_phrases?: string[];
+    uses_name?: boolean;
+    asks_questions?: boolean;
+    uses_commenter_name?: boolean;
+  }
 ): Promise<GeneratedReply[]> {
   const templates: Record<string, string> = {
     friendly: `Thanks so much for watching! 😊 I'm really glad you found it helpful!`,
@@ -423,13 +434,41 @@ export async function generateReplies(
 
   const out: GeneratedReply[] = [];
   for (const tone of tones) {
-    const sys = `You are Vocalytics, generating ultra-brief, channel-safe YouTube comment replies in the author's voice.
+    let sys = `You are Vocalytics, generating ultra-brief, channel-safe YouTube comment replies in the author's voice.
 - Respect the requested TONE exactly (${tone}).
 - Keep it under 220 characters.
 - No hashtags, no links.
 - Be kind, assume good faith.`;
 
-    const prompt = `Original comment:\n"${comment?.text ?? ""}"\n\nWrite a single ${tone} reply.`;
+    let prompt = `Original comment:\n"${comment?.text ?? ""}"\n\nWrite a single ${tone} reply.`;
+
+    // If user has a tone profile (Pro users only), customize the prompt
+    if (toneProfile) {
+      sys = `You are generating a YouTube comment reply in the creator's authentic voice.
+
+CREATOR'S WRITING STYLE:
+- Overall tone: ${toneProfile.tone}
+- Formality: ${toneProfile.formality_level}
+- Emoji usage: ${toneProfile.emoji_usage}${toneProfile.common_emojis && toneProfile.common_emojis.length > 0 ? `\n- Favorite emojis: ${toneProfile.common_emojis.join(', ')}` : ''}
+- Reply length: ${toneProfile.avg_reply_length}${toneProfile.common_phrases && toneProfile.common_phrases.length > 0 ? `\n- Common phrases: ${toneProfile.common_phrases.slice(0, 3).join(', ')}` : ''}
+- ${toneProfile.uses_name ? 'Often signs with their name' : 'Does not sign with name'}
+- ${toneProfile.asks_questions ? 'Often asks follow-up questions' : 'Rarely asks questions'}
+- ${toneProfile.uses_commenter_name ? 'Addresses commenters by name' : 'Does not use commenter names'}
+
+INSTRUCTIONS:
+- Match the creator's tone and style exactly
+- Use the same formality level, emoji frequency, and reply length
+- Incorporate their common phrases naturally if relevant
+- Keep it authentic to how they actually write
+- No hashtags, no links
+- Be kind, assume good faith`;
+
+      prompt = `Comment author: ${comment.author}
+Comment text: "${comment?.text ?? ""}"
+
+Write a reply in the creator's authentic voice${tone !== 'auto' ? ` with a ${tone} tone` : ''}.`;
+    }
+
     const llm = await chatReply(sys, prompt);
 
     out.push({

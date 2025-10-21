@@ -31,6 +31,8 @@ import { meRoutes } from './routes/me.js';
 import { billingRoutes } from './routes/billing.js';
 import { webhookRoute } from './routes/webhook.js';
 import { youtubeRoutes } from './routes/youtube.js';
+import { toneRoutes } from './routes/tone.js';
+import { commentsRoutes } from './routes/comments.js';
 import { createRateLimiter, startRateLimitCleanup } from './rateLimit.js';
 import { validateEnv } from './envValidation.js';
 import { createClient } from '@supabase/supabase-js';
@@ -194,6 +196,8 @@ export async function createHttpServer() {
     await summarizeSentimentRoute(apiInstance);
     await meRoutes(apiInstance);
     await billingRoutes(apiInstance);
+    await toneRoutes(apiInstance);
+    await commentsRoutes(apiInstance);
 
     // Debug endpoint (development only - TODO: remove before production launch)
     if (process.env.NODE_ENV !== 'production') {

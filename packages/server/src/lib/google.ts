@@ -328,3 +328,90 @@ export async function getVideoStats(
 ): Promise<VideoStatsMap> {
   return getVideoStatsAuthed(userId, videoIds);
 }
+
+/**
+ * Fetch the creator's own past comment replies from their videos
+ * Uses commentThreads.list with authorChannelId filter
+ * @param accessToken - YouTube OAuth access token
+ * @param maxResults - Maximum number of replies to fetch (default 50)
+ * @returns Array of reply objects with text, videoId, and publishedAt
+ */
+export async function fetchCreatorReplies(
+  accessToken: string,
+  maxResults: number = 50
+): Promise<Array<{ text: string; videoId: string; publishedAt: string }>> {
+  const youtube = google.youtube({ version: 'v3', auth: createOAuth2Client(accessToken) });
+
+  // First, get the channel ID of the authenticated user
+  const channelsResponse = await youtube.channels.list({
+    part: ['id'],
+    mine: true
+  });
+
+  const channelId = channelsResponse.data.items?.[0]?.id;
+  if (!channelId) {
+    throw new Error('Could not determine channel ID');
+  }
+
+  // Fetch comment threads where the creator is the author
+  // We'll fetch more than needed and filter for top-level comments by the channel owner
+  const replies: Array<{ text: string; videoId: string; publishedAt: string }> = [];
+  let pageToken: string | undefined;
+
+  // YouTube API returns max 100 per page, we'll paginate until we have enough replies
+  while (replies.length < maxResults) {
+    const response = await youtube.commentThreads.list({
+      part: ['snippet'],
+      allThreadsRelatedToChannelId: channelId,
+      maxResults: 100,
+      pageToken,
+      textFormat: 'plainText',
+      moderationStatus: 'published'
+    });
+
+    const items = response.data.items ?? [];
+
+    // Filter for comments authored by the channel owner (their replies)
+    for (const item of items) {
+      const snippet = item.snippet?.topLevelComment?.snippet;
+      if (!snippet) continue;
+
+      // Check if this comment is by the channel owner
+      if (snippet.authorChannelId?.value === channelId) {
+        replies.push({
+          text: snippet.textDisplay ?? '',
+          videoId: snippet.videoId ?? '',
+          publishedAt: snippet.publishedAt ?? ''
+        });
+
+        if (replies.length >= maxResults) break;
+      }
+    }
+
+    pageToken = response.data.nextPageToken ?? undefined;
+    if (!pageToken) break; // No more pages
+  }
+
+  return replies.slice(0, maxResults);
+}
+
+/**
+ * Post a reply to a YouTube comment
+ */
+export async function postCommentReply(
+  accessToken: string,
+  commentId: string,
+  replyText: string
+): Promise<void> {
+  const youtube = google.youtube({ version: 'v3', auth: createOAuth2Client(accessToken) });
+
+  await youtube.comments.insert({
+    part: ['snippet'],
+    requestBody: {
+      snippet: {
+        parentId: commentId,
+        textOriginal: replyText
+      }
+    }
+  });
+}

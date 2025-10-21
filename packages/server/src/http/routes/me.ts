@@ -31,7 +31,22 @@ export async function meRoutes(fastify: FastifyInstance) {
         .eq('id', userId)
         .single();
 
-      if (error || !user) {
+      if (error) {
+        console.error('[me.ts] Supabase error fetching subscription:', {
+          userId,
+          error: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
+        return reply.code(404).send({
+          error: 'Not Found',
+          message: 'User not found'
+        });
+      }
+
+      if (!user) {
+        console.error('[me.ts] No user found in profiles table for userId:', userId);
         return reply.code(404).send({
           error: 'Not Found',
           message: 'User not found'
@@ -44,7 +59,13 @@ export async function meRoutes(fastify: FastifyInstance) {
 
       if (user.stripe_subscription_id && stripe) {
         try {
-          const subscription = await stripe.subscriptions.retrieve(user.stripe_subscription_id);
+          // Add 5-second timeout to prevent blocking
+          const subscription = await Promise.race([
+            stripe.subscriptions.retrieve(user.stripe_subscription_id),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('Stripe API timeout')), 5000)
+            )
+          ]) as any;
 
           // Try to get current_period_end, fallback to calculating from billing_cycle_anchor
           let periodEnd = (subscription as any).current_period_end;
@@ -116,11 +137,26 @@ export async function meRoutes(fastify: FastifyInstance) {
       const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
       const { data: user, error } = await supabase
         .from('profiles')
-        .select('comments_analyzed_count, replies_generated_count, reset_date, tier')
+        .select('replies_weekly_count, reset_date, tier')
         .eq('id', userId)
         .single();
 
-      if (error || !user) {
+      if (error) {
+        console.error('[me.ts] Supabase error fetching usage:', {
+          userId,
+          error: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
+        return reply.code(404).send({
+          error: 'Not Found',
+          message: 'User not found'
+        });
+      }
+
+      if (!user) {
+        console.error('[me.ts] No user found in profiles table for userId:', userId);
         return reply.code(404).send({
           error: 'Not Found',
           message: 'User not found'
@@ -128,15 +164,14 @@ export async function meRoutes(fastify: FastifyInstance) {
       }
 
       // Get limits based on tier
-      const weeklyAnalyze = user.tier === 'pro' ? 10000 : parseInt(process.env.FREE_LIMIT_ANALYZE_WEEKLY || '100');
-      const dailyReply = user.tier === 'pro' ? 1000 : parseInt(process.env.FREE_LIMIT_REPLY_DAILY || '50');
+      // Free tier: unlimited analysis, 200 replies/week
+      // Pro tier: unlimited everything
+      const weeklyReply = user.tier === 'pro' ? 999999 : parseInt(process.env.FREE_LIMIT_REPLY_WEEKLY || '200');
 
       return reply.send({
-        commentsAnalyzed: user.comments_analyzed_count ?? 0,
-        repliesGenerated: user.replies_generated_count ?? 0,
+        repliesGenerated: user.replies_weekly_count ?? 0,
         limits: {
-          weeklyAnalyze,
-          dailyReply
+          weeklyReply
         },
         resetDate: user.reset_date
       });

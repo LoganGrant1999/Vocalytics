@@ -2,14 +2,60 @@ import { VideoIdInput } from '@/components/VideoIdInput';
 import { useChannelData } from '@/hooks/useChannelData';
 import { VideoCard } from '@/components/VideoCard';
 import { ConnectYouTubeButton } from '@/components/ConnectYouTubeButton';
-import { Video, Loader2, CheckCircle2 } from 'lucide-react';
-import { useState } from 'react';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Video, Loader2, CheckCircle2, Search, SlidersHorizontal, Grid3x3, List } from 'lucide-react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+
+type ViewMode = 'grid' | 'list';
+type SortOption = 'recent' | 'oldest' | 'most-viewed' | 'most-liked' | 'most-comments';
 
 export default function Videos() {
   const navigate = useNavigate();
   const { videos, channelTitle, isLoading, isYouTubeNotConnected } = useChannelData();
+
+  // Filter and view state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<SortOption>('recent');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Filtered and sorted videos
+  const filteredVideos = useMemo(() => {
+    let filtered = [...videos];
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(video =>
+        video.title?.toLowerCase().includes(query) ||
+        video.description?.toLowerCase().includes(query)
+      );
+    }
+
+    // Sort
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'recent':
+          return new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime();
+        case 'oldest':
+          return new Date(a.publishedAt || 0).getTime() - new Date(b.publishedAt || 0).getTime();
+        case 'most-viewed':
+          return (b.viewCount || 0) - (a.viewCount || 0);
+        case 'most-liked':
+          return (b.likeCount || 0) - (a.likeCount || 0);
+        case 'most-comments':
+          return (b.commentCount || 0) - (a.commentCount || 0);
+        default:
+          return 0;
+      }
+    });
+
+    return filtered;
+  }, [videos, searchQuery, sortBy]);
 
   return (
     <div className="px-6 py-8">
@@ -43,22 +89,109 @@ export default function Videos() {
         </div>
       ) : videos.length > 0 ? (
         <div className="mb-6">
-          <div className="mb-4">
-            <h3 className="text-lg font-semibold text-brand-text-primary">Your Recent Uploads</h3>
-            {channelTitle && (
-              <p className="text-sm text-brand-text-secondary mt-1">
-                Connected as <span className="font-medium">{channelTitle}</span>
-              </p>
+          {/* Header with channel info */}
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-brand-text-primary">Your Uploads</h3>
+              {channelTitle && (
+                <p className="text-sm text-brand-text-secondary mt-1">
+                  Connected as <span className="font-medium">{channelTitle}</span> • {filteredVideos.length} {filteredVideos.length === 1 ? 'video' : 'videos'}
+                  {searchQuery && ` matching "${searchQuery}"`}
+                </p>
+              )}
+            </div>
+
+            {/* View mode toggle */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('grid')}
+              >
+                <Grid3x3 className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Search and Filters */}
+          <div className="mb-6 space-y-4">
+            <div className="flex gap-3">
+              {/* Search */}
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search videos by title or description..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+
+              {/* Sort */}
+              <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Sort by..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="recent">Most Recent</SelectItem>
+                  <SelectItem value="oldest">Oldest First</SelectItem>
+                  <SelectItem value="most-viewed">Most Viewed</SelectItem>
+                  <SelectItem value="most-liked">Most Liked</SelectItem>
+                  <SelectItem value="most-comments">Most Comments</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Results count */}
+            {searchQuery && (
+              <div className="text-sm text-muted-foreground">
+                {filteredVideos.length === 0 ? (
+                  <span>No videos found matching "{searchQuery}"</span>
+                ) : (
+                  <span>Showing {filteredVideos.length} of {videos.length} videos</span>
+                )}
+              </div>
             )}
           </div>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-6">
-            {videos.map((video) => (
-              <VideoCard
-                key={video.videoId}
-                video={video}
-              />
-            ))}
-          </div>
+
+          {/* Videos Grid/List */}
+          {filteredVideos.length === 0 ? (
+            <div className="text-center py-12 rounded-xl border border-brand-border bg-brand-surface">
+              <Video className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
+              <p className="text-muted-foreground">No videos found</p>
+              {searchQuery && (
+                <Button
+                  variant="link"
+                  onClick={() => setSearchQuery('')}
+                  className="mt-2"
+                >
+                  Clear search
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className={
+              viewMode === 'grid'
+                ? 'grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-6'
+                : 'space-y-4'
+            }>
+              {filteredVideos.map((video) => (
+                <VideoCard
+                  key={video.videoId}
+                  video={video}
+                  viewMode={viewMode}
+                />
+              ))}
+            </div>
+          )}
         </div>
       ) : null}
 

@@ -10,6 +10,7 @@ import {
   LogOut,
   Settings,
   User,
+  Inbox,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -28,6 +29,7 @@ import { toast } from 'sonner';
 const routes = [
   { path: '/app', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/videos', label: 'Videos', icon: Video },
+  { path: '/inbox', label: 'Inbox', icon: Inbox },
   { path: '/billing', label: 'Billing', icon: CreditCard },
   { path: '/settings', label: 'Settings', icon: Settings },
 ];

@@ -15,6 +15,7 @@ import Analyze from '@/routes/Analyze';
 import Billing from '@/routes/Billing';
 import Settings from '@/routes/Settings';
 import Brand from '@/routes/Brand';
+import Inbox from '@/routes/Inbox';
 
 function App() {
   return (
@@ -37,6 +38,7 @@ function App() {
               <Route element={<AppShell />}>
                 <Route path="/app" element={<Dashboard />} />
                 <Route path="/videos" element={<Videos />} />
+                <Route path="/inbox" element={<Inbox />} />
                 <Route path="/analyze/:videoId" element={<Analyze />} />
                 <Route path="/billing" element={<Billing />} />
                 <Route path="/settings" element={<Settings />} />
