@@ -33,12 +33,7 @@ export default async function route(app: FastifyInstance) {
       const { channelId, channelTitle, uploadsId } = await resolveChannelAndUploads(userId);
 
       if (!uploadsId) {
-        const warnData = { userId, channelId, channelTitle };
-        if (typeof app.log.warn === 'function') {
-          app.log.warn(warnData, 'No uploads playlist found');
-        } else {
-          console.warn('[WARN] No uploads playlist found', warnData);
-        }
+        console.warn('[WARN] No uploads playlist found', { userId, channelId, channelTitle });
         // Connected but no uploads playlist (brand account or no channel)
         return reply.code(200).send([]);
       }
@@ -66,17 +61,12 @@ export default async function route(app: FastifyInstance) {
       // Upsert into cache
       await upsertUserVideos(userId, payload);
 
-      const infoData = {
+      console.log('[INFO] Listed uploads', {
         userId,
         count: payload.length,
         ms: Date.now() - started,
         channelTitle,
-      };
-      if (typeof app.log.info === 'function') {
-        app.log.info(infoData, 'Listed uploads');
-      } else {
-        console.log('[INFO] Listed uploads', infoData);
-      }
+      });
 
       // Hint to UI which channel is connected
       reply.header('x-youtube-channel', channelTitle ?? '');
@@ -86,24 +76,14 @@ export default async function route(app: FastifyInstance) {
 
       // Handle YouTube not connected error with specific error code
       if (error.code === 'YOUTUBE_NOT_CONNECTED' || error.message?.includes('YouTube not connected')) {
-        const warnData = { userId };
-        if (typeof app.log.warn === 'function') {
-          app.log.warn(warnData, 'YouTube not connected');
-        } else {
-          console.warn('[WARN] YouTube not connected', warnData);
-        }
+        console.warn('[WARN] YouTube not connected', { userId });
         return reply.code(403).send({
           error: 'YOUTUBE_NOT_CONNECTED',
           message: 'YouTube account not connected. Please connect to list uploads.',
         });
       }
 
-      const errorData = { err: error, userId };
-      if (typeof app.log.error === 'function') {
-        app.log.error(errorData, 'youtube/videos error');
-      } else {
-        console.error('[ERROR] youtube/videos error', errorData);
-      }
+      console.error('[ERROR] youtube/videos error', { err: error, userId });
       return reply.code(500).send({
         error: 'VIDEOS_FETCH_FAILED',
         message: 'Failed to list uploads',

@@ -94,7 +94,7 @@ Return ONLY a JSON object with an "analyses" array containing exactly ${batch.le
         temperature: 0.2
       });
 
-      const result = JSON.parse(response.choices[0].message.content || '{}');
+      const result = JSON.parse(response.choices[0]?.message?.content || '{}');
       const analyses = result.analyses || [];
 
       // Map back to comment IDs

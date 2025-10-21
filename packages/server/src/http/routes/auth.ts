@@ -105,7 +105,7 @@ export async function publicAuthRoutes(fastify: FastifyInstance) {
       if (error instanceof z.ZodError) {
         return reply.code(400).send({
           error: 'Validation error',
-          message: error.errors[0].message,
+          message: error.errors[0]?.message || 'Validation failed',
         });
       }
 
@@ -198,7 +198,7 @@ export async function publicAuthRoutes(fastify: FastifyInstance) {
       if (error instanceof z.ZodError) {
         return reply.code(400).send({
           error: 'Validation error',
-          message: error.errors[0].message,
+          message: error.errors[0]?.message || 'Validation failed',
         });
       }
 
@@ -214,7 +214,7 @@ export async function publicAuthRoutes(fastify: FastifyInstance) {
    * POST /api/auth/logout
    * Logout and clear session cookie
    */
-  fastify.post('/auth/logout', async (request: FastifyRequest, reply: FastifyReply) => {
+  fastify.post('/auth/logout', async (_request: FastifyRequest, reply: FastifyReply) => {
     // Clear the cookie
     reply.clearCookie('vocalytics_token', {
       path: '/',

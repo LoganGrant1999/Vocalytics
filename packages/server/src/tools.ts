@@ -170,7 +170,7 @@ export async function fetchComments(
       const res = await yt.commentThreads.list(params);
 
       const comments: TWComment[] = [];
-      for (const th of res.data.items ?? []) {
+      for (const th of res.data?.items ?? []) {
         // Add top-level comment
         comments.push(mapYouTubeItemToTWComment(th));
         // Add replies if requested
@@ -190,7 +190,7 @@ export async function fetchComments(
 
       return {
         comments,
-        nextPageToken: res.data.nextPageToken
+        nextPageToken: res.data?.nextPageToken
       };
     } catch (error: any) {
       console.error('[fetchComments] Error fetching from YouTube API:', error);
@@ -340,7 +340,7 @@ export async function analyzeComments(comments: Partial<TWComment>[]): Promise<A
       }
 
       results.push({
-        commentId: comment.id,
+        commentId: comment.id ?? 'unknown',
         sentiment,
         topics: topics.length > 0 ? topics : ["general"],
         intent,
@@ -399,7 +399,7 @@ export async function analyzeComments(comments: Partial<TWComment>[]): Promise<A
         "appreciation";
 
       results.push({
-        commentId: comment.id,
+        commentId: comment.id ?? 'unknown',
         sentiment,
         topics,
         intent,
@@ -473,7 +473,7 @@ Write a reply in the creator's authentic voice${tone !== 'auto' ? ` with a ${ton
 
     out.push({
       tone,
-      reply: (llm && llm.length <= 280 ? llm : (templates[tone] ?? templates.friendly)).trim(),
+      reply: (llm && llm.length <= 280 ? llm : (templates[tone] ?? templates.friendly ?? '')).trim(),
     });
   }
   return out;

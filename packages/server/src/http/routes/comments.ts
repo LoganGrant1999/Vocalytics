@@ -303,7 +303,7 @@ export async function commentsRoutes(fastify: FastifyInstance) {
           .in('video_id', videoIds);
 
         const videoTitles = new Map((analyses || []).map((a: any) => [a.video_id, a.video_title]));
-        comments.forEach((c: any) => {
+        comments.forEach((c: { videoId: string; videoTitle?: string }) => {
           c.videoTitle = videoTitles.get(c.videoId) || 'Unknown Video';
         });
 
@@ -416,7 +416,7 @@ export async function commentsRoutes(fastify: FastifyInstance) {
       return reply.send({
         results,
         total: results.length,
-        successful: results.filter(r => r.success).length
+        successful: results.filter((r: { success: boolean }) => r.success).length
       });
 
     } catch (error: any) {

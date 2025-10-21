@@ -239,9 +239,9 @@ export async function listPlaylistVideosAuthed(
     maxResults: Math.min(limit, 50),
   });
 
-  const items = res.data.items ?? [];
+  const items = res.data?.items ?? [];
   return items
-    .map((it) => {
+    .map((it: any) => {
       const sn = it.snippet;
       return sn && sn.resourceId?.videoId
         ? {
@@ -375,7 +375,7 @@ export async function fetchCreatorReplies(
       moderationStatus: 'published'
     });
 
-    const items = response.data.items ?? [];
+    const items = response.data?.items ?? [];
 
     // Filter for comments authored by the channel owner (their replies)
     for (const item of items) {
@@ -394,7 +394,7 @@ export async function fetchCreatorReplies(
       }
     }
 
-    pageToken = response.data.nextPageToken ?? undefined;
+    pageToken = response.data?.nextPageToken ?? undefined;
     if (!pageToken) break; // No more pages
   }
 

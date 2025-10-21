@@ -123,7 +123,8 @@ async function processStripeEvent(event: Stripe.Event): Promise<void> {
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promise<void> {
   const customerId = session.customer as string;
-  const _appUserId = session.client_reference_id || session.metadata?.user_id;
+  // Note: appUserId for potential future use in logging/debugging
+  // const appUserId = session.client_reference_id || session.metadata?.user_id;
 
   if (!customerId) {
     console.error('No customer ID in checkout session');
