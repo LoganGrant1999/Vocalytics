@@ -20,7 +20,8 @@ export default function Onboarding() {
     // Store redirect URL in sessionStorage so we can come back after OAuth
     sessionStorage.setItem('oauth_redirect', '/app');
     // Redirect to YouTube OAuth
-    window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/youtube/connect`;
+    // Use current origin to work in both dev and production
+    window.location.href = `${window.location.origin}/api/youtube/connect`;
   };
 
   const handleSkip = () => {
