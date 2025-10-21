@@ -100,7 +100,8 @@ export default function Settings() {
   const handleConnectYouTube = () => {
     // Store current page for redirect after OAuth
     sessionStorage.setItem('oauth_redirect', '/settings');
-    window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/youtube/connect`;
+    // Use current origin to work in both dev and production
+    window.location.href = `${window.location.origin}/api/youtube/connect`;
   };
 
   const handleDisconnectYouTube = () => {
