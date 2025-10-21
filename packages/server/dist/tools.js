@@ -84,11 +84,59 @@ function mapYouTubeItemToTWComment(item, parentId) {
     };
 }
 // ---------------- Core tool implementations ----------------
-export async function fetchComments(videoId, channelId, max = 50, pageToken, includeReplies = false, order = "time") {
+export async function fetchComments(videoId, channelId, max = 50, pageToken, includeReplies = false, order = "time", userId) {
     if (!videoId && !channelId)
         throw new Error("Provide videoId or channelId");
+    // ---- Use authenticated YouTube client if userId provided ----
+    if (userId) {
+        try {
+            const { getAuthedYouTubeForUser } = await import('./lib/google.js');
+            const yt = await getAuthedYouTubeForUser(userId);
+            const params = {
+                part: includeReplies ? ['snippet', 'replies'] : ['snippet'],
+                order,
+                maxResults: Math.min(100, Math.max(1, max))
+            };
+            if (videoId)
+                params.videoId = videoId;
+            if (channelId)
+                params.channelId = channelId;
+            if (pageToken)
+                params.pageToken = pageToken;
+            const res = await yt.commentThreads.list(params);
+            const comments = [];
+            for (const th of res.data.items ?? []) {
+                // Add top-level comment
+                comments.push(mapYouTubeItemToTWComment(th));
+                // Add replies if requested
+                if (includeReplies && th.replies?.comments?.length) {
+                    const topId = th.snippet?.topLevelComment?.id || th.id;
+                    for (const reply of th.replies.comments) {
+                        comments.push(mapYouTubeItemToTWComment(reply, topId));
+                    }
+                }
+            }
+            if (includeReplies || order === "time") {
+                comments.sort(byPublishedDesc);
+            }
+            else {
+                comments.sort(byLikesDesc);
+            }
+            return {
+                comments,
+                nextPageToken: res.data.nextPageToken
+            };
+        }
+        catch (error) {
+            console.error('[fetchComments] Error fetching from YouTube API:', error);
+            // If YouTube not connected or error, fall through to mock data
+            if (error.code !== 'YOUTUBE_NOT_CONNECTED') {
+                throw error;
+            }
+        }
+    }
     const accessToken = process.env.GOOGLE_ACCESS_TOKEN;
-    // ---- MOCK (no token) ----
+    // ---- MOCK (no token or userId) ----
     if (!accessToken) {
         const all = [];
         for (let i = 1; i <= 120; i++) {
@@ -282,7 +330,7 @@ export async function analyzeComments(comments) {
     }
     return results;
 }
-export async function generateReplies(comment, tones) {
+export async function generateReplies(comment, tones, toneProfile) {
     const templates = {
         friendly: `Thanks so much for watching! 😊 I'm really glad you found it helpful!`,
         concise: `Thanks for watching!`,
@@ -290,12 +338,37 @@ export async function generateReplies(comment, tones) {
     };
     const out = [];
     for (const tone of tones) {
-        const sys = `You are Vocalytics, generating ultra-brief, channel-safe YouTube comment replies in the author's voice.
+        let sys = `You are Vocalytics, generating ultra-brief, channel-safe YouTube comment replies in the author's voice.
 - Respect the requested TONE exactly (${tone}).
 - Keep it under 220 characters.
 - No hashtags, no links.
 - Be kind, assume good faith.`;
-        const prompt = `Original comment:\n"${comment?.text ?? ""}"\n\nWrite a single ${tone} reply.`;
+        let prompt = `Original comment:\n"${comment?.text ?? ""}"\n\nWrite a single ${tone} reply.`;
+        // If user has a tone profile (Pro users only), customize the prompt
+        if (toneProfile) {
+            sys = `You are generating a YouTube comment reply in the creator's authentic voice.
+
+CREATOR'S WRITING STYLE:
+- Overall tone: ${toneProfile.tone}
+- Formality: ${toneProfile.formality_level}
+- Emoji usage: ${toneProfile.emoji_usage}${toneProfile.common_emojis && toneProfile.common_emojis.length > 0 ? `\n- Favorite emojis: ${toneProfile.common_emojis.join(', ')}` : ''}
+- Reply length: ${toneProfile.avg_reply_length}${toneProfile.common_phrases && toneProfile.common_phrases.length > 0 ? `\n- Common phrases: ${toneProfile.common_phrases.slice(0, 3).join(', ')}` : ''}
+- ${toneProfile.uses_name ? 'Often signs with their name' : 'Does not sign with name'}
+- ${toneProfile.asks_questions ? 'Often asks follow-up questions' : 'Rarely asks questions'}
+- ${toneProfile.uses_commenter_name ? 'Addresses commenters by name' : 'Does not use commenter names'}
+
+INSTRUCTIONS:
+- Match the creator's tone and style exactly
+- Use the same formality level, emoji frequency, and reply length
+- Incorporate their common phrases naturally if relevant
+- Keep it authentic to how they actually write
+- No hashtags, no links
+- Be kind, assume good faith`;
+            prompt = `Comment author: ${comment.author}
+Comment text: "${comment?.text ?? ""}"
+
+Write a reply in the creator's authentic voice${tone !== 'auto' ? ` with a ${tone} tone` : ''}.`;
+        }
         const llm = await chatReply(sys, prompt);
         out.push({
             tone,

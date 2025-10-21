@@ -81,6 +81,9 @@ importers:
       '@fastify/aws-lambda':
         specifier: ^6.1.1
         version: 6.1.1
+      '@fastify/cookie':
+        specifier: ^9.4.0
+        version: 9.4.0
       '@fastify/cors':
         specifier: ^9.0.1
         version: 9.0.1
