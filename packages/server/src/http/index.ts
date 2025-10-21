@@ -30,7 +30,6 @@ import { summarizeSentimentRoute } from './routes/summarize-sentiment.js';
 import { meRoutes } from './routes/me.js';
 import { billingRoutes } from './routes/billing.js';
 import { webhookRoute } from './routes/webhook.js';
-import { youtubeRoutes } from './routes/youtube.js';
 import { toneRoutes } from './routes/tone.js';
 import { commentsRoutes } from './routes/comments.js';
 import { createRateLimiter, startRateLimitCleanup } from './rateLimit.js';
