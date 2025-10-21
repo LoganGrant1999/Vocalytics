@@ -1,6 +1,18 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "pnpm install && pnpm --filter web build",
   "outputDirectory": "packages/web/dist",
   "installCommand": "pnpm install",
-  "framework": null
+  "framework": null,
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/packages/server/api/index"
+    }
+  ],
+  "functions": {
+    "packages/server/api/index.ts": {
+      "runtime": "@vercel/node@3"
+    }
+  }
 }
