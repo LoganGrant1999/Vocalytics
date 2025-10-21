@@ -302,9 +302,8 @@ export async function commentsRoutes(fastify: FastifyInstance) {
           .eq('user_id', userId)
           .in('video_id', videoIds);
 
-        type CommentWithTitle = { videoId: string; videoTitle?: string };
-        const videoTitles = new Map((analyses || []).map((a: any) => [a.video_id, a.video_title]));
-        (comments as CommentWithTitle[]).forEach((c) => {
+        const videoTitles = new Map<string, string>((analyses || []).map((a: any) => [a.video_id, a.video_title]));
+        comments.forEach((c: any) => {
           c.videoTitle = videoTitles.get(c.videoId) || 'Unknown Video';
         });
 
