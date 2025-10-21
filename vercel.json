@@ -2,21 +2,49 @@
   "version": 2,
   "builds": [
     {
-      "src": "packages/server/src/http/index.ts",
-      "use": "@vercel/node",
+      "src": "packages/web/package.json",
+      "use": "@vercel/static-build",
       "config": {
-        "includeFiles": ["packages/web/public/**"]
+        "distDir": "packages/web/dist"
       }
+    },
+    {
+      "src": "packages/server/src/http/index.ts",
+      "use": "@vercel/node"
     }
   ],
   "routes": [
     {
-      "src": "/(success|cancel|account)\\.html",
-      "dest": "packages/web/public/$1.html"
+      "src": "/api/(.*)",
+      "dest": "packages/server/src/http/index.ts"
+    },
+    {
+      "src": "/webhook/(.*)",
+      "dest": "packages/server/src/http/index.ts"
+    },
+    {
+      "src": "/healthz",
+      "dest": "packages/server/src/http/index.ts"
+    },
+    {
+      "src": "/images/(.*)",
+      "dest": "packages/web/dist/images/$1"
+    },
+    {
+      "src": "/assets/(.*)",
+      "dest": "packages/web/dist/assets/$1"
+    },
+    {
+      "src": "/(.*)\\.html",
+      "dest": "packages/web/dist/$1.html"
+    },
+    {
+      "src": "/favicon.ico",
+      "dest": "packages/web/dist/favicon.ico"
     },
     {
       "src": "/(.*)",
-      "dest": "packages/server/src/http/index.ts"
+      "dest": "packages/web/dist/index.html"
     }
   ],
   "env": {
