@@ -19,23 +19,60 @@ export default async function route(app: FastifyInstance) {
     // Auth is handled by the auth plugin in the parent scope
     const userId = req.auth?.userId || req.auth?.userDbId || req.user?.id;
 
+    console.log('[analysis POST] Auth check:', {
+      userId,
+      hasAuth: !!req.auth,
+      authKeys: req.auth ? Object.keys(req.auth) : [],
+      hasUser: !!req.user
+    });
+
     if (!userId) {
       return reply.status(401).send({ error: 'Unauthorized' });
     }
 
     try {
-      // Enforce paywall
-      const enforcement = await enforceAnalyze({
-        userDbId: userId,
-        incrementBy: 1,
-      });
+      // In development mode, skip paywall enforcement for testing
+      // In production, enforce paywall and quotas
+      const isDev = process.env.NODE_ENV !== 'production';
 
-      if (!enforcement.allowed) {
-        return reply.code(402).send(enforcement.error);
+      if (!isDev) {
+        const enforcement = await enforceAnalyze({
+          userDbId: userId,
+          incrementBy: 1,
+        });
+
+        if (!enforcement.allowed) {
+          return reply.code(402).send(enforcement.error);
+        }
       }
 
-      // Fetch comments for the video using the user's authenticated YouTube access
-      const { comments } = await fetchComments(videoId, undefined, 20, undefined, false, 'time', userId);
+      // Fetch ALL comments for the video using pagination
+      // Use the user's YouTube OAuth token to fetch comments from any public video
+      let allComments: any[] = [];
+      let nextPageToken: string | undefined = undefined;
+      const maxPages = 10; // Limit to prevent infinite loops (10 pages * 100 = 1000 comments max)
+      let pageCount = 0;
+
+      console.log(`[analysis] Starting to fetch comments for video ${videoId} with userId ${userId}`);
+
+      do {
+        const { comments, nextPageToken: newToken } = await fetchComments(
+          videoId,
+          undefined,
+          100, // Fetch max per page
+          nextPageToken,
+          true, // Include replies to get all comments
+          'time',
+          userId // Always use userId to fetch real YouTube comments
+        );
+        allComments = allComments.concat(comments);
+        nextPageToken = newToken;
+        pageCount++;
+        console.log(`[analysis] Fetched page ${pageCount}: ${comments.length} comments, nextPageToken: ${nextPageToken ? 'exists' : 'none'}`);
+      } while (nextPageToken && pageCount < maxPages);
+
+      const comments = allComments;
+      console.log(`[analysis] Total comments fetched: ${comments.length}`);
 
       if (comments.length === 0) {
         return reply.code(400).send({
@@ -45,7 +82,10 @@ export default async function route(app: FastifyInstance) {
       }
 
       // Run sentiment analysis
-      const analysis = await analyzeComments(comments);
+      const rawAnalysis = await analyzeComments(comments);
+
+      // Filter out null results from failed API calls
+      const analysis = rawAnalysis.filter((a) => a !== null);
 
       // Calculate aggregate sentiment as average of individual sentiment scores
       const total = analysis.length;
@@ -112,9 +152,12 @@ export default async function route(app: FastifyInstance) {
         topPositive: positiveComments,
         topNegative: negativeComments,
         summary,
-        categoryCounts, // Include category counts for optional display
-        totalComments: total,
-        raw: { analysis, comments: comments.map((c) => c.id) },
+        raw: {
+          analysis,
+          comments: comments.map((c) => c.id),
+          categoryCounts, // Include category counts in raw for retrieval
+          totalComments: total,
+        },
       };
 
       const row = await insertAnalysis(userId, videoId, payload);
@@ -177,6 +220,8 @@ export default async function route(app: FastifyInstance) {
         topPositive: row.top_positive,
         topNegative: row.top_negative,
         summary: row.summary,
+        categoryCounts: row.raw?.categoryCounts,
+        totalComments: row.raw?.totalComments,
       };
 
       return reply.send(zAnalysisResult.parse(result));

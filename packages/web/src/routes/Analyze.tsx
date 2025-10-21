@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -56,6 +56,7 @@ export default function Analyze() {
   const analytics = useAnalytics();
   const queryClient = useQueryClient();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const hasAutoStarted = useRef(false);
 
   // Fetch video metadata and stats
   const { data: videos, isLoading: isLoadingVideo } = useQuery({
@@ -205,6 +206,14 @@ export default function Analyze() {
     },
   });
 
+  // Auto-start analysis if landing on page with no existing analysis
+  useEffect(() => {
+    if (!isLoadingAnalysis && !analysis && !isAnalyzing && !hasAutoStarted.current && videoId) {
+      hasAutoStarted.current = true;
+      analyzeMutation.mutate();
+    }
+  }, [isLoadingAnalysis, analysis, isAnalyzing, videoId, analyzeMutation]);
+
   if (!videoId) {
     return (
       <div className="text-center py-12">
@@ -232,13 +241,13 @@ export default function Analyze() {
   // For display: classify the overall sentiment into positive/neutral/negative buckets
   const displayClassification = analysis ? classifySentiment(analysis.sentiment.pos) : 'neutral';
 
-  // Use counts of 1 for the classified category (SentimentBar will convert to percentage)
+  // Extract percentages from sentiment scores (same as used in summary)
   const sentimentCounts = analysis
-    ? displayClassification === 'positive'
-      ? { positive: 1, neutral: 0, negative: 0 }
-      : displayClassification === 'negative'
-      ? { positive: 0, neutral: 0, negative: 1 }
-      : { positive: 0, neutral: 1, negative: 0 }
+    ? {
+        positive: Math.round((analysis.sentiment.pos || 0) * 100),
+        neutral: Math.round((analysis.sentiment.neu || 0) * 100),
+        negative: Math.round((analysis.sentiment.neg || 0) * 100),
+      }
     : { positive: 0, neutral: 0, negative: 0 };
 
   return (
@@ -349,58 +358,27 @@ export default function Analyze() {
               </div>
             )}
 
-            <div className="space-y-4">
-              <div>
-                <p className="text-xs text-muted-foreground mb-2" title="Comments are classified as positive (≥60%), neutral (40-60%), or negative (≤40%)">
-                  Overall Sentiment
-                </p>
+            {/* Side-by-side cards */}
+            <div className="grid md:grid-cols-2 gap-4">
+              {/* Sentiment Pie Chart Card */}
+              <div className="rounded-lg border p-6">
+                <h3 className="text-sm font-semibold mb-4">Sentiment Distribution</h3>
                 <SentimentBar
                   sentiments={sentimentCounts}
-                  totalComments={analysis.totalComments || analysis.topPositive.length + analysis.topNegative.length}
+                  totalComments={100}
                 />
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs text-muted-foreground mt-3">
                   Classification: {displayClassification.charAt(0).toUpperCase() + displayClassification.slice(1)}
-                  ({(analysis.sentiment.pos * 100).toFixed(0)}% positive score from AI)
+                  ({(analysis.sentiment.pos * 100).toFixed(0)}% positive score)
                 </p>
               </div>
 
-              {/* Category counts as secondary stat */}
-              {analysis.categoryCounts && (
-                <div className="pt-3 border-t">
-                  <p className="text-xs text-muted-foreground mb-2" title="% of comments whose top label is positive/neutral/negative">
-                    Share of Comments by Dominant Label
-                  </p>
-                  <div className="flex gap-4 text-sm">
-                    <span className="text-green-600">
-                      Positive: {analysis.categoryCounts.pos} ({((analysis.categoryCounts.pos / (analysis.totalComments || 1)) * 100).toFixed(0)}%)
-                    </span>
-                    <span className="text-gray-600">
-                      Neutral: {analysis.categoryCounts.neu} ({((analysis.categoryCounts.neu / (analysis.totalComments || 1)) * 100).toFixed(0)}%)
-                    </span>
-                    <span className="text-red-600">
-                      Negative: {analysis.categoryCounts.neg} ({((analysis.categoryCounts.neg / (analysis.totalComments || 1)) * 100).toFixed(0)}%)
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex items-center gap-4 pt-3 border-t">
-                <div>
-                  <p className="text-sm text-muted-foreground">Overall Score</p>
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl font-bold">
-                      {(analysis.score * 100).toFixed(0)}
-                    </span>
-                    {analysis.score > 0 ? (
-                      <TrendingUp className="h-5 w-5 text-green-500" />
-                    ) : (
-                      <TrendingDown className="h-5 w-5 text-red-500" />
-                    )}
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm">{analysis.summary}</p>
-                </div>
+              {/* Summary Card */}
+              <div className="rounded-lg border p-6">
+                <h3 className="text-sm font-semibold mb-4">Analysis Summary</h3>
+                <p className="text-sm text-muted-foreground">
+                  {analysis.summary}
+                </p>
               </div>
             </div>
           </div>
