@@ -295,7 +295,7 @@ export async function commentsRoutes(fastify: FastifyInstance) {
         }));
 
         // Fetch video titles for context
-        const videoIds = [...new Set(comments.map(c => c.videoId))];
+        const videoIds = [...new Set(comments.map((c: any) => c.videoId))];
         const { data: analyses } = await supabase
           .from('analysis')
           .select('video_id, video_title')
@@ -304,7 +304,7 @@ export async function commentsRoutes(fastify: FastifyInstance) {
 
         type CommentWithTitle = { videoId: string; videoTitle?: string };
         const videoTitles = new Map((analyses || []).map((a: any) => [a.video_id, a.video_title]));
-        comments.forEach((c: CommentWithTitle) => {
+        (comments as CommentWithTitle[]).forEach((c) => {
           c.videoTitle = videoTitles.get(c.videoId) || 'Unknown Video';
         });
 

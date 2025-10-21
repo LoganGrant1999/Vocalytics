@@ -375,9 +375,9 @@ export async function fetchCreatorReplies(
       pageToken,
       textFormat: 'plainText',
       moderationStatus: 'published'
-    });
+    }) as any;
 
-    const items = response.data?.items ?? [];
+    const items = response?.data?.items ?? [];
 
     // Filter for comments authored by the channel owner (their replies)
     for (const item of items) {
@@ -396,7 +396,7 @@ export async function fetchCreatorReplies(
       }
     }
 
-    pageToken = response.data?.nextPageToken ?? undefined;
+    pageToken = response?.data?.nextPageToken ?? undefined;
     if (!pageToken) break; // No more pages
   }
 
