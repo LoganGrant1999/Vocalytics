@@ -62,11 +62,11 @@ export async function youtubeApiRoutes(fastify: FastifyInstance) {
         maxResults: 50,
         pageToken: pageToken || undefined,
         textFormat: 'plainText',
-      });
+      }) as any;
 
-      const items = response.data?.items || [];
-      const nextPageToken = response.data?.nextPageToken;
-      const pageInfo = response.data?.pageInfo;
+      const items = response?.data?.items || [];
+      const nextPageToken = response?.data?.nextPageToken;
+      const pageInfo = response?.data?.pageInfo;
 
       // Strip replies if includeReplies is false
       const processedItems = (includeReplies !== 'true' && includeReplies !== true)
@@ -141,11 +141,11 @@ export async function youtubeApiRoutes(fastify: FastifyInstance) {
             textOriginal: trimmedText,
           },
         },
-      });
+      }) as any;
 
       return reply.send({
         success: true,
-        comment: response.data,
+        comment: response?.data,
       });
     } catch (err: any) {
       console.error('[youtube-api.ts] Error posting reply:', err);

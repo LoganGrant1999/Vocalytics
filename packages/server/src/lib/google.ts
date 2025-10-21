@@ -149,6 +149,7 @@ export async function getAuthedYouTubeForUser(
   }
 
   // Return authenticated YouTube API client
+  // @ts-ignore - googleapis type definitions are incorrect for this pattern
   return google.youtube({ version: 'v3', auth: oauth2 });
 }
 
@@ -346,6 +347,7 @@ export async function fetchCreatorReplies(
     redirectUri: getRedirectUri(),
   });
   oauth2.setCredentials({ access_token: accessToken });
+  // @ts-ignore - googleapis type definitions are incorrect for this pattern
   const youtube = google.youtube({ version: 'v3', auth: oauth2 });
 
   // First, get the channel ID of the authenticated user
@@ -415,6 +417,7 @@ export async function postCommentReply(
     redirectUri: getRedirectUri(),
   });
   oauth2.setCredentials({ access_token: accessToken });
+  // @ts-ignore - googleapis type definitions are incorrect for this pattern
   const youtube = google.youtube({ version: 'v3', auth: oauth2 });
 
   await youtube.comments.insert({

@@ -167,10 +167,10 @@ export async function fetchComments(
       if (channelId) params.channelId = channelId;
       if (pageToken) params.pageToken = pageToken;
 
-      const res = await yt.commentThreads.list(params);
+      const res = await yt.commentThreads.list(params) as any;
 
       const comments: TWComment[] = [];
-      for (const th of res.data?.items ?? []) {
+      for (const th of res?.data?.items ?? []) {
         // Add top-level comment
         comments.push(mapYouTubeItemToTWComment(th));
         // Add replies if requested
@@ -190,7 +190,7 @@ export async function fetchComments(
 
       return {
         comments,
-        nextPageToken: res.data?.nextPageToken
+        nextPageToken: res?.data?.nextPageToken
       };
     } catch (error: any) {
       console.error('[fetchComments] Error fetching from YouTube API:', error);
