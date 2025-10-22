@@ -13,14 +13,30 @@ if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
 }
 
 /**
- * Get redirect URI based on APP_ENV
+ * Get redirect URI based on NODE_ENV
+ * In production (Vercel), use GOOGLE_REDIRECT_URI or construct from VERCEL_URL
+ * In development, use localhost callback
  */
 export function getRedirectUri(): string {
-  const env = process.env.APP_ENV || 'local';
-  if (env === 'production') {
-    return process.env.GOOGLE_REDIRECT_URI_PROD!;
+  const nodeEnv = process.env.NODE_ENV;
+
+  if (nodeEnv === 'production') {
+    // First try explicit GOOGLE_REDIRECT_URI env var
+    if (process.env.GOOGLE_REDIRECT_URI) {
+      return process.env.GOOGLE_REDIRECT_URI;
+    }
+
+    // Fallback: construct from VERCEL_URL if available
+    if (process.env.VERCEL_URL) {
+      return `https://${process.env.VERCEL_URL}/api/youtube/callback`;
+    }
+
+    // Last resort: use production domain
+    return 'https://vocalytics-alpha.vercel.app/api/youtube/callback';
   }
-  return process.env.GOOGLE_REDIRECT_URI_LOCAL!;
+
+  // Development: use localhost
+  return process.env.GOOGLE_REDIRECT_URI_LOCAL || 'http://localhost:3000/api/youtube/callback';
 }
 
 /**
