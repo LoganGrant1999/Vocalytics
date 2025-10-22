@@ -25,6 +25,9 @@ export async function youtubeOAuthRoutes(fastify: FastifyInstance) {
   fastify.get('/youtube/connect', async (request: any, reply: FastifyReply) => {
     const oauth2Client = createOAuth2Client();
 
+    // Log the redirect URI being used for debugging
+    console.log('[youtube-oauth.ts] OAuth redirect_uri:', oauth2Client.redirectUri);
+
     // Generate a random state token for CSRF protection
     const state = Math.random().toString(36).substring(2, 15);
 

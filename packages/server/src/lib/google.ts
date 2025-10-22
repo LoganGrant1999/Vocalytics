@@ -14,29 +14,27 @@ if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
 
 /**
  * Get redirect URI based on NODE_ENV
- * In production (Vercel), use GOOGLE_REDIRECT_URI or construct from VERCEL_URL
+ * In production (Vercel), ALWAYS use the production domain
  * In development, use localhost callback
+ *
+ * IMPORTANT: The redirect URI must be registered in Google Cloud Console
+ * under "Authorized redirect URIs" for your OAuth 2.0 Client ID.
  */
 export function getRedirectUri(): string {
   const nodeEnv = process.env.NODE_ENV;
 
   if (nodeEnv === 'production') {
-    // First try explicit GOOGLE_REDIRECT_URI env var
-    if (process.env.GOOGLE_REDIRECT_URI) {
-      return process.env.GOOGLE_REDIRECT_URI;
-    }
-
-    // Fallback: construct from VERCEL_URL if available
-    if (process.env.VERCEL_URL) {
-      return `https://${process.env.VERCEL_URL}/api/youtube/callback`;
-    }
-
-    // Last resort: use production domain
-    return 'https://vocalytics-alpha.vercel.app/api/youtube/callback';
+    // ALWAYS use the production domain in production
+    // This must match the redirect URI registered in Google Cloud Console
+    const redirectUri = 'https://vocalytics-alpha.vercel.app/api/youtube/callback';
+    console.log('[google.ts] Using production redirect URI:', redirectUri);
+    return redirectUri;
   }
 
   // Development: use localhost
-  return process.env.GOOGLE_REDIRECT_URI_LOCAL || 'http://localhost:3000/api/youtube/callback';
+  const redirectUri = process.env.GOOGLE_REDIRECT_URI_LOCAL || 'http://localhost:3000/api/youtube/callback';
+  console.log('[google.ts] Using development redirect URI:', redirectUri);
+  return redirectUri;
 }
 
 /**
