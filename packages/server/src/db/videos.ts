@@ -1,5 +1,5 @@
-import { supabase, type UserVideoRow } from './client';
-import type { UserVideo } from '../schemas';
+import { supabase, type UserVideoRow } from './client.js';
+import type { UserVideo } from '../schemas.js';
 
 export async function upsertUserVideos(
   userId: string,

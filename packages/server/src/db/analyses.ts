@@ -1,5 +1,5 @@
-import { supabase, type VideoAnalysisRow } from './client';
-import type { AnalysisResult, Sentiment } from '../schemas';
+import { supabase, type VideoAnalysisRow } from './client.js';
+import type { AnalysisResult, Sentiment } from '../schemas.js';
 
 export async function insertAnalysis(
   userId: string,
