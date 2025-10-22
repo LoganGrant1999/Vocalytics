@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { resolveChannelAndUploads, listPlaylistVideosAuthed } from '../../lib/google';
+import { resolveChannelAndUploads, listPlaylistVideosAuthed } from '../../lib/google.js';
 
 /**
  * Debug endpoint for YouTube diagnostics

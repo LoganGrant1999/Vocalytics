@@ -1,10 +1,10 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { zAnalysisResult, zTrendPoint } from '../../schemas';
-import { enforceAnalyze } from '../paywall';
-import { fetchComments, analyzeComments } from '../../tools';
-import { insertAnalysis, getLatestAnalysis, listLatestAnalysesPerVideo, getTrends } from '../../db/analyses';
-import { getUserVideo } from '../../db/videos';
+import { zAnalysisResult, zTrendPoint } from '../../schemas.js';
+import { enforceAnalyze } from '../paywall.js';
+import { fetchComments, analyzeComments } from '../../tools.js';
+import { insertAnalysis, getLatestAnalysis, listLatestAnalysesPerVideo, getTrends } from '../../db/analyses.js';
+import { getUserVideo } from '../../db/videos.js';
 
 const pSchema = z.object({ videoId: z.string() });
 const trendsQuerySchema = z.object({

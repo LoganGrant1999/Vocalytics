@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { zUserVideo } from '../../schemas';
-import { resolveChannelAndUploads, listPlaylistVideosAuthed, getVideoStatsAuthed } from '../../lib/google';
-import { upsertUserVideos } from '../../db/videos';
+import { zUserVideo } from '../../schemas.js';
+import { resolveChannelAndUploads, listPlaylistVideosAuthed, getVideoStatsAuthed } from '../../lib/google.js';
+import { upsertUserVideos } from '../../db/videos.js';
 
 const qSchema = z.object({
   mine: z.coerce.boolean().default(true),
