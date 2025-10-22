@@ -31,40 +31,13 @@ export async function youtubeOAuthRoutes(fastify: FastifyInstance) {
     // Generate a random state token for CSRF protection
     const state = Math.random().toString(36).substring(2, 15);
 
-    // Check if user is already logged in and has a refresh token
-    // If so, we don't need access_type: 'offline' which triggers consent screen
-    const token = request.cookies.vocalytics_token;
-    let hasRefreshToken = false;
-
-    if (token) {
-      try {
-        // Decode token to get user ID (simplified - in production verify signature)
-        const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
-        const userId = payload.userId;
-
-        if (userId) {
-          const { data: user } = await supabase
-            .from('profiles')
-            .select('youtube_refresh_token')
-            .eq('id', userId)
-            .single();
-
-          hasRefreshToken = !!user?.youtube_refresh_token;
-        }
-      } catch (err) {
-        // Invalid token, ignore
-      }
-    }
-
-    // For returning users with refresh token: use prompt 'none' to skip all screens
-    // For new users or users without refresh token: request offline access (shows consent)
+    // Generate OAuth authorization URL
+    // Always request offline access to get refresh token
     const authUrl = oauth2Client.generateAuthUrl({
       scope: YOUTUBE_SCOPES,
       state, // CSRF protection token
-      ...(hasRefreshToken
-        ? { prompt: 'none' } // Skip all screens for returning users
-        : { access_type: 'offline' } // Request offline for new users
-      ),
+      access_type: 'offline', // Request refresh token
+      prompt: 'consent', // Force consent screen to ensure we get refresh_token
     });
 
     // Redirect user to Google consent screen
