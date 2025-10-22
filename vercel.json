@@ -3,11 +3,5 @@
   "buildCommand": "pnpm install && pnpm --filter web build",
   "outputDirectory": "packages/web/dist",
   "installCommand": "pnpm install",
-  "framework": null,
-  "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "/api"
-    }
-  ]
+  "framework": null
 }
