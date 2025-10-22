@@ -98,29 +98,45 @@ export async function youtubeOAuthRoutes(fastify: FastifyInstance) {
       }
 
       // Find or create user by Google ID
-      const { data: existingUser } = await supabase
+      const { data: existingUser, error: findError } = await supabase
         .from('profiles')
         .select('*')
         .eq('google_id', profile.sub)
         .single();
 
+      console.log('[youtube-oauth.ts] Finding user by google_id:', {
+        google_id: profile.sub,
+        found: !!existingUser,
+        error: findError?.message,
+      });
+
       let userId: string;
 
       if (existingUser) {
         userId = existingUser.id;
+        console.log('[youtube-oauth.ts] Using existing user:', userId);
       } else {
         // Create new user
+        const insertData = {
+          google_id: profile.sub,
+          email: profile.email,
+          name: profile.name || profile.email,
+          avatar_url: profile.picture,
+          tier: 'free',
+        };
+        console.log('[youtube-oauth.ts] Creating new user with data:', insertData);
+
         const { data: newUser, error: createError } = await supabase
           .from('profiles')
-          .insert({
-            google_id: profile.sub,
-            email: profile.email,
-            name: profile.name || profile.email,
-            avatar_url: profile.picture,
-            tier: 'free',
-          })
+          .insert(insertData)
           .select()
           .single();
+
+        console.log('[youtube-oauth.ts] User creation result:', {
+          success: !!newUser,
+          userId: newUser?.id,
+          error: createError?.message,
+        });
 
         if (createError || !newUser) {
           console.error('[youtube-oauth.ts] Failed to create user:', createError);
