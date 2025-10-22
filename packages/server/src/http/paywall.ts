@@ -59,7 +59,8 @@ export async function enforceAnalyze(params: {
     .single();
 
   if (error || !profile) {
-    throw new Error('User not found');
+    console.error('[paywall] User not found:', { userDbId, error: error?.message });
+    throw new Error(`User not found: ${userDbId}`);
   }
 
   // Pro users always allowed (no quota tracking needed)
@@ -126,7 +127,8 @@ export async function enforceReply(params: {
     .single();
 
   if (error || !profile) {
-    throw new Error('User not found');
+    console.error('[paywall] User not found:', { userDbId, error: error?.message });
+    throw new Error(`User not found: ${userDbId}`);
   }
 
   // Pro users always allowed (no quota tracking needed)
