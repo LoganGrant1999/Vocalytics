@@ -16,8 +16,6 @@ const YOUTUBE_SCOPES = [
 ];
 
 export async function youtubeOAuthRoutes(fastify: FastifyInstance) {
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-
   /**
    * GET /api/youtube/connect
    * No auth required - YouTube OAuth IS the authentication method
