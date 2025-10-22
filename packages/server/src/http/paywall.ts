@@ -10,8 +10,6 @@ interface Profile {
   tier: 'free' | 'pro';
   subscription_status: string | null;
   subscribed_until: string | null;
-  comments_analyzed_count: number;
-  replies_generated_count: number;
 }
 
 export interface PaywallError {
@@ -58,9 +56,11 @@ export async function enforceAnalyze(params: {
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
+  // Don't select comments_analyzed_count and replies_generated_count - they don't exist in profiles table
+  // Usage tracking is done via the usage table and atomic functions
   const { data: profile, error } = await supabase
     .from('profiles')
-    .select('id, tier, subscription_status, subscribed_until, comments_analyzed_count, replies_generated_count')
+    .select('id, tier, subscription_status, subscribed_until')
     .eq('id', userDbId)
     .single();
 
@@ -142,9 +142,11 @@ export async function enforceReply(params: {
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
+  // Don't select comments_analyzed_count and replies_generated_count - they don't exist in profiles table
+  // Usage tracking is done via the usage table and atomic functions
   const { data: profile, error } = await supabase
     .from('profiles')
-    .select('id, tier, subscription_status, subscribed_until, comments_analyzed_count, replies_generated_count')
+    .select('id, tier, subscription_status, subscribed_until')
     .eq('id', userDbId)
     .single();
 
