@@ -50,6 +50,12 @@ export async function enforceAnalyze(params: {
 }): Promise<{ allowed: true } | { allowed: false; error: PaywallError }> {
   const { userDbId, incrementBy } = params;
 
+  console.log('[paywall] enforceAnalyze called:', {
+    userDbId,
+    hasServiceKey: !!SUPABASE_SERVICE_KEY,
+    serviceKeyPrefix: SUPABASE_SERVICE_KEY?.substring(0, 20),
+  });
+
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
   const { data: profile, error } = await supabase
@@ -58,9 +64,25 @@ export async function enforceAnalyze(params: {
     .eq('id', userDbId)
     .single();
 
+  console.log('[paywall] Query result:', {
+    userDbId,
+    hasProfile: !!profile,
+    profileId: profile?.id,
+    tier: profile?.tier,
+    errorCode: error?.code,
+    errorMessage: error?.message,
+    errorDetails: error?.details,
+  });
+
   if (error || !profile) {
-    console.error('[paywall] User not found:', { userDbId, error: error?.message });
-    throw new Error(`User not found: ${userDbId}`);
+    console.error('[paywall] User not found:', {
+      userDbId,
+      error: error?.message,
+      errorCode: error?.code,
+      errorDetails: error?.details,
+      errorHint: error?.hint,
+    });
+    throw new Error(`User not found: ${userDbId} - ${error?.message || 'No profile data'}`);
   }
 
   // Pro users always allowed (no quota tracking needed)
