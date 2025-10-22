@@ -172,11 +172,13 @@ export async function youtubeOAuthRoutes(fastify: FastifyInstance) {
       });
 
       // Generate JWT token for session
-      const jwtToken = generateToken({
+      const jwtPayload = {
         userId,
         email: profile.email!,
         tier: existingUser?.tier || 'free',
-      });
+      };
+      console.log('[youtube-oauth.ts] Generating JWT with payload:', jwtPayload);
+      const jwtToken = generateToken(jwtPayload);
 
       // Set JWT as HTTP-only cookie
       reply.setCookie('vocalytics_token', jwtToken, {
