@@ -144,6 +144,36 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
   }
 
   console.log(`Checkout completed for user ${user.id}`);
+
+  // If the session has a subscription, fetch it and update the user
+  if (session.subscription) {
+    const subscriptionId = typeof session.subscription === 'string'
+      ? session.subscription
+      : session.subscription.id;
+
+    try {
+      const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+
+      // Update user with subscription details and upgrade to pro
+      const status = subscription.status;
+      const periodEnd = (subscription as any).current_period_end;
+      const currentPeriodEnd = periodEnd ? new Date(periodEnd * 1000) : null;
+
+      await supabase
+        .from('profiles')
+        .update({
+          stripe_subscription_id: subscription.id,
+          subscription_status: status,
+          subscribed_until: currentPeriodEnd?.toISOString() || null,
+          tier: status === 'active' ? 'pro' : user.tier
+        })
+        .eq('id', user.id);
+
+      console.log(`User ${user.id} upgraded to pro via checkout completion`);
+    } catch (subError: any) {
+      console.error(`Failed to retrieve/update subscription for checkout:`, subError.message);
+    }
+  }
 }
 
 async function handleSubscriptionChange(subscription: Stripe.Subscription): Promise<void> {
