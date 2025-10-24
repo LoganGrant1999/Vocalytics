@@ -201,10 +201,11 @@ export async function fetchComments(
     }
   }
 
-  const accessToken = process.env.GOOGLE_ACCESS_TOKEN;
+  // Try to use YouTube Data API key for public video comments
+  const youtubeApiKey = process.env.YOUTUBE_API_KEY || process.env.GOOGLE_API_KEY;
 
-  // ---- MOCK (no token or userId) ----
-  if (!accessToken) {
+  // ---- MOCK (no API key available) ----
+  if (!youtubeApiKey) {
     const all: TWComment[] = [];
     for (let i = 1; i <= 120; i++) {
       const id = `mock_${i}`;
@@ -256,20 +257,21 @@ export async function fetchComments(
     return { comments: slice, nextPageToken };
   }
 
-  // ---- REAL API (token present) ----
+  // ---- REAL API (use API key for public data) ----
   const base = "https://www.googleapis.com/youtube/v3/commentThreads";
   const params: Record<string, string> = {
     part: includeReplies ? "snippet,replies" : "snippet",
     textFormat: "plainText",
     order,
-    maxResults: String(Math.min(100, Math.max(1, max)))
+    maxResults: String(Math.min(100, Math.max(1, max))),
+    key: youtubeApiKey // API key as query param, not Bearer token
   };
   if (videoId) params.videoId = videoId;
   if (channelId) params.channelId = channelId;
   if (pageToken) params.pageToken = pageToken;
 
   const url = `${base}?${new URLSearchParams(params).toString()}`;
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  const res = await fetch(url); // No auth header needed with API key in URL
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`YouTube API error ${res.status}: ${body}`);
