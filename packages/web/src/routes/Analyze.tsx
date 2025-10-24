@@ -7,6 +7,7 @@ import { ArrowLeft, Loader2, AlertCircle, ThumbsUp, MessageSquare, Eye, Trending
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { useAnalytics } from '@/hooks/useAnalytics';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Video {
   videoId: string;
@@ -55,10 +56,12 @@ export default function Analyze() {
   const navigate = useNavigate();
   const analytics = useAnalytics();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const hasAutoStarted = useRef(false);
 
-  // Fetch video metadata and stats
+  // Fetch video metadata and stats - only if YouTube OAuth is connected
+  // This is optional nice-to-have data (title, thumbnail, stats)
   const { data: videos, isLoading: isLoadingVideo } = useQuery({
     queryKey: ['youtube-videos'],
     queryFn: async () => {
@@ -68,6 +71,8 @@ export default function Analyze() {
       if (result.error) throw new Error('Failed to fetch videos');
       return result.data as Video[];
     },
+    enabled: user?.hasYouTubeConnected === true, // Only fetch if OAuth connected
+    retry: false,
   });
 
   const video = videos?.find((v) => v.videoId === videoId);
