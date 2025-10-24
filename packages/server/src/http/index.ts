@@ -84,9 +84,17 @@ export async function createHttpServer() {
           return;
         }
 
+        // Debug logging for registration endpoint
+        if (req.url?.includes('/auth/register')) {
+          console.log('[Content Parser] Raw body length:', body.length);
+          console.log('[Content Parser] Raw body:', body.substring(0, 200));
+        }
+
         const json = JSON.parse(body);
         done(null, json);
       } catch (err: any) {
+        console.error('[Content Parser] JSON parse error:', err.message);
+        console.error('[Content Parser] Failed body:', body);
         // Return 400 for malformed JSON
         err.statusCode = 400;
         done(err, undefined);
