@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAnalytics } from '@/hooks/useAnalytics';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface VideoCard {
   videoId: string;
@@ -42,8 +43,9 @@ function decorateVideoCards(
 export function useChannelData() {
   const queryClient = useQueryClient();
   const analytics = useAnalytics();
+  const { user } = useAuth();
 
-  // Fetch user's videos
+  // Fetch user's videos - only if YouTube is connected
   const videosQuery = useQuery({
     queryKey: ['videos'],
     queryFn: async () => {
@@ -65,18 +67,9 @@ export function useChannelData() {
 
       return { videos, channelTitle };
     },
+    enabled: user?.hasYouTubeConnected === true, // Only fetch if YouTube is connected
     staleTime: 5 * 60 * 1000, // 5 minutes
-    retry: (failureCount, error: any) => {
-      // Don't retry if YouTube is not connected
-      if (error?.response?.status === 403) {
-        return false;
-      }
-      return failureCount < 3;
-    },
-    // Don't auto-refetch on focus/mount if we already know YouTube isn't connected
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
+    retry: false, // No retries needed since we check connection first
   });
 
   // Fetch all analyses
@@ -114,10 +107,8 @@ export function useChannelData() {
     },
   });
 
-  // Check if YouTube is not connected (403 error from videos API)
-  const isYouTubeNotConnected =
-    videosQuery.isError &&
-    (videosQuery.error as any)?.response?.status === 403;
+  // Check if YouTube is not connected
+  const isYouTubeNotConnected = user?.hasYouTubeConnected === false;
 
   // Extract channel title and videos
   const channelTitle = videosQuery.data?.channelTitle || '';
