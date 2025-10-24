@@ -73,6 +73,10 @@ export function useChannelData() {
       }
       return failureCount < 3;
     },
+    // Don't auto-refetch on focus/mount if we already know YouTube isn't connected
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 
   // Fetch all analyses
