@@ -64,6 +64,8 @@ export async function getLatestAnalysis(
 export async function listLatestAnalysesPerVideo(
   userId: string
 ): Promise<AnalysisResult[]> {
+  console.log('[listLatestAnalysesPerVideo] Fetching analyses for userId:', userId);
+
   // Get the latest analysis for each video
   const { data, error } = await supabase.rpc('get_latest_analyses_per_video', {
     p_user_id: userId,
@@ -81,6 +83,8 @@ export async function listLatestAnalysesPerVideo(
       throw new Error(`Failed to list analyses: ${fallbackError.message}`);
     }
 
+    console.log('[listLatestAnalysesPerVideo] Fallback: Found', allData?.length || 0, 'analyses for userId:', userId);
+
     // Group by video_id and take first (latest) of each
     const byVideo = new Map<string, VideoAnalysisRow>();
     for (const row of allData || []) {
@@ -89,9 +93,12 @@ export async function listLatestAnalysesPerVideo(
       }
     }
 
-    return Array.from(byVideo.values()).map(rowToAnalysisResult);
+    const results = Array.from(byVideo.values()).map(rowToAnalysisResult);
+    console.log('[listLatestAnalysesPerVideo] Returning', results.length, 'unique videos');
+    return results;
   }
 
+  console.log('[listLatestAnalysesPerVideo] Found', data?.length || 0, 'analyses for userId:', userId);
   return (data || []).map(rowToAnalysisResult);
 }
 

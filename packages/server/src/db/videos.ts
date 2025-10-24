@@ -32,6 +32,8 @@ export async function getUserVideos(
   userId: string,
   limit = 50
 ): Promise<UserVideoRow[]> {
+  console.log('[getUserVideos] Fetching videos for userId:', userId);
+
   const { data, error } = await supabase
     .from('user_videos')
     .select('*')
@@ -43,6 +45,7 @@ export async function getUserVideos(
     throw new Error(`Failed to get user videos: ${error.message}`);
   }
 
+  console.log('[getUserVideos] Found', data?.length || 0, 'videos for userId:', userId);
   return data || [];
 }
 
