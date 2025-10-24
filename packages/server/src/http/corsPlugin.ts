@@ -3,7 +3,15 @@ import cors from '@fastify/cors';
 import type { FastifyPluginCallback } from 'fastify';
 
 const corsPlugin: FastifyPluginCallback = async (app) => {
-  const ALLOWLIST = (process.env.CORS_ORIGINS || process.env.CORS_ALLOWLIST || 'localhost:5173,localhost:3000')
+  const isProd = process.env.NODE_ENV === 'production';
+
+  // Production: allow specific domains
+  // Development: allow localhost variants
+  const defaultOrigins = isProd
+    ? 'vocalytics-alpha.vercel.app,vercel.app'
+    : 'localhost:5173,localhost:3000,localhost:5174';
+
+  const ALLOWLIST = (process.env.CORS_ORIGINS || process.env.CORS_ALLOWLIST || defaultOrigins)
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
@@ -13,8 +21,16 @@ const corsPlugin: FastifyPluginCallback = async (app) => {
       // Allow same-origin requests (no origin header)
       if (!origin) return cb(null, true);
 
-      // Check if origin ends with any allowed domain
-      const ok = ALLOWLIST.some((d) => origin.endsWith(d));
+      // Remove protocol from origin for comparison
+      const originHost = origin.replace(/^https?:\/\//, '');
+
+      // Check if origin matches any allowed domain
+      const ok = ALLOWLIST.some((d) => originHost === d || originHost.endsWith('.' + d) || originHost.endsWith(d));
+
+      if (!ok) {
+        console.warn(`[CORS] Blocked origin: ${origin}, allowlist: ${ALLOWLIST.join(', ')}`);
+      }
+
       cb(ok ? null : new Error('CORS not allowed'), ok);
     },
     credentials: true,
