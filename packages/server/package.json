@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "tsx src/index.ts",
     "dev:http": "tsx src/http/index.ts",
-    "build": "echo 'Vercel handles TypeScript compilation' && exit 0",
+    "build": "node ../../scripts/build-api.js",
     "build:http": "echo 'Vercel handles TypeScript compilation' && exit 0",
     "start": "node dist/index.js",
     "start:http": "node dist/http/index.js",

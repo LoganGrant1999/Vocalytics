@@ -162,8 +162,10 @@ export async function createHttpServer() {
 
   // Register public auth routes (no auth required for register/login/logout)
   await fastify.register(async (publicAuthInstance) => {
+    console.log('[index.ts] Registering public auth routes...');
     const { publicAuthRoutes } = await import('./routes/auth.js');
     await publicAuthRoutes(publicAuthInstance);
+    console.log('[index.ts] Public auth routes registered successfully');
   }, { prefix: '/api' });
 
   // Register YouTube OAuth routes (no auth required for connect/callback)
@@ -238,14 +240,27 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
 // Export for Vercel serverless - NO caching, fresh instance per cold start
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
-  const app = await createHttpServer();
-  await app.ready();
+  try {
+    console.log(`[Vercel Handler] ${req.method} ${req.url}`);
+    const app = await createHttpServer();
+    await app.ready();
 
-  // Close after handling to prevent memory leaks
-  res.on('finish', () => {
-    app.close();
-  });
+    console.log('[Vercel Handler] Fastify app ready, handling request...');
 
-  // Directly pass req/res to Fastify's underlying HTTP server
-  app.server.emit('request', req, res);
+    // Close after handling to prevent memory leaks
+    res.on('finish', () => {
+      app.close();
+    });
+
+    // Directly pass req/res to Fastify's underlying HTTP server
+    app.server.emit('request', req, res);
+  } catch (error) {
+    console.error('[Vercel Handler] Error:', error);
+    res.statusCode = 500;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({
+      error: 'Internal Server Error',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    }));
+  }
 }
