@@ -41,8 +41,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setUser(null);
       }
-    } catch (error) {
-      console.error('[AuthContext] Failed to check auth:', error);
+    } catch (error: any) {
+      // 401 is expected when not logged in, don't log it
+      if (error?.response?.status !== 401) {
+        console.error('[AuthContext] Failed to check auth:', error);
+      }
       setUser(null);
     } finally {
       setIsLoading(false);
