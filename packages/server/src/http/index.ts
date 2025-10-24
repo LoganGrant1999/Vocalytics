@@ -54,6 +54,23 @@ export async function createHttpServer() {
   await fastify.register(headersPlugin);
   await fastify.register(loggingPlugin);
 
+  // Global error handler
+  fastify.setErrorHandler((error, request, reply) => {
+    console.error('[Global Error Handler]', {
+      error: error.message,
+      stack: error.stack,
+      url: request.url,
+      method: request.method,
+      body: request.body,
+    });
+
+    reply.status(error.statusCode || 500).send({
+      error: error.name || 'Internal Server Error',
+      message: error.message || 'An unexpected error occurred',
+      ...(process.env.NODE_ENV !== 'production' && { stack: error.stack }),
+    });
+  });
+
   // Register cookie plugin for JWT session management
   await fastify.register(fastifyCookie, {
     secret: process.env.COOKIE_SECRET || 'dev-cookie-secret-change-in-production',
@@ -169,12 +186,18 @@ export async function createHttpServer() {
   const verifyToken = buildVerifyToken();
 
   // Register public auth routes (no auth required for register/login/logout)
-  await fastify.register(async (publicAuthInstance) => {
-    console.log('[index.ts] Registering public auth routes...');
-    const { publicAuthRoutes } = await import('./routes/auth.js');
-    await publicAuthRoutes(publicAuthInstance);
-    console.log('[index.ts] Public auth routes registered successfully');
-  }, { prefix: '/api' });
+  try {
+    await fastify.register(async (publicAuthInstance) => {
+      console.log('[index.ts] Registering public auth routes...');
+      const { publicAuthRoutes } = await import('./routes/auth.js');
+      await publicAuthRoutes(publicAuthInstance);
+      console.log('[index.ts] Public auth routes registered successfully');
+      console.log('[index.ts] Routes:', publicAuthInstance.printRoutes());
+    }, { prefix: '/api' });
+  } catch (error) {
+    console.error('[index.ts] Failed to register public auth routes:', error);
+    throw error;
+  }
 
   // Register YouTube OAuth routes (no auth required for connect/callback)
   // These need to be public so users can initiate OAuth without being logged in

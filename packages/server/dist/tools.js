@@ -105,7 +105,7 @@ export async function fetchComments(videoId, channelId, max = 50, pageToken, inc
                 params.pageToken = pageToken;
             const res = await yt.commentThreads.list(params);
             const comments = [];
-            for (const th of res.data.items ?? []) {
+            for (const th of res?.data?.items ?? []) {
                 // Add top-level comment
                 comments.push(mapYouTubeItemToTWComment(th));
                 // Add replies if requested
@@ -124,7 +124,7 @@ export async function fetchComments(videoId, channelId, max = 50, pageToken, inc
             }
             return {
                 comments,
-                nextPageToken: res.data.nextPageToken
+                nextPageToken: res?.data?.nextPageToken
             };
         }
         catch (error) {
@@ -261,7 +261,7 @@ export async function analyzeComments(comments) {
                 toxicity = Math.max(toxicity, 0.7);
             }
             results.push({
-                commentId: comment.id,
+                commentId: comment.id ?? 'unknown',
                 sentiment,
                 topics: topics.length > 0 ? topics : ["general"],
                 intent,
@@ -319,7 +319,7 @@ export async function analyzeComments(comments) {
                     category === "spam" ? "promotion" :
                         "appreciation";
             results.push({
-                commentId: comment.id,
+                commentId: comment.id ?? 'unknown',
                 sentiment,
                 topics,
                 intent,
@@ -372,7 +372,7 @@ Write a reply in the creator's authentic voice${tone !== 'auto' ? ` with a ${ton
         const llm = await chatReply(sys, prompt);
         out.push({
             tone,
-            reply: (llm && llm.length <= 280 ? llm : (templates[tone] ?? templates.friendly)).trim(),
+            reply: (llm && llm.length <= 280 ? llm : (templates[tone] ?? templates.friendly ?? '')).trim(),
         });
     }
     return out;

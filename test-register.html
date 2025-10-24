@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Register</title>
+</head>
+<body>
+    <h1>Test Registration</h1>
+    <button id="testBtn">Test Register</button>
+    <pre id="result"></pre>
+
+    <script>
+        document.getElementById('testBtn').addEventListener('click', async () => {
+            const resultEl = document.getElementById('result');
+            resultEl.textContent = 'Testing...';
+
+            try {
+                const response = await fetch('https://vocalytics-alpha.vercel.app/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        firstName: 'Test',
+                        lastName: 'User',
+                        email: 'test' + Date.now() + '@example.com',
+                        password: 'TestPass123!'
+                    })
+                });
+
+                const data = await response.json();
+                resultEl.textContent = `Status: ${response.status}\n\n${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                resultEl.textContent = `Error: ${error.message}\n\n${error.stack}`;
+            }
+        });
+    </script>
+</body>
+</html>

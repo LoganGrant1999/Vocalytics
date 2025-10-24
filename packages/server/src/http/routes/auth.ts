@@ -31,6 +31,8 @@ export async function publicAuthRoutes(fastify: FastifyInstance) {
    */
   fastify.post('/auth/register', async (request: FastifyRequest, reply: FastifyReply) => {
     try {
+      console.log('[auth.ts] Register request received');
+      console.log('[auth.ts] Request body:', JSON.stringify(request.body));
       const body = registerSchema.parse(request.body);
 
       // Check if email already exists

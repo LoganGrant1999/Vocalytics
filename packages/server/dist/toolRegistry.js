@@ -326,6 +326,7 @@ export function registerTools(server) {
             }
             case 'analyze_comments': {
                 const validated = AnalyzeCommentsArgsSchema.parse(args);
+                // analyzeComments expects TWComment[] which is already validated by the schema
                 const analysis = await analyzeComments(validated.comments);
                 function labelFor(text) {
                     const t = (text || "").toLowerCase();
@@ -384,6 +385,7 @@ export function registerTools(server) {
                     return a;
                 }
                 const validated = GenerateRepliesArgsSchema.parse(normalizeArgs(args));
+                // generateReplies expects TWComment which is already validated by the schema
                 const replies = await generateReplies(validated.comment, validated.tones);
                 return {
                     content: [
