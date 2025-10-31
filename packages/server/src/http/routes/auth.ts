@@ -8,10 +8,10 @@ const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 const registerSchema = z.object({
-  firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().min(1, 'Last name is required'),
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters')
+  firstName: z.string().min(1, 'First name is required').max(100, 'First name too long'),
+  lastName: z.string().min(1, 'Last name is required').max(100, 'Last name too long'),
+  email: z.string().email('Invalid email address').max(255, 'Email address too long'),
+  password: z.string().min(8, 'Password must be at least 8 characters').max(128, 'Password too long')
     .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
     .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
     .regex(/[0-9]/, 'Password must contain at least one number'),

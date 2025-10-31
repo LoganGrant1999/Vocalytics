@@ -9,11 +9,12 @@ const AnalyzeCommentsBodySchema = {
     comments: {
       type: 'array',
       minItems: 1,
+      maxItems: 100, // SECURITY: Limit array size to prevent DoS
       items: {
         type: 'object',
         required: ['id', 'text'],
         properties: {
-          id: { type: 'string', minLength: 1 },
+          id: { type: 'string', minLength: 1, maxLength: 100 },
           text: { type: 'string', minLength: 1, maxLength: 10000 }
         },
         additionalProperties: false

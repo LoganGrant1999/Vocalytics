@@ -47,6 +47,15 @@ export async function createHttpServer() {
     genReqId: (req) => {
       return (req.headers['x-request-id'] as string) || `req_${Date.now()}_${Math.random().toString(36).slice(2)}`;
     },
+    // SECURITY: Strict validation - disable type coercion
+    ajv: {
+      customOptions: {
+        removeAdditional: false, // Don't silently remove additional properties
+        coerceTypes: false, // Don't convert types (e.g., "123" to 123)
+        useDefaults: true,
+        allErrors: true,
+      },
+    },
   });
 
   // Register core plugins
