@@ -182,10 +182,15 @@ export async function createHttpServer() {
   // Register webhook route (no auth required)
   await webhookRoute(fastify);
 
+  // Test endpoint to verify code deployment
+  fastify.get('/test-deployment', async () => {
+    return { deployed: true, timestamp: new Date().toISOString(), version: '2025-10-31-v2' };
+  });
+
   // Register cron job routes (CRON_SECRET auth required)
-  // NOTE: Routes are at /cron/* because Vercel strips /api prefix when routing to /api/[...slug].ts
+  // NOTE: Routes registered at both /api/* and /* paths to handle Vercel routing
   // Queue worker cron job
-  fastify.post('/cron/queue-worker', async (request, reply) => {
+  fastify.post('/api/cron/queue-worker', async (request, reply) => {
     const cronSecret = process.env.CRON_SECRET;
     const authHeader = request.headers.authorization;
 
@@ -217,7 +222,7 @@ export async function createHttpServer() {
   });
 
   // Counter reset cron job
-  fastify.post('/cron/reset-counters', async (request, reply) => {
+  fastify.post('/api/cron/reset-counters', async (request, reply) => {
     const cronSecret = process.env.CRON_SECRET;
     const authHeader = request.headers.authorization;
 
