@@ -182,6 +182,73 @@ export async function createHttpServer() {
   // Register webhook route (no auth required)
   await webhookRoute(fastify);
 
+  // Register cron job routes (CRON_SECRET auth required)
+  await fastify.register(async (cronInstance) => {
+    // Queue worker cron job
+    cronInstance.post('/api/cron/queue-worker', async (request, reply) => {
+      const cronSecret = process.env.CRON_SECRET;
+      const authHeader = request.headers.authorization;
+
+      if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+      }
+
+      console.log('[cron/queue-worker] Starting queue processing...');
+
+      try {
+        const { processQueue } = await import('../workers/queueWorker.js');
+        await processQueue();
+
+        console.log('[cron/queue-worker] Queue processing completed successfully');
+        return reply.status(200).send({
+          success: true,
+          message: 'Queue processed successfully',
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error: any) {
+        console.error('[cron/queue-worker] Error processing queue:', error);
+
+        return reply.status(500).send({
+          success: false,
+          error: error.message,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    });
+
+    // Counter reset cron job
+    cronInstance.post('/api/cron/reset-counters', async (request, reply) => {
+      const cronSecret = process.env.CRON_SECRET;
+      const authHeader = request.headers.authorization;
+
+      if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+      }
+
+      console.log('[cron/reset-counters] Starting counter reset...');
+
+      try {
+        const { rollUsageCounters } = await import('../db/rateLimits.js');
+        await rollUsageCounters();
+
+        console.log('[cron/reset-counters] Counters reset successfully');
+        return reply.status(200).send({
+          success: true,
+          message: 'Counters reset successfully',
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error: any) {
+        console.error('[cron/reset-counters] Error resetting counters:', error);
+
+        return reply.status(500).send({
+          success: false,
+          error: error.message,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    });
+  });
+
   // Dev-only env inspection route (no auth required)
   if (process.env.NODE_ENV !== 'production') {
     fastify.get('/api/me/env', async (_request, reply) => {
