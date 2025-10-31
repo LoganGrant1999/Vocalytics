@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
+import { getUsageStats } from '../../db/rateLimits.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -122,6 +123,7 @@ export async function meRoutes(fastify: FastifyInstance) {
   });
 
   // Get usage stats
+  // Returns monthly/daily usage for rate limiting progress bar
   fastify.get('/me/usage', async (request: any, reply) => {
     const auth = request.auth;
     const userId = auth?.userId || auth?.userDbId;
@@ -134,49 +136,19 @@ export async function meRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-      const { data: user, error } = await supabase
-        .from('profiles')
-        .select('replies_weekly_count, reset_date, tier')
-        .eq('id', userId)
-        .single();
-
-      if (error) {
-        console.error('[me.ts] Supabase error fetching usage:', {
-          userId,
-          error: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint
-        });
-        return reply.code(404).send({
-          error: 'Not Found',
-          message: 'User not found'
-        });
-      }
-
-      if (!user) {
-        console.error('[me.ts] No user found in profiles table for userId:', userId);
-        return reply.code(404).send({
-          error: 'Not Found',
-          message: 'User not found'
-        });
-      }
-
-      // Get limits based on tier
-      // Free tier: unlimited analysis, 200 replies/week
-      // Pro tier: unlimited everything
-      const weeklyReply = user.tier === 'pro' ? 999999 : parseInt(process.env.FREE_LIMIT_REPLY_WEEKLY || '200');
-
-      return reply.send({
-        repliesGenerated: user.replies_weekly_count ?? 0,
-        limits: {
-          weeklyReply
-        },
-        resetDate: user.reset_date
-      });
+      const stats = await getUsageStats(userId);
+      return reply.send(stats);
     } catch (error: any) {
-      console.error('Error fetching usage:', error);
+      console.error('[me.ts] Error fetching usage stats:', error);
+
+      // If usage counter not found, user may not have usage row yet
+      if (error.message === 'Usage counter not found') {
+        return reply.code(404).send({
+          error: 'Not Found',
+          message: 'Usage data not initialized'
+        });
+      }
+
       return reply.code(500).send({
         error: 'Internal Server Error',
         message: error.message

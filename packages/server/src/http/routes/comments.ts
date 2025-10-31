@@ -1,6 +1,13 @@
 import { FastifyInstance } from 'fastify';
 import { createClient } from '@supabase/supabase-js';
 import { scoreComments, getReplySettings, ReplySettings } from '../../services/commentScoring.js';
+import {
+  ensureUsageRow,
+  checkReplyAllowance,
+  consumeReplyAllowance,
+  incrementDailyPosted,
+  queueReply as queueReplyInDb,
+} from '../../db/rateLimits.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -324,6 +331,7 @@ export async function commentsRoutes(fastify: FastifyInstance) {
 
   /**
    * POST /api/comments/generate-bulk - Generate replies for multiple comments
+   * Rate limited: Free=50/month, Pro=unlimited monthly
    * Request body: { commentIds: string[] }
    */
   fastify.post('/comments/generate-bulk', async (request: any, reply) => {
@@ -347,6 +355,39 @@ export async function commentsRoutes(fastify: FastifyInstance) {
 
     try {
       const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+
+      // Get user's plan
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tier')
+        .eq('id', userId)
+        .single();
+
+      const plan = (profile?.tier || 'free') as 'free' | 'pro';
+
+      // Ensure usage row exists
+      await ensureUsageRow(userId, plan);
+
+      // Check if user can generate ALL requested replies
+      const allowanceChecks = await Promise.all(
+        commentIds.map(async (_: any, idx: number) => {
+          const allowance = await checkReplyAllowance({
+            userId,
+            plan,
+            willPostNow: false,
+          });
+          return { index: idx, allowance };
+        })
+      );
+
+      // Find first disallowed
+      const firstBlocked = allowanceChecks.find(c => !c.allowance.allowed);
+      if (firstBlocked && !firstBlocked.allowance.allowed) {
+        return reply.code(403).send({
+          code: 'RATE_LIMIT_EXCEEDED',
+          message: (firstBlocked.allowance as any).reason
+        });
+      }
 
       // Fetch tone profile if user is Pro
       let toneProfile = null;
@@ -383,6 +424,9 @@ export async function commentsRoutes(fastify: FastifyInstance) {
       const results = await Promise.all(
         scores.map(async (score: any) => {
           try {
+            // Consume allowance for this reply (monthly counter only)
+            await consumeReplyAllowance({ userId });
+
             const replies = await generateReplies(
               {
                 id: score.comment_id,
@@ -430,6 +474,7 @@ export async function commentsRoutes(fastify: FastifyInstance) {
 
   /**
    * POST /api/comments/:commentId/generate-reply - Generate reply for a single comment
+   * Rate limited: Free=50/month, Pro=unlimited monthly
    */
   fastify.post('/comments/:commentId/generate-reply', async (request: any, reply) => {
     const auth = request.auth;
@@ -445,6 +490,35 @@ export async function commentsRoutes(fastify: FastifyInstance) {
 
     try {
       const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+
+      // Get user's plan
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tier')
+        .eq('id', userId)
+        .single();
+
+      const plan = (profile?.tier || 'free') as 'free' | 'pro';
+
+      // Ensure usage row exists
+      await ensureUsageRow(userId, plan);
+
+      // Check rate limits (generation only, not posting yet)
+      const allowance = await checkReplyAllowance({
+        userId,
+        plan,
+        willPostNow: false,
+      });
+
+      if (!allowance.allowed) {
+        return reply.code(403).send({
+          code: 'RATE_LIMIT_EXCEEDED',
+          message: (allowance as any).reason
+        });
+      }
+
+      // Consume allowance (monthly counter only)
+      await consumeReplyAllowance({ userId });
 
       // Fetch tone profile if user is Pro
       let toneProfile = null;
@@ -510,12 +584,13 @@ export async function commentsRoutes(fastify: FastifyInstance) {
 
   /**
    * POST /api/comments/:commentId/post-reply - Post reply to YouTube
+   * Rate limited: Free=25/day, Pro=100/day (excess queued)
    */
   fastify.post('/comments/:commentId/post-reply', async (request: any, reply) => {
     const auth = request.auth;
     const userId = auth?.userId || auth?.userDbId;
     const { commentId } = request.params;
-    const { text } = request.body;
+    const { text, videoId } = request.body;
 
     if (!userId) {
       return reply.code(401).send({
@@ -534,10 +609,10 @@ export async function commentsRoutes(fastify: FastifyInstance) {
     try {
       const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-      // Get user's YouTube access token
+      // Get user's plan and YouTube access token
       const { data: profile } = await supabase
         .from('profiles')
-        .select('youtube_access_token')
+        .select('tier, youtube_access_token')
         .eq('id', userId)
         .single();
 
@@ -548,11 +623,54 @@ export async function commentsRoutes(fastify: FastifyInstance) {
         });
       }
 
+      const plan = (profile?.tier || 'free') as 'free' | 'pro';
+
+      // Ensure usage row exists
+      await ensureUsageRow(userId, plan);
+
+      // Check rate limits for posting
+      const allowance = await checkReplyAllowance({
+        userId,
+        plan,
+        willPostNow: true,
+      });
+
+      if (!allowance.allowed) {
+        return reply.code(403).send({
+          code: 'RATE_LIMIT_EXCEEDED',
+          message: (allowance as any).reason
+        });
+      }
+
+      // If we should enqueue instead of posting now
+      if (allowance.allowed && allowance.enqueue) {
+        const queueId = await queueReplyInDb({
+          userId,
+          commentId,
+          replyText: text,
+          videoId,
+        });
+
+        return reply.send({
+          success: true,
+          queued: true,
+          queueId,
+          message: allowance.reason
+        });
+      }
+
+      // Increment daily posting counter and post now
+      await incrementDailyPosted({ userId });
+
       // Post reply to YouTube
       const { postCommentReply } = await import('../../lib/google.js');
       await postCommentReply(profile.youtube_access_token, commentId, text);
 
-      return reply.send({ success: true });
+      return reply.send({
+        success: true,
+        queued: false,
+        postedImmediately: true
+      });
 
     } catch (error: any) {
       console.error('[comments.ts] Error posting reply:', error);

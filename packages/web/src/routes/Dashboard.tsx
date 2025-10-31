@@ -4,6 +4,7 @@ import { useSession } from '@/hooks/useSession';
 import { useChannelData } from '@/hooks/useChannelData';
 import { ConnectYouTubeButton } from '@/components/ConnectYouTubeButton';
 import { TrendsChart } from '@/components/TrendsChart';
+import { UsageProgressBar } from '@/components/UsageProgressBar';
 import { useEffect } from 'react';
 import { toast } from 'sonner';
 
@@ -92,6 +93,11 @@ export default function Dashboard() {
           value="-"
           icon={<TrendingUp className="h-4 w-4 text-brand-text-secondary" />}
         />
+      </div>
+
+      {/* Usage Progress */}
+      <div className="mb-6">
+        <UsageProgressBar />
       </div>
 
       {/* Sentiment Trend */}

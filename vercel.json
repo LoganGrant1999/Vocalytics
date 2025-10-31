@@ -4,6 +4,16 @@
   "outputDirectory": "packages/web/dist",
   "installCommand": "pnpm install",
   "framework": null,
+  "crons": [
+    {
+      "path": "/api/cron/queue-worker",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/reset-counters",
+      "schedule": "10 8 * * *"
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/(.*)",
