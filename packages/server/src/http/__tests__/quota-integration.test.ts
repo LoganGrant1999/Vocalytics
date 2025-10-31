@@ -202,18 +202,17 @@ describe('Quota Integration with Billing (CRITICAL for Revenue)', () => {
 
       const user = {
         id: 'user_trial',
-        tier: 'free' as const, // BUG: Should be 'pro' during trial!
+        tier: 'free' as const,
         subscription_status: 'trialing',
         subscribed_until: futureDate.toISOString(),
       };
 
-      // Current behavior: isPro() checks subscription_status === 'active'
-      // But 'trialing' is NOT 'active'!
-      // This is a bug - trial users won't have pro access
-      expect(isPro(user)).toBe(false); // WRONG! Should be true
+      // Current behavior: isPro() grants access based on subscribed_until
+      // Even though tier='free' and status='trialing', the future subscribed_until grants access
+      expect(isPro(user)).toBe(true);
 
-      // RECOMMENDED FIX: Update webhook handler to set tier='pro' for trialing
-      // OR: Update isPro() to check: status === 'active' || status === 'trialing'
+      // This is CORRECT: Users with valid subscribed_until should have pro access
+      // Webhook handler should set subscribed_until during trial period
     });
 
     it('should handle unpaid subscription (after retries)', () => {

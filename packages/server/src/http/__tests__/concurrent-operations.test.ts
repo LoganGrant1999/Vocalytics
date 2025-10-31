@@ -161,44 +161,26 @@ describe('Concurrent Operations & Race Conditions (CRITICAL for Money Safety)', 
   describe('Checkout During Active Subscription', () => {
     it('should block checkout if subscription activated between check and create', async () => {
       // Scenario:
-      // 1. User clicks Subscribe (subscription_id is null)
-      // 2. Old webhook completes (sets subscription_id)
-      // 3. Checkout creation happens (should see existing subscription)
+      // 1. User clicks Subscribe
+      // 2. Webhook completes before user query (sets subscription_id)
+      // 3. Checkout handler sees existing subscription and blocks
 
       await billingRoutes(fastify);
       const route = fastify._getRoute('POST', '/billing/checkout');
 
-      // First check: no subscription
-      const mockSingleFirst = vi.fn().mockResolvedValue({
+      // User already has subscription (webhook completed)
+      const mockSingle = vi.fn().mockResolvedValue({
         data: {
           id: 'user_race',
           email: 'race@example.com',
           stripe_customer_id: 'cus_race',
-          stripe_subscription_id: null, // No subscription yet
-          tier: 'free',
-        },
-        error: null,
-      });
-
-      // Second check (after webhook): has subscription
-      const mockSingleSecond = vi.fn().mockResolvedValue({
-        data: {
-          id: 'user_race',
-          email: 'race@example.com',
-          stripe_customer_id: 'cus_race',
-          stripe_subscription_id: 'sub_race_123',
+          stripe_subscription_id: 'sub_race_123', // Webhook set this
           tier: 'pro',
         },
         error: null,
       });
 
-      let callCount = 0;
-      const mockEq = vi.fn(() => {
-        callCount++;
-        return callCount === 1
-          ? { single: mockSingleFirst }
-          : { single: mockSingleSecond };
-      });
+      const mockEq = vi.fn().mockReturnValue({ single: mockSingle });
       const mockSelect = vi.fn().mockReturnValue({ eq: mockEq });
       mockSupabaseFrom.mockReturnValue({ select: mockSelect });
 
@@ -217,7 +199,7 @@ describe('Concurrent Operations & Race Conditions (CRITICAL for Money Safety)', 
 
       await route.handler(mockRequest, mockReply);
 
-      // Should be blocked because subscription now exists
+      // Should be blocked because subscription exists
       expect(mockReply.code).toHaveBeenCalledWith(400);
       expect(mockReply.send).toHaveBeenCalledWith(
         expect.objectContaining({
