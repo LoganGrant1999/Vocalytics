@@ -183,8 +183,9 @@ export async function createHttpServer() {
   await webhookRoute(fastify);
 
   // Register cron job routes (CRON_SECRET auth required)
+  // NOTE: Routes are at /cron/* because Vercel strips /api prefix when routing to /api/[...slug].ts
   // Queue worker cron job
-  fastify.post('/api/cron/queue-worker', async (request, reply) => {
+  fastify.post('/cron/queue-worker', async (request, reply) => {
     const cronSecret = process.env.CRON_SECRET;
     const authHeader = request.headers.authorization;
 
@@ -216,7 +217,7 @@ export async function createHttpServer() {
   });
 
   // Counter reset cron job
-  fastify.post('/api/cron/reset-counters', async (request, reply) => {
+  fastify.post('/cron/reset-counters', async (request, reply) => {
     const cronSecret = process.env.CRON_SECRET;
     const authHeader = request.headers.authorization;
 
