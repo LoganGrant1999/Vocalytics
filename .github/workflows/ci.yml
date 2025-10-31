@@ -45,7 +45,20 @@ jobs:
         run: pnpm typecheck
 
       - name: Test
-        run: pnpm test
+        run: pnpm test:prod
+        env:
+          NODE_ENV: test
+          BASE_URL: http://localhost:3000
+          SUPABASE_URL: https://test.supabase.co
+          SUPABASE_ANON_KEY: test_anon_key
+          SUPABASE_SERVICE_ROLE_KEY: test_service_key
+          STRIPE_SECRET_KEY: sk_test_mock
+          STRIPE_WEBHOOK_SECRET: whsec_test_mock
+          STRIPE_PRICE_ID: price_test_mock
+          OPENAI_API_KEY: sk-test-mock-openai-key
+          GOOGLE_CLIENT_ID: test_google_client_id.apps.googleusercontent.com
+          GOOGLE_CLIENT_SECRET: test_google_client_secret
+          JWT: test_jwt_token
 
       - name: Build
         run: pnpm build
