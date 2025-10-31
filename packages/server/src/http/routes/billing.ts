@@ -76,11 +76,25 @@ export async function billingRoutes(fastify: FastifyInstance) {
         });
         customerId = customer.id;
 
-        // Update user with customer ID
-        await supabase
+        // Check again if customer ID was set by concurrent request
+        // (race condition: another request might have created and saved customer while we were creating)
+        const { data: userCheck } = await supabase
           .from('profiles')
-          .update({ stripe_customer_id: customerId })
-          .eq('id', user.id);
+          .select('stripe_customer_id')
+          .eq('id', user.id)
+          .single();
+
+        if (userCheck?.stripe_customer_id) {
+          // Another request beat us to it - use their customer ID
+          console.log(`[billing.ts] Customer already created by concurrent request: ${userCheck.stripe_customer_id}, discarding ${customerId}`);
+          customerId = userCheck.stripe_customer_id;
+        } else {
+          // We're first - save our customer ID
+          await supabase
+            .from('profiles')
+            .update({ stripe_customer_id: customerId })
+            .eq('id', user.id);
+        }
       }
 
       // Check for existing active subscription

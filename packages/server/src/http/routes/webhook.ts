@@ -159,7 +159,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
       const periodEnd = (subscription as any).current_period_end;
       const currentPeriodEnd = periodEnd ? new Date(periodEnd * 1000) : null;
 
-      await supabase
+      const { error: updateError } = await supabase
         .from('profiles')
         .update({
           stripe_subscription_id: subscription.id,
@@ -168,6 +168,10 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
           tier: status === 'active' ? 'pro' : user.tier
         })
         .eq('id', user.id);
+
+      if (updateError) {
+        throw new Error(`Failed to update user ${user.id}: ${updateError.message}`);
+      }
 
       console.log(`User ${user.id} upgraded to pro via checkout completion`);
     } catch (subError: any) {
@@ -196,6 +200,17 @@ async function handleSubscriptionChange(subscription: Stripe.Subscription): Prom
   const periodEnd = (subscription as any).current_period_end;
   const currentPeriodEnd = periodEnd ? new Date(periodEnd * 1000) : null;
 
+  // Prevent out-of-order webhook processing:
+  // If user already has a subscribed_until date that's LATER than this event,
+  // skip this update (it's an older event arriving late)
+  if (user.subscribed_until && currentPeriodEnd) {
+    const existingUntil = new Date(user.subscribed_until);
+    if (existingUntil > currentPeriodEnd) {
+      console.log(`Skipping out-of-order webhook for user ${user.id}: existing until ${existingUntil} > event until ${currentPeriodEnd}`);
+      return;
+    }
+  }
+
   // Update user subscription info
   const updates: any = {
     stripe_subscription_id: subscription.id,
@@ -205,10 +220,14 @@ async function handleSubscriptionChange(subscription: Stripe.Subscription): Prom
     tier: status === 'active' ? 'pro' : user.tier
   };
 
-  await supabase
+  const { error: updateError } = await supabase
     .from('profiles')
     .update(updates)
     .eq('id', user.id);
+
+  if (updateError) {
+    throw new Error(`Failed to update user ${user.id}: ${updateError.message}`);
+  }
 
   console.log(`Subscription ${status} for user ${user.id}, valid until ${currentPeriodEnd}`);
 }
@@ -228,8 +247,16 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Pro
     return;
   }
 
+  // Prevent out-of-order webhook processing:
+  // Only process deletion if this subscription ID matches the user's current subscription
+  // If they have a different (newer) subscription, skip this deletion event
+  if (user.stripe_subscription_id && user.stripe_subscription_id !== subscription.id) {
+    console.log(`Skipping out-of-order deletion for user ${user.id}: user has different subscription ${user.stripe_subscription_id} vs deleted ${subscription.id}`);
+    return;
+  }
+
   // Update user subscription info - downgrade to free
-  await supabase
+  const { error: updateError } = await supabase
     .from('profiles')
     .update({
       subscription_status: 'canceled',
@@ -237,6 +264,10 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Pro
       tier: 'free'
     })
     .eq('id', user.id);
+
+  if (updateError) {
+    throw new Error(`Failed to update user ${user.id}: ${updateError.message}`);
+  }
 
   console.log(`Subscription canceled for user ${user.id}`);
 }

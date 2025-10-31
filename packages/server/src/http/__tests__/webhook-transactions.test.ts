@@ -65,26 +65,10 @@ describe('Webhook Transaction Safety (CRITICAL for Data Integrity)', () => {
   });
 
   describe('Database Update Failures', () => {
-    it.skip('should NOT mark event as processed if user update fails', async () => {
-      // KNOWN GAP: Current implementation doesn't check for database update errors
-      // in handleSubscriptionChange() function (webhook.ts line 162-170)
-      //
-      // Current behavior:
-      // - Update fails silently
-      // - Event is marked as processed
-      // - Returns 200 to Stripe
-      // - User tier is NOT updated but Stripe thinks it succeeded
-      //
-      // RECOMMENDED FIX:
-      // Add error checking after supabase.update() calls:
-      // ```
-      // const { error } = await supabase.from('profiles').update(...).eq('id', user.id);
-      // if (error) {
-      //   throw new Error(`Failed to update user: ${error.message}`);
-      // }
-      // ```
-      //
-      // This test documents the EXPECTED behavior once fix is implemented
+    it('should NOT mark event as processed if user update fails', async () => {
+      // FIXED: Database update errors are now checked in webhook handlers
+      // If update fails, error is thrown → 500 returned → Stripe retries
+      // This test verifies the fix works correctly
 
       const mockEvent: Stripe.Event = {
         id: 'evt_db_fail_1',
