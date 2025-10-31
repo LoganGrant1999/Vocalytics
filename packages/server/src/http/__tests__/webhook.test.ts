@@ -303,11 +303,11 @@ describe('Stripe Webhook Handler', () => {
         request: null,
       };
 
-      const mockSubscription: Partial<Stripe.Subscription> = {
+      const mockSubscription = {
         id: 'sub_123',
         status: 'active',
         current_period_end: Math.floor(Date.now() / 1000) + 86400,
-      };
+      } as unknown as Stripe.Subscription;
 
       mockStripeWebhooksConstructEvent.mockReturnValue(mockEvent);
       mockRecordStripeEvent.mockResolvedValue({ isNew: true });
