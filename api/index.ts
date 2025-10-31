@@ -1,6 +1,7 @@
 /**
  * Vercel API Router
  * Routes /api/cron/* to cron handlers
+ * Updated: 2025-10-31
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
