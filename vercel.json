@@ -1,9 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "rm -rf node_modules/.cache && pnpm install && pnpm --filter server build && pnpm --filter web build",
   "outputDirectory": "packages/web/dist",
-  "installCommand": "pnpm install",
-  "framework": null,
   "functions": {
     "api/cron/*.ts": {
       "memory": 1024,
@@ -20,10 +17,14 @@
       "schedule": "10 8 * * *"
     }
   ],
-  "rewrites": [
+  "routes": [
     {
-      "source": "/:path((?!api).*)*",
-      "destination": "/index.html"
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
   ]
 }
