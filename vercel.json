@@ -4,6 +4,12 @@
   "outputDirectory": "packages/web/dist",
   "installCommand": "pnpm install",
   "framework": null,
+  "functions": {
+    "api/cron/*.ts": {
+      "memory": 1024,
+      "maxDuration": 60
+    }
+  },
   "crons": [
     {
       "path": "/api/cron/queue-worker",
