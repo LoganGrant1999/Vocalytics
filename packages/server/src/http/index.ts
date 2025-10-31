@@ -183,8 +183,14 @@ export async function createHttpServer() {
   await webhookRoute(fastify);
 
   // Test endpoint to verify code deployment
-  fastify.get('/test-deployment', async () => {
-    return { deployed: true, timestamp: new Date().toISOString(), version: '2025-10-31-v2' };
+  fastify.get('/test-deployment', async (request, reply) => {
+    const routes = fastify.printRoutes();
+    return {
+      deployed: true,
+      timestamp: new Date().toISOString(),
+      version: '2025-10-31-v3',
+      routes: routes
+    };
   });
 
   // Register cron job routes (CRON_SECRET auth required)
