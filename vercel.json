@@ -6,19 +6,15 @@
   "framework": null,
   "crons": [
     {
-      "path": "/cron/queue-worker",
+      "path": "/api/cron/queue-worker",
       "schedule": "*/5 * * * *"
     },
     {
-      "path": "/cron/reset-counters",
+      "path": "/api/cron/reset-counters",
       "schedule": "10 8 * * *"
     }
   ],
   "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/fastify"
-    },
     {
       "source": "/(.*)",
       "destination": "/index.html"
