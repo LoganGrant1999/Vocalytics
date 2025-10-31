@@ -27,9 +27,6 @@ vi.mock('@supabase/supabase-js', () => ({
   })),
 }));
 
-import OpenAI from 'openai';
-import { createClient } from '@supabase/supabase-js';
-
 describe('commentScoring.ts', () => {
   beforeEach(() => {
     vi.clearAllMocks();

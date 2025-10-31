@@ -39,7 +39,7 @@ describe('Subscription State Machine', () => {
      */
     it('Rule 2: Successful checkout upgrades user to pro with active status', () => {
       // Starting state
-      const userBefore = {
+      const _userBefore = {
         tier: 'free' as const,
         subscription_status: null,
         stripe_subscription_id: null,
@@ -53,7 +53,7 @@ describe('Subscription State Machine', () => {
         subscribed_until: new Date('2025-02-01'),
       };
 
-      expect(userBefore.tier).toBe('free');
+      expect(_userBefore.tier).toBe('free');
       expect(userAfter.tier).toBe('pro');
       expect(userAfter.subscription_status).toBe('active');
     });
@@ -62,11 +62,6 @@ describe('Subscription State Machine', () => {
      * Rule 3: active → past_due preserves pro tier (grace period)
      */
     it('Rule 3: Payment failure (past_due) preserves pro tier during grace period', () => {
-      const userBefore = {
-        tier: 'pro' as const,
-        subscription_status: 'active' as const,
-      };
-
       // After customer.subscription.updated (status: past_due)
       const userAfter = {
         tier: 'pro' as const, // IMPORTANT: Keep pro during payment retry
@@ -81,11 +76,6 @@ describe('Subscription State Machine', () => {
      * Rule 4: past_due → active restores pro tier (payment succeeded)
      */
     it('Rule 4: Payment retry success (past_due → active) keeps pro tier', () => {
-      const userBefore = {
-        tier: 'pro' as const,
-        subscription_status: 'past_due' as const,
-      };
-
       // After customer.subscription.updated (status: active)
       const userAfter = {
         tier: 'pro' as const,
@@ -100,12 +90,6 @@ describe('Subscription State Machine', () => {
      * Rule 5: customer.subscription.deleted → free tier
      */
     it('Rule 5: Subscription cancellation downgrades to free tier', () => {
-      const userBefore = {
-        tier: 'pro' as const,
-        subscription_status: 'active' as const,
-        stripe_subscription_id: 'sub_123',
-      };
-
       // After customer.subscription.deleted
       const userAfter = {
         tier: 'free' as const,
@@ -295,14 +279,14 @@ describe('Subscription State Machine', () => {
 
   describe('Grace Period Behavior', () => {
     it('should allow access during past_due grace period', () => {
-      const userPastDue = {
+      const _userPastDue = {
         tier: 'pro' as const, // Preserved during grace period
         subscription_status: 'past_due' as const,
         subscribed_until: new Date('2025-01-15'), // Original period end
       };
 
       // User should STILL have pro access
-      expect(userPastDue.tier).toBe('pro');
+      expect(_userPastDue.tier).toBe('pro');
 
       // Paywall should allow:
       // if (user.tier === 'pro' && user.subscription_status === 'past_due') {
@@ -345,11 +329,6 @@ describe('Subscription State Machine', () => {
     });
 
     it('should handle payment method update during past_due', () => {
-      const userPastDue = {
-        tier: 'pro' as const,
-        subscription_status: 'past_due' as const,
-      };
-
       // User updates payment method, Stripe retries, succeeds
       const userRestored = {
         tier: 'pro' as const,

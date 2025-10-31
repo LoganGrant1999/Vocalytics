@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fakeVerifyToken, noopQuota, blockingQuota } from './testAuth';
+import { fakeVerifyToken } from './testAuth';
 
 // Mock auth BEFORE importing anything else - use fastify-plugin wrapper
 vi.mock('../auth.js', async () => {

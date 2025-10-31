@@ -1,7 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { createClient } from '@supabase/supabase-js';
 import { createOAuth2Client, getAuthedYouTubeForUser } from '../../lib/google.js';
-import { google } from 'googleapis';
 import { generateToken } from '../../lib/jwt.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL!;
@@ -288,7 +287,8 @@ export async function youtubeRoutes(fastify: FastifyInstance) {
       // Strip replies if includeReplies is false
       if (includeReplies !== 'true' && includeReplies !== true) {
         items = items.map((item) => {
-          const { replies: _replies, ...rest } = item;
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { replies, ...rest } = item;
           return rest;
         });
       }

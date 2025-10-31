@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { apiNoAuth, api, BASE_URL } from './utils';
+import { apiNoAuth, BASE_URL } from './utils';
 
 describe('Operations Hygiene - STRICT', () => {
   describe('Security Headers - MUST be present', () => {
@@ -54,11 +54,6 @@ describe('Operations Hygiene - STRICT', () => {
 
       const xFrameOptions = res.headers.get('x-frame-options');
       const csp = res.headers.get('content-security-policy');
-
-      // STRICT: Must have either X-Frame-Options or CSP with frame-ancestors
-      const hasFrameProtection =
-        xFrameOptions !== null ||
-        (csp !== null && csp.includes('frame-ancestors'));
 
       if (xFrameOptions) {
         console.log(`  ✓ X-Frame-Options: ${xFrameOptions}`);

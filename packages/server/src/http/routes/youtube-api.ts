@@ -71,7 +71,8 @@ export async function youtubeApiRoutes(fastify: FastifyInstance) {
       // Strip replies if includeReplies is false
       const processedItems = (includeReplies !== 'true' && includeReplies !== true)
         ? items.map((item: any) => {
-            const { replies: _replies, ...rest } = item;
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { replies, ...rest } = item;
             return rest;
           })
         : items;

@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fakeVerifyToken } from './testAuth.js';
 
 // Mock dependencies
 vi.mock('@supabase/supabase-js', () => ({
@@ -46,7 +45,7 @@ vi.mock('../../lib/jwt.js', () => ({
 vi.mock('bcrypt', () => ({
   default: {
     hash: vi.fn(() => Promise.resolve('hashed-password')),
-    compare: vi.fn((plain: string, hash: string) => Promise.resolve(plain === 'correct-password')),
+    compare: vi.fn((plain: string, _hash: string) => Promise.resolve(plain === 'correct-password')),
   },
 }));
 

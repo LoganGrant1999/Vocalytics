@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { generateToken, verifyToken, JWTPayload } from '../jwt.js';
 
 describe('jwt.ts', () => {

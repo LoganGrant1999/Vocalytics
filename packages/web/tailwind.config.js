@@ -62,7 +62,6 @@ export default {
         error: 'var(--color-error)',
         info: 'var(--color-info)',
         // Utility aliases for direct use
-        'primary': 'var(--color-primary)',
         'primary-hover': 'var(--color-primary-hover)',
         'primary-light': 'var(--color-primary-light)',
         'surface': 'var(--color-surface)',

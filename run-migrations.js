@@ -1,8 +1,5 @@
 import { readFileSync } from 'fs';
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
 // Read and combine all migrations in order
 const migrations = [
   './supabase/migrations/20250101_init_profiles.sql',

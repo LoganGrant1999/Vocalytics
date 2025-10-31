@@ -3,7 +3,7 @@
  * Mock YouTube client to avoid external calls
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { api, BASE_URL } from './utils';
 
 describe('YouTube OAuth Flow', () => {

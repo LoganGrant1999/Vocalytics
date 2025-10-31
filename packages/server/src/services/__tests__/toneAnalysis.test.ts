@@ -22,8 +22,6 @@ vi.mock('openai', () => {
   };
 });
 
-import OpenAI from 'openai';
-
 describe('toneAnalysis.ts', () => {
   beforeEach(() => {
     vi.clearAllMocks();

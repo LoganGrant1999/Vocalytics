@@ -8,8 +8,6 @@ import {
   api,
   apiNoAuth,
   createTestComment,
-  assertPaywallError,
-  BASE_URL,
 } from './utils';
 
 const EXPECT_ANALYZE_CAP = parseInt(process.env.EXPECT_ANALYZE_CAP || '2', 10);
