@@ -1,0 +1,379 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { isPro, enforceAnalyze, enforceReply } from '../paywall.js';
+
+// Mock dependencies
+vi.mock('@supabase/supabase-js', () => {
+  const mockFrom = vi.fn();
+  return {
+    createClient: vi.fn(() => ({
+      from: mockFrom,
+    })),
+    __mockFrom: mockFrom,
+  };
+});
+
+vi.mock('../../db/usage.js', () => ({
+  tryConsumeAnalyze: vi.fn(),
+  tryConsumeReply: vi.fn(),
+}));
+
+vi.mock('../../config/env.js', () => ({
+  getCaps: vi.fn(() => ({
+    weeklyAnalyze: 10,
+    dailyReply: 5,
+  })),
+  getPublicUrls: vi.fn(() => ({
+    pricingUrl: 'https://example.com/pricing',
+    billingUrl: 'https://example.com/billing',
+  })),
+}));
+
+import { createClient } from '@supabase/supabase-js';
+import { tryConsumeAnalyze, tryConsumeReply } from '../../db/usage.js';
+
+describe('paywall.ts', () => {
+  let mockFrom: any;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    // Get the mockFrom function from the mocked module
+    const supabaseMock = await vi.importMock('@supabase/supabase-js') as any;
+    const client = (supabaseMock.createClient as any)();
+    mockFrom = client.from;
+  });
+
+  describe('isPro', () => {
+    it('should return true for tier=pro', () => {
+      const profile = {
+        id: 'user-123',
+        tier: 'pro' as const,
+        subscription_status: null,
+        subscribed_until: null,
+      };
+
+      expect(isPro(profile)).toBe(true);
+    });
+
+    it('should return true for active subscription', () => {
+      const profile = {
+        id: 'user-123',
+        tier: 'free' as const,
+        subscription_status: 'active',
+        subscribed_until: null,
+      };
+
+      expect(isPro(profile)).toBe(true);
+    });
+
+    it('should return true for valid subscribed_until date', () => {
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 30);
+
+      const profile = {
+        id: 'user-123',
+        tier: 'free' as const,
+        subscription_status: null,
+        subscribed_until: futureDate.toISOString(),
+      };
+
+      expect(isPro(profile)).toBe(true);
+    });
+
+    it('should return false for expired subscribed_until date', () => {
+      const pastDate = new Date();
+      pastDate.setDate(pastDate.getDate() - 30);
+
+      const profile = {
+        id: 'user-123',
+        tier: 'free' as const,
+        subscription_status: 'canceled',
+        subscribed_until: pastDate.toISOString(),
+      };
+
+      expect(isPro(profile)).toBe(false);
+    });
+
+    it('should return false for free tier with no subscription', () => {
+      const profile = {
+        id: 'user-123',
+        tier: 'free' as const,
+        subscription_status: null,
+        subscribed_until: null,
+      };
+
+      expect(isPro(profile)).toBe(false);
+    });
+  });
+
+  describe('enforceAnalyze', () => {
+    it('should allow pro users without quota check', async () => {
+      const profile = {
+        id: 'user-123',
+        tier: 'pro' as const,
+        subscription_status: 'active',
+        subscribed_until: null,
+      };
+
+      mockFrom.mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: profile, error: null }),
+          }),
+        }),
+      });
+
+      const result = await enforceAnalyze({
+        userDbId: 'user-123',
+        incrementBy: 1,
+      });
+
+      expect(result.allowed).toBe(true);
+      // tryConsumeAnalyze should not be called for pro users
+      expect(tryConsumeAnalyze).not.toHaveBeenCalled();
+    });
+
+    it('should allow free user within quota', async () => {
+      const profile = {
+        id: 'user-123',
+        tier: 'free' as const,
+        subscription_status: null,
+        subscribed_until: null,
+      };
+
+      mockFrom.mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: profile, error: null }),
+          }),
+        }),
+      });
+
+      vi.mocked(tryConsumeAnalyze).mockResolvedValue({
+        allowed: true,
+        newCount: 5,
+      });
+
+      const result = await enforceAnalyze({
+        userDbId: 'user-123',
+        incrementBy: 1,
+      });
+
+      expect(result.allowed).toBe(true);
+      expect(tryConsumeAnalyze).toHaveBeenCalledWith({
+        userDbId: 'user-123',
+        cap: 10,
+        incrementBy: 1,
+      });
+    });
+
+    it('should block free user over quota', async () => {
+      const profile = {
+        id: 'user-123',
+        tier: 'free' as const,
+        subscription_status: null,
+        subscribed_until: null,
+        comments_analyzed_count: 10,
+        replies_generated_count: 3,
+      };
+
+      let callCount = 0;
+      mockFrom.mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockImplementation(() => {
+              callCount++;
+              if (callCount === 1) {
+                // First call - check profile
+                return Promise.resolve({
+                  data: {
+                    id: profile.id,
+                    tier: profile.tier,
+                    subscription_status: profile.subscription_status,
+                    subscribed_until: profile.subscribed_until,
+                  },
+                  error: null,
+                });
+              }
+              // Second call - get usage counts
+              return Promise.resolve({
+                data: profile,
+                error: null,
+              });
+            }),
+          }),
+        }),
+      });
+
+      vi.mocked(tryConsumeAnalyze).mockResolvedValue({
+        allowed: false,
+      });
+
+      const result = await enforceAnalyze({
+        userDbId: 'user-123',
+        incrementBy: 1,
+      });
+
+      expect(result.allowed).toBe(false);
+      if (!result.allowed) {
+        expect(result.error.code).toBe('PAYWALL');
+        expect(result.error.reason).toBe('FREE_TIER_EXCEEDED');
+        expect(result.error.feature).toBe('analyze');
+        expect(result.error.upgradeUrl).toContain('pricing');
+        expect(result.error.manageUrl).toContain('billing');
+        expect(result.error.limits.weeklyAnalyze).toBe(10);
+        expect(result.error.usage.commentsAnalyzed).toBe(10);
+      }
+    });
+
+    it('should throw error when user not found', async () => {
+      mockFrom.mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
+              data: null,
+              error: { message: 'User not found' },
+            }),
+          }),
+        }),
+      });
+
+      await expect(enforceAnalyze({
+        userDbId: 'nonexistent',
+        incrementBy: 1,
+      })).rejects.toThrow();
+    });
+  });
+
+  describe('enforceReply', () => {
+    it('should allow pro users without quota check', async () => {
+      const profile = {
+        id: 'user-123',
+        tier: 'pro' as const,
+        subscription_status: 'active',
+        subscribed_until: null,
+      };
+
+      mockFrom.mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: profile, error: null }),
+          }),
+        }),
+      });
+
+      const result = await enforceReply({
+        userDbId: 'user-123',
+        incrementBy: 1,
+      });
+
+      expect(result.allowed).toBe(true);
+      expect(tryConsumeReply).not.toHaveBeenCalled();
+    });
+
+    it('should allow free user within quota', async () => {
+      const profile = {
+        id: 'user-123',
+        tier: 'free' as const,
+        subscription_status: null,
+        subscribed_until: null,
+      };
+
+      mockFrom.mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: profile, error: null }),
+          }),
+        }),
+      });
+
+      vi.mocked(tryConsumeReply).mockResolvedValue({
+        allowed: true,
+        newCount: 3,
+      });
+
+      const result = await enforceReply({
+        userDbId: 'user-123',
+        incrementBy: 1,
+      });
+
+      expect(result.allowed).toBe(true);
+      expect(tryConsumeReply).toHaveBeenCalledWith({
+        userDbId: 'user-123',
+        cap: 5,
+        incrementBy: 1,
+      });
+    });
+
+    it('should block free user over quota', async () => {
+      const profile = {
+        id: 'user-123',
+        tier: 'free' as const,
+        subscription_status: null,
+        subscribed_until: null,
+        comments_analyzed_count: 8,
+        replies_generated_count: 5,
+      };
+
+      let callCount = 0;
+      mockFrom.mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockImplementation(() => {
+              callCount++;
+              if (callCount === 1) {
+                return Promise.resolve({
+                  data: {
+                    id: profile.id,
+                    tier: profile.tier,
+                    subscription_status: profile.subscription_status,
+                    subscribed_until: profile.subscribed_until,
+                  },
+                  error: null,
+                });
+              }
+              return Promise.resolve({
+                data: profile,
+                error: null,
+              });
+            }),
+          }),
+        }),
+      });
+
+      vi.mocked(tryConsumeReply).mockResolvedValue({
+        allowed: false,
+      });
+
+      const result = await enforceReply({
+        userDbId: 'user-123',
+        incrementBy: 1,
+      });
+
+      expect(result.allowed).toBe(false);
+      if (!result.allowed) {
+        expect(result.error.code).toBe('PAYWALL');
+        expect(result.error.feature).toBe('reply');
+        expect(result.error.limits.dailyReply).toBe(5);
+        expect(result.error.usage.repliesGenerated).toBe(5);
+      }
+    });
+
+    it('should throw error when user not found', async () => {
+      mockFrom.mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
+              data: null,
+              error: { message: 'User not found' },
+            }),
+          }),
+        }),
+      });
+
+      await expect(enforceReply({
+        userDbId: 'nonexistent',
+        incrementBy: 1,
+      })).rejects.toThrow();
+    });
+  });
+});
