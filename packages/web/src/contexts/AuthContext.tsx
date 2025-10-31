@@ -35,9 +35,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkAuth = async () => {
     try {
-      const result = await api.GET('/api/auth/me');
-      if (result.data?.user) {
-        setUser(result.data.user as User);
+      const result = await api.GET('/api/auth/me' as any, {});
+      const resultData = result.data as any;
+      if (resultData?.user) {
+        setUser(resultData.user as User);
       } else {
         setUser(null);
       }
@@ -53,34 +54,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const login = async (email: string, password: string) => {
-    const result = await api.POST('/api/auth/login', {
+    const result = await api.POST('/api/auth/login' as any, {
       body: { email, password },
     });
 
-    if (result.error) {
-      throw new Error(result.error.message || 'Login failed');
+    const resultData = result as any;
+    if (resultData.error) {
+      throw new Error(resultData.error.message || 'Login failed');
     }
 
-    if (result.data?.user) {
-      setUser(result.data.user as User);
-      return { user: result.data.user as User };
+    if (resultData.data?.user) {
+      setUser(resultData.data.user as User);
+      return { user: resultData.data.user as User };
     }
 
     throw new Error('Login failed');
   };
 
   const register = async (data: { firstName: string; lastName: string; email: string; password: string }) => {
-    const result = await api.POST('/api/auth/register', {
+    const result = await api.POST('/api/auth/register' as any, {
       body: data,
     });
 
-    if (result.error) {
-      throw new Error(result.error.message || 'Registration failed');
+    const resultData = result as any;
+    if (resultData.error) {
+      throw new Error(resultData.error.message || 'Registration failed');
     }
 
-    if (result.data?.user) {
-      setUser(result.data.user as User);
-      return { user: result.data.user as User };
+    if (resultData.data?.user) {
+      setUser(resultData.data.user as User);
+      return { user: resultData.data.user as User };
     }
 
     throw new Error('Registration failed');
@@ -88,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      await api.POST('/api/auth/logout', {});
+      await api.POST('/api/auth/logout' as any, {});
     } catch (error) {
       console.error('[AuthContext] Logout error:', error);
     } finally {

@@ -5,50 +5,59 @@ import { ConnectYouTubeButton } from '@/components/ConnectYouTubeButton';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Video, Loader2, CheckCircle2, Search, SlidersHorizontal, Grid3x3, List } from 'lucide-react';
+import { Video, Loader2, Search, Grid3x3, List } from 'lucide-react';
 import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
 
 type ViewMode = 'grid' | 'list';
 type SortOption = 'recent' | 'oldest' | 'most-viewed' | 'most-liked' | 'most-comments';
 
+interface VideoWithStats {
+  videoId: string;
+  title?: string;
+  description?: string;
+  publishedAt?: string;
+  thumbnailUrl?: string;
+  stats?: {
+    viewCount?: number;
+    likeCount?: number;
+    commentCount?: number;
+  };
+}
+
 export default function Videos() {
-  const navigate = useNavigate();
   const { videos, channelTitle, isLoading, isYouTubeNotConnected } = useChannelData();
 
   // Filter and view state
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('recent');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
-  const [showFilters, setShowFilters] = useState(false);
 
   // Filtered and sorted videos
   const filteredVideos = useMemo(() => {
-    let filtered = [...videos];
+    let filtered = [...videos] as VideoWithStats[];
 
     // Search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(video =>
+      filtered = filtered.filter((video: VideoWithStats) =>
         video.title?.toLowerCase().includes(query) ||
         video.description?.toLowerCase().includes(query)
       );
     }
 
     // Sort
-    filtered.sort((a, b) => {
+    filtered.sort((a: VideoWithStats, b: VideoWithStats) => {
       switch (sortBy) {
         case 'recent':
           return new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime();
         case 'oldest':
           return new Date(a.publishedAt || 0).getTime() - new Date(b.publishedAt || 0).getTime();
         case 'most-viewed':
-          return (b.viewCount || 0) - (a.viewCount || 0);
+          return (b.stats?.viewCount || 0) - (a.stats?.viewCount || 0);
         case 'most-liked':
-          return (b.likeCount || 0) - (a.likeCount || 0);
+          return (b.stats?.likeCount || 0) - (a.stats?.likeCount || 0);
         case 'most-comments':
-          return (b.commentCount || 0) - (a.commentCount || 0);
+          return (b.stats?.commentCount || 0) - (a.stats?.commentCount || 0);
         default:
           return 0;
       }
@@ -183,11 +192,10 @@ export default function Videos() {
                 ? 'grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-6'
                 : 'space-y-4'
             }>
-              {filteredVideos.map((video) => (
+              {filteredVideos.map((video: VideoWithStats) => (
                 <VideoCard
                   key={video.videoId}
-                  video={video}
-                  viewMode={viewMode}
+                  video={video as any}
                 />
               ))}
             </div>

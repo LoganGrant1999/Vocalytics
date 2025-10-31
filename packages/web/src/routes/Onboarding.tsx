@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export default function Onboarding() {
   const navigate = useNavigate();
-  const { user, refreshUser } = useAuth();
+  const { user } = useAuth();
 
   // If user already has YouTube connected, redirect to app
   useEffect(() => {

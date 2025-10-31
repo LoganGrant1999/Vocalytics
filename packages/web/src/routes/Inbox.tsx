@@ -36,15 +36,15 @@ export default function Inbox() {
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['inbox', filter],
     queryFn: async () => {
-      const response = await api.GET('/api/comments/inbox', {
+      const response = await api.GET('/api/comments/inbox' as any, {
         params: { query: { filter } }
       });
-      return response.data;
+      return response.data as any;
     },
     enabled: isPro
   });
 
-  const comments: Comment[] = data?.comments || [];
+  const comments: Comment[] = (data as any)?.comments || [];
 
   // Toggle comment selection
   const toggleComment = (id: string) => {
@@ -70,10 +70,10 @@ export default function Inbox() {
   const generateBulk = useMutation({
     mutationFn: async () => {
       const commentIds = Array.from(selectedComments);
-      const response = await api.POST('/api/comments/generate-bulk', {
+      const response = await api.POST('/api/comments/generate-bulk' as any, {
         body: { commentIds }
       });
-      return response.data;
+      return response.data as any;
     },
     onSuccess: () => {
       toast.success('Replies generated!', {

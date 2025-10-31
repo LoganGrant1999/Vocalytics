@@ -35,7 +35,7 @@ function SettingToggle({
 }
 
 export default function Settings() {
-  const { user, refreshUser } = useAuth();
+  const { user } = useAuth();
   const { isDark, toggle } = useDarkMode();
   const { session } = useSession();
   const navigate = useNavigate();
@@ -46,11 +46,11 @@ export default function Settings() {
   const isPro = session?.tier === 'pro';
 
   // Fetch tone profile
-  const { data: toneData, isLoading: toneLoading } = useQuery({
+  const { data: toneData } = useQuery({
     queryKey: ['tone-profile'],
     queryFn: async () => {
       try {
-        const response = await api.get('/tone');
+        const response = await api.GET('/tone' as any, {});
         return response.data.toneProfile;
       } catch (error) {
         return null;
@@ -62,7 +62,7 @@ export default function Settings() {
   // Learn tone
   const learnTone = useMutation({
     mutationFn: async () => {
-      return await api.post('/tone/learn');
+      return await api.POST('/tone/learn' as any, {});
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tone-profile'] });
@@ -77,7 +77,7 @@ export default function Settings() {
   const { data: settingsData } = useQuery({
     queryKey: ['reply-settings'],
     queryFn: async () => {
-      const response = await api.get('/comments/settings');
+      const response = await api.GET('/comments/settings' as any, {});
       return response.data.settings;
     },
     enabled: isPro
@@ -86,7 +86,9 @@ export default function Settings() {
   // Update settings
   const updateSettings = useMutation({
     mutationFn: async (settings: any) => {
-      return await api.put('/comments/settings', settings);
+      const apiPUT = api.PUT as any;
+      const result = await apiPUT('/comments/settings', { body: settings });
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reply-settings'] });

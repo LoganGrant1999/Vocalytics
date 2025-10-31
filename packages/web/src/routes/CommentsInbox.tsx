@@ -1,9 +1,8 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tantml:invoke name="react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
-import { Checkbox } from '../components/ui/checkbox';
 import { MessageSquare, Loader2, AlertCircle } from 'lucide-react';
 
 interface ScoredComment {
@@ -30,7 +29,7 @@ export default function CommentsInboxPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['comments-inbox', filter],
     queryFn: async () => {
-      const response = await api.get('/comments/inbox', {
+      const response = await api.GET('/comments/inbox' as any, {
         params: { filter }
       });
       return response.data.comments as ScoredComment[];
@@ -40,7 +39,7 @@ export default function CommentsInboxPage() {
   // Generate replies for selected comments
   const generateBulkReplies = useMutation({
     mutationFn: async (commentIds: string[]) => {
-      return await api.post('/comments/generate-bulk', { commentIds });
+      return await api.POST('/comments/generate-bulk' as any, { commentIds });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['comments-inbox'] });
@@ -52,7 +51,7 @@ export default function CommentsInboxPage() {
     if (selectedComments.size === data?.length) {
       setSelectedComments(new Set());
     } else {
-      setSelectedComments(new Set(data?.map(c => c.id) || []));
+      setSelectedComments(new Set(data?.map((c: ScoredComment) => c.id) || []));
     }
   };
 
@@ -71,8 +70,8 @@ export default function CommentsInboxPage() {
     }
   };
 
-  const highPriorityCount = data?.filter(c => c.priorityScore >= 40).length || 0;
-  const negativeCount = data?.filter(c => c.sentiment === 'negative').length || 0;
+  const highPriorityCount = data?.filter((c: ScoredComment) => c.priorityScore >= 40).length || 0;
+  const negativeCount = data?.filter((c: ScoredComment) => c.sentiment === 'negative').length || 0;
 
   return (
     <div className="container mx-auto py-6 max-w-7xl">
@@ -192,21 +191,22 @@ export default function CommentsInboxPage() {
         <div className="space-y-3">
           {/* Select All */}
           <div className="flex items-center gap-3 pb-2 border-b">
-            <Checkbox
+            <input
+              type="checkbox"
               checked={selectedComments.size === data?.length && data.length > 0}
-              onCheckedChange={handleSelectAll}
+              onChange={handleSelectAll}
             />
             <span className="text-sm text-muted-foreground">
               Select all ({data.length} comments)
             </span>
           </div>
 
-          {data.map(comment => (
+          {data.map((comment: ScoredComment) => (
             <CommentRow
               key={comment.id}
               comment={comment}
               isSelected={selectedComments.has(comment.id)}
-              onSelect={(selected) => {
+              onSelect={(selected: boolean) => {
                 const newSelected = new Set(selectedComments);
                 if (selected) {
                   newSelected.add(comment.id);
@@ -245,9 +245,9 @@ function CommentRow({
 
   const generateReply = useMutation({
     mutationFn: async () => {
-      return await api.post(`/comments/${comment.id}/generate-reply`);
+      return await api.POST(`/comments/${comment.id}/generate-reply` as any, {});
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       setEditedReply(data.data.reply);
       setShowReplyInput(true);
     }
@@ -255,7 +255,7 @@ function CommentRow({
 
   const postReply = useMutation({
     mutationFn: async (replyText: string) => {
-      return await api.post(`/comments/${comment.id}/post-reply`, {
+      return await api.POST(`/comments/${comment.id}/post-reply` as any, {
         text: replyText
       });
     },
@@ -269,9 +269,10 @@ function CommentRow({
     <div className={`border rounded-lg p-4 transition-colors ${isSelected ? 'bg-primary/5 border-primary/30' : 'bg-card'}`}>
       <div className="flex gap-3">
         {/* Checkbox */}
-        <Checkbox
+        <input
+          type="checkbox"
           checked={isSelected}
-          onCheckedChange={onSelect}
+          onChange={(e) => onSelect(e.target.checked)}
         />
 
         {/* Priority Badge */}

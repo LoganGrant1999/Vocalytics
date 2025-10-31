@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { PricingTable } from '@/components/PricingTable';
-import { UsageMeter } from '@/components/UsageMeter';
 import { useSession } from '@/hooks/useSession';
 import { CheckCircle2, Loader2, Calendar, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -62,9 +61,6 @@ export default function Billing() {
       setSearchParams({});
     }
   }, [searchParams, refetch, setSearchParams]);
-
-  const FREE_ANALYZE_LIMIT = 2; // per week
-  const FREE_REPLY_LIMIT = 1; // per day
 
   if (isLoading) {
     return (

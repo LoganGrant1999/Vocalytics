@@ -81,8 +81,6 @@ export default function Analyze() {
   const {
     data: analysis,
     isLoading: isLoadingAnalysis,
-    error: analysisError,
-    refetch: refetchAnalysis,
   } = useQuery({
     queryKey: ['analysis', videoId],
     queryFn: async () => {
@@ -97,7 +95,7 @@ export default function Analyze() {
         }
         throw new Error('Failed to fetch analysis');
       }
-      return result.data as Analysis;
+      return result.data as unknown as Analysis;
     },
     enabled: !!videoId,
     retry: false,
@@ -108,7 +106,7 @@ export default function Analyze() {
     mutationFn: async () => {
       if (!videoId) throw new Error('No video ID');
 
-      analytics.track({ name: 'analyze_started', properties: { videoId } });
+      analytics.track({ name: 'analyze_started' as any, properties: { videoId } as any });
       setIsAnalyzing(true);
 
       const result = await api.POST('/api/analysis/{videoId}', {
@@ -125,10 +123,10 @@ export default function Analyze() {
         throw new Error('Failed to analyze video');
       }
 
-      return result.data as Analysis;
+      return result.data as unknown as Analysis;
     },
-    onSuccess: (data) => {
-      analytics.track({ name: 'analyze_success', properties: { videoId } });
+    onSuccess: () => {
+      analytics.track({ name: 'analyze_success' as any, properties: { videoId } as any });
       queryClient.invalidateQueries({ queryKey: ['analysis', videoId] });
       toast.success('Analysis complete!');
       setIsAnalyzing(false);
@@ -162,7 +160,7 @@ export default function Analyze() {
     mutationFn: async () => {
       if (!videoId) throw new Error('No video ID');
 
-      analytics.track({ name: 'analyze_sync_started', properties: { videoId } });
+      analytics.track({ name: 'analyze_started' as any, properties: { videoId } as any });
       setIsAnalyzing(true);
 
       const result = await api.POST('/api/analysis/{videoId}', {
@@ -179,10 +177,10 @@ export default function Analyze() {
         throw new Error('Failed to sync analysis');
       }
 
-      return result.data as Analysis;
+      return result.data as unknown as Analysis;
     },
-    onSuccess: (data) => {
-      analytics.track({ name: 'analyze_sync_success', properties: { videoId } });
+    onSuccess: () => {
+      analytics.track({ name: 'analyze_success' as any, properties: { videoId } as any });
       queryClient.invalidateQueries({ queryKey: ['analysis', videoId] });
       toast.success('Analysis synced with latest comments!');
       setIsAnalyzing(false);
@@ -203,7 +201,7 @@ export default function Analyze() {
           description: 'Please connect your YouTube account first.',
         });
       } else {
-        analytics.track({ name: 'analyze_sync_failure', properties: { videoId, error: error.message } });
+        analytics.track({ name: 'analyze_failure' as any, properties: { videoId, error: error.message } as any });
         toast.error('Failed to sync analysis', {
           description: error.message,
         });

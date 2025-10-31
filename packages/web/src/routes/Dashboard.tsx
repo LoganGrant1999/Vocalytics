@@ -1,21 +1,16 @@
-import { Button } from '@/components/ui/button';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Video, BarChart3, MessageSquare, TrendingUp, CheckCircle2, Crown, Loader2 } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Video, BarChart3, MessageSquare, TrendingUp, CheckCircle2 } from 'lucide-react';
 import { useSession } from '@/hooks/useSession';
 import { useChannelData } from '@/hooks/useChannelData';
-import { UsageMeter } from '@/components/UsageMeter';
 import { ConnectYouTubeButton } from '@/components/ConnectYouTubeButton';
-import { VideoCard } from '@/components/VideoCard';
 import { TrendsChart } from '@/components/TrendsChart';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { toast } from 'sonner';
 
 export default function Dashboard() {
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { session, isLoading, refetch } = useSession();
-  const { videos, channelTitle, trends, isLoading: isLoadingChannel, isYouTubeNotConnected, analyze, isAnalyzing } = useChannelData();
-  const [analyzingVideoId, setAnalyzingVideoId] = useState<string | null>(null);
+  const { trends } = useChannelData();
 
   // Handle OAuth callback
   useEffect(() => {
@@ -37,34 +32,6 @@ export default function Dashboard() {
       setSearchParams({});
     }
   }, [searchParams, refetch, setSearchParams]);
-
-  const FREE_ANALYZE_LIMIT = 2; // per week
-  const FREE_REPLY_LIMIT = 1; // per day
-
-  // Handle analyze click
-  const handleAnalyze = async (videoId: string) => {
-    setAnalyzingVideoId(videoId);
-    toast.info('Analyzing...', {
-      description: 'Running sentiment analysis on comments',
-      icon: <Loader2 className="h-4 w-4 animate-spin" />,
-    });
-
-    try {
-      await analyze(videoId);
-      toast.success('Analysis complete!', {
-        description: 'Sentiment analysis has been saved',
-        icon: <CheckCircle2 className="h-4 w-4" />,
-      });
-      // Navigate to analyze page to see results
-      navigate(`/analyze/${videoId}`);
-    } catch (error: any) {
-      toast.error('Analysis failed', {
-        description: error.message || 'Failed to analyze video',
-      });
-    } finally {
-      setAnalyzingVideoId(null);
-    }
-  };
 
   if (isLoading) {
     return (
@@ -88,7 +55,7 @@ export default function Dashboard() {
             Connect your YouTube channel to start analyzing comments and
             generating AI-powered replies.
           </p>
-          <ConnectYouTubeButton size="lg" />
+          <ConnectYouTubeButton />
         </div>
       </div>
     );
