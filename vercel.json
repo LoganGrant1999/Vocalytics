@@ -16,8 +16,8 @@
   ],
   "rewrites": [
     {
-      "source": "/api/((?!cron/).*)",
-      "destination": "/api/index"
+      "source": "/api/:path((?!cron).*)",
+      "destination": "/api/fastify"
     },
     {
       "source": "/(.*)",
