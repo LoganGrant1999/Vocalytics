@@ -11,16 +11,11 @@ const stripe = new Stripe(stripeSecretKey, {
   apiVersion: '2025-09-30.clover' as any
 });
 
-const STRIPE_PRICE_ID = process.env.STRIPE_PRICE_ID;
-const STRIPE_CHECKOUT_SUCCESS_URL = process.env.STRIPE_CHECKOUT_SUCCESS_URL || 'http://localhost:5173/billing?success=true';
-const STRIPE_CHECKOUT_CANCEL_URL = process.env.STRIPE_CHECKOUT_CANCEL_URL || 'http://localhost:5173/billing?canceled=true';
-const STRIPE_PORTAL_RETURN_URL = process.env.STRIPE_PORTAL_RETURN_URL || 'http://localhost:5173/billing';
+// Note: Environment variables are read dynamically in handlers to support testing
+// where env vars are set after module import
 
 export async function billingRoutes(fastify: FastifyInstance) {
   console.log('[billing.ts] Registering billing routes');
-  console.log('[billing.ts] STRIPE_CHECKOUT_SUCCESS_URL:', STRIPE_CHECKOUT_SUCCESS_URL);
-  console.log('[billing.ts] STRIPE_CHECKOUT_CANCEL_URL:', STRIPE_CHECKOUT_CANCEL_URL);
-  console.log('[billing.ts] STRIPE_PORTAL_RETURN_URL:', STRIPE_PORTAL_RETURN_URL);
 
   // Test route to verify registration works
   fastify.get('/billing/test', async (_request: any, reply) => {
@@ -36,6 +31,8 @@ export async function billingRoutes(fastify: FastifyInstance) {
       auth: request.auth
     });
     const auth = request.auth;
+
+    const STRIPE_PRICE_ID = process.env.STRIPE_PRICE_ID;
 
     if (!STRIPE_PRICE_ID) {
       console.log('[billing.ts] STRIPE_PRICE_ID not configured');
@@ -119,8 +116,8 @@ export async function billingRoutes(fastify: FastifyInstance) {
             quantity: 1
           }
         ],
-        success_url: STRIPE_CHECKOUT_SUCCESS_URL,
-        cancel_url: STRIPE_CHECKOUT_CANCEL_URL,
+        success_url: process.env.STRIPE_CHECKOUT_SUCCESS_URL || 'http://localhost:5173/billing?success=true',
+        cancel_url: process.env.STRIPE_CHECKOUT_CANCEL_URL || 'http://localhost:5173/billing?canceled=true',
         client_reference_id: auth.userId,
         metadata: {
           user_id: auth.userId,
@@ -182,7 +179,7 @@ export async function billingRoutes(fastify: FastifyInstance) {
       try {
         const params: Stripe.BillingPortal.SessionCreateParams = {
           customer: customerId,
-          return_url: STRIPE_PORTAL_RETURN_URL
+          return_url: process.env.STRIPE_PORTAL_RETURN_URL || 'http://localhost:5173/billing'
         };
 
         // Use portal configuration if provided
