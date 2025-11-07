@@ -10,19 +10,54 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
+import { Youtube, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 
 const VoiceProfilePage = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const hasYouTubeConnected = user?.hasYouTubeConnected || false;
+
   const [tone, setTone] = useState("hype");
   const [emojiLevel, setEmojiLevel] = useState([2]);
   const [phrases, setPhrases] = useState(
     "you're insane 😂\nappreciate you big time 🙏\nmore coming soon"
   );
 
+  const handleConnectYouTube = () => {
+    navigate("/connect");
+  };
+
   const handleSave = () => {
     console.log("TODO: save updated voice profile to Supabase");
   };
 
   const emojiLabels = ["None", "Light", "Heavy"];
+
+  if (!hasYouTubeConnected) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Your Voice Profile</h1>
+          <p className="text-muted-foreground">
+            We learn from your last 50 replies and match tone, length, and emoji style.
+          </p>
+        </div>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            YouTube account not connected. Please connect to view voice profile.
+          </AlertDescription>
+        </Alert>
+        <Button onClick={handleConnectYouTube}>
+          <Youtube className="w-4 h-4 mr-2" />
+          Connect YouTube
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl space-y-6">

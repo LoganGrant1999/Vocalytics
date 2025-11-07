@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import VideoListItem from "@/components/shared/VideoListItem";
+import VideoAnalysisInput from "@/components/shared/VideoAnalysisInput";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, Youtube } from "lucide-react";
@@ -67,12 +68,15 @@ const VideosPage = () => {
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>{error}</AlertDescription>
         </Alert>
-        {error.includes("YouTube not connected") && (
-          <Button onClick={handleConnectYouTube} className="mt-4">
-            <Youtube className="w-4 h-4 mr-2" />
-            Connect YouTube
-          </Button>
-        )}
+        <Button onClick={handleConnectYouTube}>
+          <Youtube className="w-4 h-4 mr-2" />
+          Connect YouTube
+        </Button>
+
+        {/* Analyze Any Video Section - available even without connection */}
+        <div className="pt-6">
+          <VideoAnalysisInput />
+        </div>
       </div>
     );
   }
@@ -85,6 +89,11 @@ const VideosPage = () => {
           <p className="text-muted-foreground">
             No videos found on your channel.
           </p>
+        </div>
+
+        {/* Analyze Any Video Section - available even with no videos */}
+        <div className="pt-6">
+          <VideoAnalysisInput />
         </div>
       </div>
     );
@@ -115,6 +124,11 @@ const VideosPage = () => {
             priorityReplies={0}
           />
         ))}
+      </div>
+
+      {/* Analyze Any Video Section */}
+      <div className="pt-6">
+        <VideoAnalysisInput />
       </div>
     </div>
   );

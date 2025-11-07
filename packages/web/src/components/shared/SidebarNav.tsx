@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutDashboard, MessageSquare, Video, Mic, CreditCard } from "lucide-react";
+import { LayoutDashboard, MessageSquare, Video, Mic, CreditCard, Settings } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import PlanBadge from "./PlanBadge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ const navItems = [
   { label: "Videos", icon: Video, path: "/app/videos" },
   { label: "Voice Profile", icon: Mic, path: "/app/voice" },
   { label: "Billing", icon: CreditCard, path: "/app/billing" },
+  { label: "Settings", icon: Settings, path: "/app/settings" },
 ];
 
 const SidebarNav = ({ plan, isMobileOpen = true }: SidebarNavProps) => {
@@ -52,10 +53,8 @@ const SidebarNav = ({ plan, isMobileOpen = true }: SidebarNavProps) => {
       } fixed lg:sticky top-0 left-0 h-screen w-64 bg-sidebar border-r border-sidebar-border p-6 flex flex-col transition-transform duration-300 z-50 lg:translate-x-0`}
     >
       {/* Logo */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-          Vocalytics
-        </h1>
+      <div className="mb-6 flex justify-center">
+        <img src="/banner_logo.png" alt="Vocalytics" className="w-full h-auto max-w-[162px]" />
       </div>
 
       {/* Navigation */}

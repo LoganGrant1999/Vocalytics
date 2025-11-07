@@ -14,6 +14,7 @@ import VideosPage from "./pages/VideosPage";
 import VideoDetailPage from "./pages/VideoDetailPage";
 import VoiceProfilePage from "./pages/VoiceProfilePage";
 import BillingPage from "./pages/BillingPage";
+import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
 import AppShell from "./pages/AppShell";
 
@@ -57,6 +58,7 @@ function AppRoutes() {
 
   const plan = user?.tier || 'free';
   const channelName = user?.name || 'Your Channel';
+  const hasYouTubeConnected = user?.hasYouTubeConnected || false;
 
   return (
     <Routes>
@@ -78,7 +80,7 @@ function AppRoutes() {
         path="/app/dashboard"
         element={
           <ProtectedRoute>
-            <AppShell plan={plan} channelName={channelName}>
+            <AppShell plan={plan} channelName={channelName} hasYouTubeConnected={hasYouTubeConnected}>
               <DashboardPage plan={plan} />
             </AppShell>
           </ProtectedRoute>
@@ -88,7 +90,7 @@ function AppRoutes() {
         path="/app/comments"
         element={
           <ProtectedRoute>
-            <AppShell plan={plan} channelName={channelName}>
+            <AppShell plan={plan} channelName={channelName} hasYouTubeConnected={hasYouTubeConnected}>
               <CommentsPage plan={plan} />
             </AppShell>
           </ProtectedRoute>
@@ -98,7 +100,7 @@ function AppRoutes() {
         path="/app/videos"
         element={
           <ProtectedRoute>
-            <AppShell plan={plan} channelName={channelName}>
+            <AppShell plan={plan} channelName={channelName} hasYouTubeConnected={hasYouTubeConnected}>
               <VideosPage />
             </AppShell>
           </ProtectedRoute>
@@ -108,7 +110,7 @@ function AppRoutes() {
         path="/app/video/:id"
         element={
           <ProtectedRoute>
-            <AppShell plan={plan} channelName={channelName}>
+            <AppShell plan={plan} channelName={channelName} hasYouTubeConnected={hasYouTubeConnected}>
               <VideoDetailPage plan={plan} />
             </AppShell>
           </ProtectedRoute>
@@ -118,7 +120,7 @@ function AppRoutes() {
         path="/app/voice"
         element={
           <ProtectedRoute>
-            <AppShell plan={plan} channelName={channelName}>
+            <AppShell plan={plan} channelName={channelName} hasYouTubeConnected={hasYouTubeConnected}>
               <VoiceProfilePage />
             </AppShell>
           </ProtectedRoute>
@@ -128,8 +130,18 @@ function AppRoutes() {
         path="/app/billing"
         element={
           <ProtectedRoute>
-            <AppShell plan={plan} channelName={channelName}>
+            <AppShell plan={plan} channelName={channelName} hasYouTubeConnected={hasYouTubeConnected}>
               <BillingPage plan={plan} />
+            </AppShell>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/app/settings"
+        element={
+          <ProtectedRoute>
+            <AppShell plan={plan} channelName={channelName} hasYouTubeConnected={hasYouTubeConnected}>
+              <SettingsPage />
             </AppShell>
           </ProtectedRoute>
         }

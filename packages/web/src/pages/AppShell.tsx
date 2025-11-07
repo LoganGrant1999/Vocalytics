@@ -5,10 +5,11 @@ import HeaderBar from "@/components/shared/HeaderBar";
 interface AppShellProps {
   plan: "free" | "pro";
   channelName: string;
+  hasYouTubeConnected: boolean;
   children: React.ReactNode;
 }
 
-const AppShell = ({ plan, channelName, children }: AppShellProps) => {
+const AppShell = ({ plan, channelName, hasYouTubeConnected, children }: AppShellProps) => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const toggleMobileSidebar = () => {
@@ -36,6 +37,7 @@ const AppShell = ({ plan, channelName, children }: AppShellProps) => {
       <div className="flex-1 flex flex-col min-w-0 lg:ml-0">
         <HeaderBar
           channelName={channelName}
+          hasYouTubeConnected={hasYouTubeConnected}
           onMenuClick={toggleMobileSidebar}
         />
         <main className="flex-1 p-6">{children}</main>

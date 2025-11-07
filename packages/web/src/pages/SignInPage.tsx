@@ -40,14 +40,16 @@ const SignInPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-6">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-background flex items-center justify-center px-6 relative overflow-hidden">
+      {/* Decorative background elements */}
+      <div className="absolute top-20 left-10 w-72 h-72 bg-primary/20 rounded-full blur-3xl animate-pulse"></div>
+      <div className="absolute bottom-20 right-10 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
+
+      <div className="w-full max-w-md relative z-10">
         <div className="rounded-2xl border border-border bg-card p-8 shadow-2xl">
           {/* Logo/Brand */}
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent mb-2">
-              Vocalytics
-            </h1>
+            <img src="/banner_logo.png" alt="Vocalytics" className="h-20 w-auto mx-auto mb-4" />
             <p className="text-sm text-muted-foreground">
               Connect your channel. We'll handle the comment chaos.
             </p>

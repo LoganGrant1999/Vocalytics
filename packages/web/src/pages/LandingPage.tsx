@@ -17,9 +17,7 @@ const LandingPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-background flex flex-col relative overflow-hidden">
       {/* Top Menu Bar */}
       <header className="w-full px-6 py-4 flex items-center justify-between relative z-20 bg-white border-b border-border shadow-sm">
-        <div className="text-xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-          Vocalytics
-        </div>
+        <img src="/banner_logo.png" alt="Vocalytics" className="h-[53px] w-auto" />
         <div className="flex items-center gap-3">
           <Button
             onClick={handleGetStarted}

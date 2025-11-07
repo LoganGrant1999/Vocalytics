@@ -5,12 +5,13 @@ import { useNavigate } from "react-router-dom";
 
 interface HeaderBarProps {
   channelName: string;
+  hasYouTubeConnected: boolean;
   onMenuClick?: () => void;
 }
 
-const HeaderBar = ({ channelName, onMenuClick }: HeaderBarProps) => {
+const HeaderBar = ({ channelName, hasYouTubeConnected, onMenuClick }: HeaderBarProps) => {
   const navigate = useNavigate();
-  
+
   const handleLogout = () => {
     console.log("TODO: POST /api/auth/logout");
     navigate("/");
@@ -45,7 +46,10 @@ const HeaderBar = ({ channelName, onMenuClick }: HeaderBarProps) => {
             </div>
             <div className="text-sm">
               <div className="font-semibold">{channelName}</div>
-              <ChannelStatusBadge status="YouTube Connected ✅" />
+              <ChannelStatusBadge
+                status={hasYouTubeConnected ? "YouTube Connected ✅" : "YouTube Not Connected"}
+                isConnected={hasYouTubeConnected}
+              />
             </div>
           </div>
           <Button

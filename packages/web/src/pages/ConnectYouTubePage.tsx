@@ -17,8 +17,12 @@ const ConnectYouTubePage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-6">
-      <div className="w-full max-w-lg">
+    <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-background flex items-center justify-center px-6 relative overflow-hidden">
+      {/* Decorative background elements */}
+      <div className="absolute top-20 left-10 w-72 h-72 bg-primary/20 rounded-full blur-3xl animate-pulse"></div>
+      <div className="absolute bottom-20 right-10 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
+
+      <div className="w-full max-w-lg relative z-10">
         <div className="rounded-2xl border border-border bg-card p-10 shadow-2xl text-center">
           <div className="inline-flex p-4 rounded-2xl bg-primary/10 mb-6">
             <Youtube className="w-12 h-12 text-primary" />

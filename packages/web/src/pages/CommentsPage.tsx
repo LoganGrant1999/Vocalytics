@@ -1,5 +1,9 @@
 import { Button } from "@/components/ui/button";
 import CommentRow from "@/components/shared/CommentRow";
+import { Youtube, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 
 interface CommentsPageProps {
   plan: "free" | "pro";
@@ -49,9 +53,40 @@ const mockComments = [
 ];
 
 const CommentsPage = ({ plan }: CommentsPageProps) => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const hasYouTubeConnected = user?.hasYouTubeConnected || false;
+
   const handleSendAll = () => {
     console.log("TODO: batch POST /api/youtube/reply");
   };
+
+  const handleConnectYouTube = () => {
+    navigate("/connect");
+  };
+
+  if (!hasYouTubeConnected) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">All Recent Comments</h1>
+          <p className="text-muted-foreground">
+            Approve and send replies in bulk.
+          </p>
+        </div>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            YouTube account not connected. Please connect to view comments.
+          </AlertDescription>
+        </Alert>
+        <Button onClick={handleConnectYouTube}>
+          <Youtube className="w-4 h-4 mr-2" />
+          Connect YouTube
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

@@ -2,12 +2,48 @@ import KpiCard from "@/components/shared/KpiCard";
 import PriorityQueueCard from "@/components/shared/PriorityQueueCard";
 import VoiceProfileCard from "@/components/shared/VoiceProfileCard";
 import UpgradeBanner from "@/components/shared/UpgradeBanner";
+import { Youtube, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 
 interface DashboardPageProps {
   plan: "free" | "pro";
 }
 
 const DashboardPage = ({ plan }: DashboardPageProps) => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const hasYouTubeConnected = user?.hasYouTubeConnected || false;
+
+  const handleConnectYouTube = () => {
+    navigate("/connect");
+  };
+
+  if (!hasYouTubeConnected) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Your engagement control center
+          </p>
+        </div>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            YouTube account not connected. Please connect to view dashboard.
+          </AlertDescription>
+        </Alert>
+        <Button onClick={handleConnectYouTube}>
+          <Youtube className="w-4 h-4 mr-2" />
+          Connect YouTube
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       {/* KPI Row */}
