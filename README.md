@@ -1,4 +1,4 @@
-# TubeWhisperer
+# Vocalytics
 
 TypeScript monorepo with pnpm workspaces.
 
@@ -73,7 +73,7 @@ pnpm typecheck # Run TypeScript type checking
 
 ## Live LLM Mode
 
-TubeWhisperer can use real OpenAI APIs for comment moderation and reply generation. By default, it falls back to mock/rule-based behavior if no API key is configured.
+Vocalytics can use real OpenAI APIs for comment moderation and reply generation. By default, it falls back to mock/rule-based behavior if no API key is configured.
 
 **To enable real moderation + GPT-4 replies:**
 
