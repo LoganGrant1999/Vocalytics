@@ -1,0 +1,83 @@
+/* Import Vocalytics Theme */
+@import "./styles/theme.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 0 71% 57%; /* Vocalytics Red #E63946 */
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 0 71% 57%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 240 10% 5%; /* #0E0E11 */
+    --foreground: 210 40% 98%;
+    --card: 240 6% 10%; /* #18181B */
+    --card-foreground: 210 40% 98%;
+    --popover: 240 6% 10%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 0 78% 63%; /* Brighter red for dark mode #F05252 */
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 240 4% 15%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 240 4% 15%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 240 4% 15%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 240 4% 15%;
+    --input: 240 4% 15%;
+    --ring: 0 78% 63%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
+  }
+  html,
+  body {
+    @apply bg-background text-foreground;
+    background: var(--color-bg);
+    color: var(--color-text-primary);
+  }
+}
+
+@layer utilities {
+  /* Explicit secondary color utilities for debugging */
+  .bg-brand-secondary-explicit {
+    background-color: #374151 !important;
+  }
+  .bg-brand-secondary-light-explicit {
+    background-color: #4B5563 !important;
+  }
+
+  .dark .bg-brand-secondary-explicit {
+    background-color: #9CA3AF !important;
+  }
+  .dark .bg-brand-secondary-light-explicit {
+    background-color: #6B7280 !important;
+  }
+}

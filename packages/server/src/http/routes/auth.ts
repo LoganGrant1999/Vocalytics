@@ -234,7 +234,7 @@ export async function protectedAuthRoutes(fastify: FastifyInstance) {
 
   /**
    * GET /api/auth/me
-   * Get current user info (requires auth)
+   * Get current user info with quota (requires auth)
    */
   fastify.get('/auth/me', async (request: any, reply: FastifyReply) => {
     const userId = request.auth?.userId || request.auth?.userDbId || request.user?.id;
@@ -254,6 +254,16 @@ export async function protectedAuthRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'User not found' });
       }
 
+      // Fetch usage stats for quota information
+      let quota = null;
+      try {
+        const { getUsageStats } = await import('../../db/rateLimits.js');
+        quota = await getUsageStats(userId);
+      } catch (error) {
+        console.warn('[auth.ts] Failed to fetch quota:', error);
+        // Continue without quota if it fails
+      }
+
       return reply.send({
         user: {
           id: user.id,
@@ -265,6 +275,7 @@ export async function protectedAuthRoutes(fastify: FastifyInstance) {
           hasYouTubeConnected: !!user.youtube_access_token,
           createdAt: user.created_at,
         },
+        quota: quota || undefined,
       });
     } catch (error: any) {
       console.error('[auth.ts] Get me error:', error);

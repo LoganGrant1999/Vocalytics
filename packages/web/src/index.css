@@ -1,83 +1,131 @@
-/* Import Vocalytics Theme */
-@import "./styles/theme.css";
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Light mode - fallback */
+    --background: 0 0% 98%;
+    --foreground: 0 0% 10%;
+    
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 0 0% 10%;
+    
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 0 71% 57%; /* Vocalytics Red #E63946 */
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 0 71% 57%;
-    --radius: 0.75rem;
+    --popover-foreground: 0 0% 10%;
+    
+    --primary: 0 79% 58%;
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 0 0% 90%;
+    --secondary-foreground: 0 0% 10%;
+    
+    --muted: 0 0% 94%;
+    --muted-foreground: 0 0% 45%;
+    
+    --accent: 0 79% 58%;
+    --accent-foreground: 0 0% 100%;
+    
+    --destructive: 0 79% 58%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 0 0% 88%;
+    --input: 0 0% 88%;
+    --ring: 0 79% 58%;
+    
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 10%;
+    
+    --radius: 1rem;
+    
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 0 0% 10%;
+    --sidebar-primary: 0 79% 58%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 94%;
+    --sidebar-accent-foreground: 0 0% 10%;
+    --sidebar-border: 0 0% 88%;
+    --sidebar-ring: 0 79% 58%;
   }
 
   .dark {
-    --background: 240 10% 5%; /* #0E0E11 */
-    --foreground: 210 40% 98%;
-    --card: 240 6% 10%; /* #18181B */
-    --card-foreground: 210 40% 98%;
-    --popover: 240 6% 10%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 0 78% 63%; /* Brighter red for dark mode #F05252 */
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 240 4% 15%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 240 4% 15%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 240 4% 15%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 240 4% 15%;
-    --input: 240 4% 15%;
-    --ring: 0 78% 63%;
+    /* Dark mode - primary theme */
+    --background: 0 0% 7%;
+    --foreground: 0 0% 98%;
+    
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 98%;
+    
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 98%;
+    
+    --primary: 0 79% 58%;
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 0 0% 14%;
+    --secondary-foreground: 0 0% 98%;
+    
+    --muted: 0 0% 14%;
+    --muted-foreground: 0 0% 60%;
+    
+    --accent: 0 79% 58%;
+    --accent-foreground: 0 0% 100%;
+    
+    --destructive: 0 79% 58%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 0 79% 58%;
+    
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 10%;
+    
+    --sidebar-background: 0 0% 7%;
+    --sidebar-foreground: 0 0% 90%;
+    --sidebar-primary: 0 79% 58%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 14%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 0 0% 20%;
+    --sidebar-ring: 0 79% 58%;
   }
 }
 
 @layer base {
   * {
     @apply border-border;
-    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
   }
-  html,
+
   body {
-    @apply bg-background text-foreground;
-    background: var(--color-bg);
-    color: var(--color-text-primary);
+    @apply bg-background text-foreground antialiased;
+  }
+  
+  html {
+    @apply dark;
   }
 }
 
 @layer utilities {
-  /* Explicit secondary color utilities for debugging */
-  .bg-brand-secondary-explicit {
-    background-color: #374151 !important;
+  .gradient-card {
+    @apply bg-gradient-to-br from-card to-card/50;
   }
-  .bg-brand-secondary-light-explicit {
-    background-color: #4B5563 !important;
+  
+  .glow-border {
+    @apply border border-border shadow-[0_0_15px_rgba(229,72,72,0.1)];
   }
-
-  .dark .bg-brand-secondary-explicit {
-    background-color: #9CA3AF !important;
-  }
-  .dark .bg-brand-secondary-light-explicit {
-    background-color: #6B7280 !important;
+  
+  .glow-accent {
+    @apply shadow-[0_0_20px_rgba(229,72,72,0.3)];
   }
 }

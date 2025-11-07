@@ -205,15 +205,15 @@ export async function youtubeOAuthRoutes(fastify: FastifyInstance) {
         maxAge: 30 * 24 * 60 * 60, // 30 days
       });
 
-      // IMPORTANT: In development, redirect to the FRONTEND URL (localhost:5173)
+      // IMPORTANT: In development, redirect to the FRONTEND URL (localhost:8080)
       // so the cookie gets sent with the redirect. The frontend proxies /api to :3000
       // In production, both frontend and backend are on same domain, so use relative path
       // Use APP_URL env var if set, otherwise fall back to NODE_ENV check
       const baseUrl = process.env.APP_URL
-        ? `${process.env.APP_URL}/app`
+        ? `${process.env.APP_URL}/app/dashboard`
         : process.env.NODE_ENV === 'production'
-        ? '/app'
-        : 'http://localhost:5173/app';
+        ? '/app/dashboard'
+        : 'http://localhost:8080/app/dashboard';
 
       const redirectUrl = `${baseUrl}?yt=connected`;
 

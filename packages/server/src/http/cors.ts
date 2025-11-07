@@ -13,7 +13,7 @@ const ALLOWED_ORIGINS = CORS_ORIGINS_ENV
 
 // If no config, default to localhost for development
 if (ALLOWED_ORIGINS.length === 0 && process.env.NODE_ENV !== 'production') {
-  ALLOWED_ORIGINS.push('http://localhost:3000', 'http://localhost:5173', 'http://localhost:5174');
+  ALLOWED_ORIGINS.push('http://localhost:3000', 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:8080');
 }
 
 /**

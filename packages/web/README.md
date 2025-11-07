@@ -1,177 +1,204 @@
-# @vocalytics/web
+# Vocalytics Frontend
 
-React + TypeScript + Vite frontend for Vocalytics.
+YouTube comment sentiment analysis and AI-powered reply generation - Frontend application.
+
+## Project Status
+
+**Status**: Ready for Backend Integration
+**Frontend**: ✅ Complete (UI + routing + components)
+**Backend**: ⚠️ Needs integration (see `BACKEND_MIGRATION_PROMPT.md`)
+
+## Quick Start
+
+### Prerequisites
+- Node.js 18+ (recommended: install with [nvm](https://github.com/nvm-sh/nvm))
+- Backend API running on port 3000 (see integration docs)
+
+### Installation
+
+```bash
+# Clone the repository
+git clone <YOUR_GIT_URL>
+cd reply-sculptor
+
+# Install dependencies
+npm install
+
+# Create environment file
+cp .env.example .env
+
+# Start development server
+npm run dev
+```
+
+The app will be available at `http://localhost:8080`
+
+## Integration with Backend
+
+This frontend connects to the Vocalytics backend API. To integrate:
+
+1. **Read the integration overview**: `INTEGRATION_OVERVIEW.md`
+2. **Prepare backend first**: Use `BACKEND_MIGRATION_PROMPT.md` in your backend repo
+3. **Configure environment**: Set `VITE_API_URL` in `.env`
+4. **Review integration guide**: `INTEGRATION_GUIDE.md` for detailed steps
+
+### Environment Variables
+
+```bash
+# .env
+VITE_API_URL=http://localhost:3000  # Backend API URL
+```
+
+## Project info
+
+**Original Lovable URL**: https://lovable.dev/projects/ea5894f0-f019-464b-8591-976f8bce3504
+
+## How can I edit this code?
+
+There are several ways of editing your application.
+
+**Use Lovable**
+
+Simply visit the [Lovable Project](https://lovable.dev/projects/ea5894f0-f019-464b-8591-976f8bce3504) and start prompting.
+
+Changes made via Lovable will be committed automatically to this repo.
+
+**Use your preferred IDE**
+
+If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+
+The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+
+Follow these steps:
+
+```sh
+# Step 1: Clone the repository using the project's Git URL.
+git clone <YOUR_GIT_URL>
+
+# Step 2: Navigate to the project directory.
+cd <YOUR_PROJECT_NAME>
+
+# Step 3: Install the necessary dependencies.
+npm i
+
+# Step 4: Start the development server with auto-reloading and an instant preview.
+npm run dev
+```
+
+**Edit a file directly in GitHub**
+
+- Navigate to the desired file(s).
+- Click the "Edit" button (pencil icon) at the top right of the file view.
+- Make your changes and commit the changes.
+
+**Use GitHub Codespaces**
+
+- Navigate to the main page of your repository.
+- Click on the "Code" button (green button) near the top right.
+- Select the "Codespaces" tab.
+- Click on "New codespace" to launch a new Codespace environment.
+- Edit files directly within the Codespace and commit and push your changes once you're done.
 
 ## Tech Stack
 
-- **React 18** - UI framework
-- **TypeScript** - Type safety
-- **Vite** - Build tool and dev server
-- **Tailwind CSS** - Styling
-- **React Router** - Routing
-- **TanStack Query** - Data fetching
-- **shadcn/ui** - UI components
-- **Lucide React** - Icons
+### Frontend
+- **Framework**: React 18
+- **Build Tool**: Vite
+- **Language**: TypeScript (strict mode)
+- **Styling**: Tailwind CSS
+- **UI Components**: shadcn/ui (Radix UI primitives)
+- **Data Fetching**: TanStack Query
+- **Routing**: React Router v6
+- **Charts**: Recharts
+- **Icons**: Lucide React
 
-## Development
+### Backend (Separate Repo)
+- **Framework**: Fastify
+- **Database**: Supabase (PostgreSQL)
+- **Auth**: YouTube OAuth + JWT
+- **AI**: OpenAI GPT-4
+- **Billing**: Stripe
+- **Deployment**: Vercel
 
-### Prerequisites
+## Features
 
-- Node.js 20+
-- pnpm
-
-### Install Dependencies
-
-```bash
-# From workspace root
-pnpm -w install
-```
-
-### Run Dev Server
-
-```bash
-# From workspace root
-pnpm --filter web dev
-```
-
-The app will be available at `http://localhost:5173`.
-
-API requests to `/api/*` are proxied to `http://localhost:3000` (the backend server).
-
-### Build for Production
-
-```bash
-pnpm --filter web build
-```
-
-Build output will be in `dist/`.
-
-### Type Checking
-
-```bash
-pnpm --filter web typecheck
-```
-
-### Preview Production Build
-
-```bash
-pnpm --filter web preview
-```
+- ✅ **YouTube Integration**: OAuth authentication and video/comment fetching
+- ✅ **Sentiment Analysis**: AI-powered comment analysis (OpenAI)
+- ✅ **Reply Generation**: GPT-4 generated replies in creator's voice
+- ✅ **Billing**: Stripe integration with Free/Pro tiers
+- ✅ **Dashboard**: KPIs, priority queue, voice profile
+- ✅ **Responsive Design**: Mobile-first with dark mode support
 
 ## Project Structure
 
 ```
-src/
-├── components/     # Reusable components
-│   └── ui/         # shadcn/ui components
-├── pages/          # Page components
-├── lib/            # Utilities (cn, etc.)
-├── App.tsx         # Root component with routing
-├── main.tsx        # React entry point
-└── index.css       # Global styles + Tailwind
+reply-sculptor/
+├── src/
+│   ├── components/
+│   │   ├── ui/           # shadcn/ui components
+│   │   └── shared/       # Shared app components
+│   ├── pages/            # Route pages
+│   ├── hooks/            # Custom React hooks (add API hooks here)
+│   ├── lib/              # Utilities (add api.ts here)
+│   └── App.tsx           # Root component
+├── INTEGRATION_OVERVIEW.md       # Start here!
+├── INTEGRATION_GUIDE.md          # Detailed integration steps
+├── BACKEND_MIGRATION_PROMPT.md   # Give to Claude in backend repo
+└── README.md                      # This file
 ```
 
-## API Integration
+## Development
 
-The app uses TanStack Query for data fetching. API calls are made to `/api/*` which Vite proxies to the backend server in development.
-
-In production (Vercel), configure rewrites in `vercel.json`:
-
-```json
-{
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "https://your-api.vercel.app/api/$1"
-    }
-  ]
-}
-```
-
-## Environment Variables
-
-See `.env.example` for all available configuration options.
-
-Create `.env` for local development:
+### Available Scripts
 
 ```bash
-cp .env.example .env
+npm run dev        # Start dev server (port 8080)
+npm run build      # Production build
+npm run preview    # Preview production build
+npm run lint       # Run ESLint
 ```
 
-Key variables:
+### Development Workflow
 
-- **`VITE_ENABLE_POSTING`** - Enable YouTube reply posting (requires `youtube.force-ssl` scope)
-- **`VITE_POSTHOG_KEY`** - PostHog analytics key (optional)
-- **`VITE_POSTHOG_HOST`** - PostHog host URL (optional)
+1. **Backend**: Start backend API on port 3000
+2. **Frontend**: Start frontend dev server on port 8080
+3. **Browser**: Navigate to `http://localhost:8080`
 
 ## Deployment
 
-### Vercel (Recommended)
+### Option 1: Separate Deployments
+- **Frontend**: Vercel/Netlify (static hosting)
+- **Backend**: Vercel/Railway/Render (Node.js hosting)
+- **Requirements**: Configure CORS in backend
 
-#### Option 1: Vercel Dashboard
+### Option 2: Monorepo (Recommended)
+Move frontend into backend repo as `client/` directory for single deployment.
 
-1. Import your repository to Vercel
-2. Select the `packages/web` directory as the root
-3. Vercel will auto-detect Vite configuration
-4. Add environment variables in Vercel dashboard:
-   - `VITE_ENABLE_POSTING=false`
-   - `VITE_POSTHOG_KEY=your_key` (optional)
-5. Update `vercel.json` rewrites to point to your backend URL
+### Deploy via Lovable
+Simply open [Lovable](https://lovable.dev/projects/ea5894f0-f019-464b-8591-976f8bce3504) and click Share → Publish.
 
-#### Option 2: Vercel CLI
+### Custom Domain
+To connect a domain via Lovable: Project > Settings > Domains > Connect Domain
 
-```bash
-cd packages/web
-vercel --prod
-```
+Read more: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain)
 
-The app will be deployed as a static site with API routes proxied via Vercel rewrites configured in `vercel.json`.
+## API Integration Status
 
-**Important**: Update the API rewrite destination in `vercel.json` to point to your backend:
+- [ ] Auth endpoints (`/api/auth/*`)
+- [ ] YouTube endpoints (`/api/youtube/*`)
+- [ ] Analysis endpoint (`/api/analyze-comments`)
+- [ ] Reply endpoints (`/api/generate-replies`, `/api/youtube/reply`)
+- [ ] Billing endpoints (`/api/billing/*`)
 
-```json
-{
-  "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "https://your-backend.vercel.app/api/:path*"
-    }
-  ]
-}
-```
+See `INTEGRATION_GUIDE.md` for implementation checklist.
 
-### Other Platforms
+## License
 
-For other static hosts (Netlify, Cloudflare Pages, etc.):
+MIT
 
-1. Build command: `cd ../.. && pnpm install && pnpm --filter web build`
-2. Output directory: `packages/web/dist`
-3. Add rewrites/redirects for `/api/*` to your backend URL
+## Support
 
-## Adding UI Components
-
-This project uses shadcn/ui. To add more components:
-
-1. Visit [shadcn/ui](https://ui.shadcn.com)
-2. Browse components
-3. Copy component code into `src/components/ui/`
-4. Import and use in your pages
-
-Example components already included:
-- Button
-
-## Path Aliases
-
-TypeScript is configured with `@/` alias for `src/`:
-
-```tsx
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
-```
-
-## Scripts
-
-- `pnpm dev` - Start development server
-- `pnpm build` - Build for production
-- `pnpm preview` - Preview production build
-- `pnpm typecheck` - Run TypeScript type checking
+For integration help, see:
+- `INTEGRATION_OVERVIEW.md` - Start here for big picture
+- `INTEGRATION_GUIDE.md` - Detailed technical steps
+- `BACKEND_MIGRATION_PROMPT.md` - Backend preparation prompt

@@ -11,12 +11,11 @@
     "test:prod": "cross-env NODE_ENV=test vitest run --reporter=verbose",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "typecheck": "pnpm -r typecheck",
-    "gen:api": "openapi-typescript openapi.yaml -o packages/web/src/types/api.d.ts",
-    "dev:server": "FREE_LIMIT_ANALYZE_WEEKLY=100 FREE_LIMIT_REPLY_DAILY=50 pnpm --filter server dev:http",
-    "dev:web": "pnpm --filter web dev",
-    "dev:both": "concurrently -k -n server,web -c green,cyan \"pnpm dev:server\" \"pnpm dev:web\"",
-    "verify:mvp": "pnpm -w build && pnpm --filter @vocalytics/server test -- --reporter=verbose && pnpm --filter @vocalytics/web test -- --reporter=verbose"
+    "typecheck": "pnpm --filter @vocalytics/server typecheck",
+    "dev:server": "FREE_LIMIT_ANALYZE_WEEKLY=100 FREE_LIMIT_REPLY_DAILY=50 pnpm --filter @vocalytics/server dev:http",
+    "dev:web": "pnpm --filter @vocalytics/web dev",
+    "dev": "concurrently -k -n server,web -c green,cyan \"pnpm dev:server\" \"pnpm dev:web\"",
+    "verify:backend": "pnpm --filter @vocalytics/server test -- --reporter=verbose"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

@@ -106,6 +106,13 @@ export async function billingRoutes(fastify: FastifyInstance) {
         }
       }
 
+      // Determine base URL for redirects
+      const baseUrl = process.env.APP_URL
+        ? process.env.APP_URL
+        : process.env.NODE_ENV === 'production'
+        ? ''
+        : 'http://localhost:8080';
+
       // Create checkout session
       const session = await stripe.checkout.sessions.create({
         customer: customerId,
@@ -116,8 +123,8 @@ export async function billingRoutes(fastify: FastifyInstance) {
             quantity: 1
           }
         ],
-        success_url: process.env.STRIPE_CHECKOUT_SUCCESS_URL || 'http://localhost:5173/billing?success=true',
-        cancel_url: process.env.STRIPE_CHECKOUT_CANCEL_URL || 'http://localhost:5173/billing?canceled=true',
+        success_url: process.env.STRIPE_CHECKOUT_SUCCESS_URL || `${baseUrl}/app/billing?success=true`,
+        cancel_url: process.env.STRIPE_CHECKOUT_CANCEL_URL || `${baseUrl}/app/billing?canceled=true`,
         client_reference_id: auth.userId,
         metadata: {
           user_id: auth.userId,
@@ -175,11 +182,18 @@ export async function billingRoutes(fastify: FastifyInstance) {
           .eq('id', user.id);
       }
 
+      // Determine base URL for redirects
+      const baseUrl = process.env.APP_URL
+        ? process.env.APP_URL
+        : process.env.NODE_ENV === 'production'
+        ? ''
+        : 'http://localhost:8080';
+
       // Create portal session
       try {
         const params: Stripe.BillingPortal.SessionCreateParams = {
           customer: customerId,
-          return_url: process.env.STRIPE_PORTAL_RETURN_URL || 'http://localhost:5173/billing'
+          return_url: process.env.STRIPE_PORTAL_RETURN_URL || `${baseUrl}/app/billing`
         };
 
         // Use portal configuration if provided
