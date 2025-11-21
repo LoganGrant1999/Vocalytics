@@ -140,6 +140,17 @@ export async function getTrends(
 }
 
 function rowToAnalysisResult(row: VideoAnalysisRow): AnalysisResult {
+  // Calculate categoryCounts if not present (for older analyses)
+  let categoryCounts = row.raw?.categoryCounts;
+  if (!categoryCounts && row.raw?.analysis) {
+    categoryCounts = { pos: 0, neu: 0, neg: 0 };
+    for (const a of row.raw.analysis) {
+      if (a.category === 'positive') categoryCounts.pos++;
+      else if (a.category === 'negative') categoryCounts.neg++;
+      else categoryCounts.neu++;
+    }
+  }
+
   return {
     videoId: row.video_id,
     analyzedAt: row.analyzed_at,
@@ -148,5 +159,7 @@ function rowToAnalysisResult(row: VideoAnalysisRow): AnalysisResult {
     topPositive: row.top_positive ?? undefined,
     topNegative: row.top_negative ?? undefined,
     summary: row.summary ?? undefined,
+    categoryCounts,
+    totalComments: row.raw?.totalComments || row.raw?.analysis?.length,
   };
 }

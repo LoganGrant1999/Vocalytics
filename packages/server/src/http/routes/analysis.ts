@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { zAnalysisResult, zTrendPoint } from '../../schemas.js';
 import { enforceAnalyze } from '../paywall.js';
 import { fetchComments, analyzeComments } from '../../tools.js';
+import { generateCommentSummary } from '../../llm.js';
 import { insertAnalysis, getLatestAnalysis, listLatestAnalysesPerVideo, getTrends } from '../../db/analyses.js';
 import { getUserVideo } from '../../db/videos.js';
 
@@ -115,35 +116,55 @@ export default async function route(app: FastifyInstance) {
         else categoryCounts.neu++;
       }
 
-      // Get top positive and negative comments
+      // Get top positive and negative comments with full metadata
       const positiveComments = analysis
         .filter((a) => a.category === 'positive')
-        .map((a) => ({
-          commentId: a.commentId,
-          text: comments.find((c) => c.id === a.commentId)?.text || '',
-          sentiment: {
-            pos: a.sentiment.positive,
-            neu: a.sentiment.neutral,
-            neg: a.sentiment.negative,
-          },
-        }))
+        .map((a) => {
+          const comment = comments.find((c) => c.id === a.commentId);
+          return {
+            commentId: a.commentId,
+            text: comment?.text || '',
+            author: comment?.author || 'Anonymous',
+            publishedAt: comment?.publishedAt || new Date().toISOString(),
+            likeCount: comment?.likeCount || 0,
+            sentiment: {
+              pos: a.sentiment.positive,
+              neu: a.sentiment.neutral,
+              neg: a.sentiment.negative,
+            },
+          };
+        })
         .slice(0, 5);
 
       const negativeComments = analysis
         .filter((a) => a.category === 'negative')
-        .map((a) => ({
-          commentId: a.commentId,
-          text: comments.find((c) => c.id === a.commentId)?.text || '',
-          sentiment: {
-            pos: a.sentiment.positive,
-            neu: a.sentiment.neutral,
-            neg: a.sentiment.negative,
-          },
-        }))
+        .map((a) => {
+          const comment = comments.find((c) => c.id === a.commentId);
+          return {
+            commentId: a.commentId,
+            text: comment?.text || '',
+            author: comment?.author || 'Anonymous',
+            publishedAt: comment?.publishedAt || new Date().toISOString(),
+            likeCount: comment?.likeCount || 0,
+            sentiment: {
+              pos: a.sentiment.positive,
+              neu: a.sentiment.neutral,
+              neg: a.sentiment.negative,
+            },
+          };
+        })
         .slice(0, 5);
 
-      // Generate summary
-      const summary = `Analyzed ${total} comments. ${Math.round(sentiment.pos * 100)}% positive, ${Math.round(sentiment.neu * 100)}% neutral, ${Math.round(sentiment.neg * 100)}% negative.`;
+      // Generate AI summary
+      console.log('[analysis] Generating AI summary...');
+      const aiSummary = await generateCommentSummary(
+        comments.map(c => ({ text: c.text })),
+        sentiment
+      );
+
+      // Fallback to basic summary if AI fails
+      const summary = aiSummary || `Analyzed ${total} comments. ${Math.round(sentiment.pos * 100)}% positive, ${Math.round(sentiment.neu * 100)}% neutral, ${Math.round(sentiment.neg * 100)}% negative.`;
+      console.log('[analysis] Summary generated:', summary);
 
       // Insert into database
       const payload = {
@@ -171,6 +192,8 @@ export default async function route(app: FastifyInstance) {
         topPositive: positiveComments,
         topNegative: negativeComments,
         summary,
+        categoryCounts,
+        totalComments: total,
       };
 
       return reply.send(zAnalysisResult.parse(result));
@@ -212,19 +235,54 @@ export default async function route(app: FastifyInstance) {
         });
       }
 
+      console.log('[analysis GET] Raw data from DB:', {
+        hasRaw: !!row.raw,
+        rawKeys: row.raw ? Object.keys(row.raw) : [],
+        hasCategoryCounts: !!row.raw?.categoryCounts,
+        hasAnalysis: !!row.raw?.analysis,
+        analysisLength: row.raw?.analysis?.length,
+        rawSample: row.raw ? JSON.stringify(row.raw).substring(0, 200) : 'none'
+      });
+
+      // Calculate categoryCounts if not present (for older analyses)
+      let categoryCounts = row.raw?.categoryCounts;
+      if (!categoryCounts && row.raw?.analysis) {
+        console.log('[analysis GET] Calculating categoryCounts from raw.analysis');
+        categoryCounts = { pos: 0, neu: 0, neg: 0 };
+        for (const a of row.raw.analysis) {
+          if (a.category === 'positive') categoryCounts.pos++;
+          else if (a.category === 'negative') categoryCounts.neg++;
+          else categoryCounts.neu++;
+        }
+        console.log('[analysis GET] Calculated categoryCounts:', categoryCounts);
+      } else {
+        console.log('[analysis GET] Using existing categoryCounts:', categoryCounts);
+      }
+
+      // Ensure topPositive and topNegative have all required fields (for older analyses)
+      const ensureCommentFields = (comment: any) => ({
+        ...comment,
+        author: comment.author || 'Anonymous',
+        publishedAt: comment.publishedAt || new Date().toISOString(),
+        likeCount: comment.likeCount || 0,
+      });
+
       const result: any = {
         videoId: row.video_id,
         analyzedAt: new Date(row.analyzed_at).toISOString(),
         sentiment: row.sentiment,
         score: row.score,
-        topPositive: row.top_positive,
-        topNegative: row.top_negative,
+        topPositive: (row.top_positive || []).map(ensureCommentFields),
+        topNegative: (row.top_negative || []).map(ensureCommentFields),
         summary: row.summary,
-        categoryCounts: row.raw?.categoryCounts,
-        totalComments: row.raw?.totalComments,
+        categoryCounts,
+        totalComments: row.raw?.totalComments || row.raw?.analysis?.length,
       };
 
-      return reply.send(zAnalysisResult.parse(result));
+      console.log('[analysis GET] Result before Zod parse:', JSON.stringify(result));
+      const parsed = zAnalysisResult.parse(result);
+      console.log('[analysis GET] Result after Zod parse:', JSON.stringify(parsed));
+      return reply.send(parsed);
     } catch (error: any) {
       console.error('[analysis] GET error:', error);
       return reply.status(500).send({

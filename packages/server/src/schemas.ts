@@ -261,6 +261,12 @@ export const zAnalysisResult = z.object({
   topPositive: z.array(z.any()).optional(),
   topNegative: z.array(z.any()).optional(),
   summary: z.string().optional(),
+  categoryCounts: z.object({
+    pos: z.number(),
+    neu: z.number(),
+    neg: z.number(),
+  }).optional(),
+  totalComments: z.number().optional(),
 });
 
 export type AnalysisResult = z.infer<typeof zAnalysisResult>;

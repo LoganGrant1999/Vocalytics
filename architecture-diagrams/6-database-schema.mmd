@@ -1,0 +1,90 @@
+erDiagram
+    profiles ||--o{ video_analyses : "has many"
+    profiles ||--o| usage_counters : "has one"
+    profiles ||--o| tone_profiles : "has one"
+    profiles ||--o| reply_settings : "has one"
+    profiles ||--o{ comment_scores : "has many"
+    profiles ||--o{ user_videos : "has many"
+    profiles ||--o{ reply_queue : "has many"
+    plans ||--o{ usage_counters : "defines limits"
+
+    profiles {
+        uuid id PK
+        text email
+        text password_hash
+        text tier "free or pro"
+        text subscription_status
+        timestamptz subscribed_until
+        text stripe_customer_id
+        text stripe_subscription_id
+        text youtube_access_token
+        text youtube_refresh_token
+        timestamptz youtube_token_expiry
+    }
+
+    video_analyses {
+        uuid user_id FK
+        text video_id
+        timestamptz analyzed_at
+        jsonb sentiment "pos, neu, neg"
+        numeric score
+        jsonb top_positive
+        jsonb top_negative
+        text summary
+        jsonb raw
+    }
+
+    usage_counters {
+        uuid user_id PK
+        text plan_id FK
+        int replies_used_month
+        date month_start
+        int replies_posted_today
+        date day_start
+        int queued_replies
+    }
+
+    tone_profiles {
+        uuid user_id PK
+        varchar tone
+        varchar formality_level
+        varchar emoji_usage
+        text_array common_emojis
+        text_array common_phrases
+        int learned_from_count
+    }
+
+    plans {
+        text id PK "free or pro"
+        int monthly_ai_replies_limit
+        int daily_post_cap
+    }
+
+    comment_scores {
+        uuid id PK
+        uuid user_id FK
+        text comment_id
+        text video_id
+        int priority_score "0-100"
+        text_array reasons
+        boolean is_question
+        boolean is_spam
+    }
+
+    user_videos {
+        uuid user_id FK
+        text video_id
+        text title
+        text thumbnail_url
+        jsonb stats
+        timestamptz fetched_at
+    }
+
+    reply_queue {
+        uuid id PK
+        uuid user_id FK
+        text comment_id
+        text reply_text
+        text status "pending/posted/failed"
+        int attempts
+    }

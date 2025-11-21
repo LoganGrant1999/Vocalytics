@@ -1,61 +1,267 @@
+import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { ArrowLeft, AlertCircle, RefreshCw } from "lucide-react";
+import { useNavigate, useParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import SentimentPill from "@/components/shared/SentimentPill";
 import SentimentChart from "@/components/shared/SentimentChart";
 import CommentWithReply from "@/components/shared/CommentWithReply";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import api from "@/lib/api";
 
 interface VideoDetailPageProps {
-  videoTitle: string;
-  publishedAt: string;
-  sentimentSummary: string;
   plan: "free" | "pro";
 }
 
-const mockPositiveComments = [
-  {
-    commenterHandle: "@filmnerd92",
-    timestamp: "2h ago",
-    likes: 34,
-    originalText: "This tutorial saved my project! The production quality is insane. Best filmmaking channel on YouTube hands down 🔥",
-  },
-  {
-    commenterHandle: "@techsteve",
-    timestamp: "5h ago",
-    likes: 89,
-    originalText: "Just wanted to say thanks for mentioning Riverside in this video. I've been using it since your recommendation and it's a game changer for my podcast!",
-  },
-  {
-    commenterHandle: "@creativemind",
-    timestamp: "8h ago",
-    likes: 12,
-    originalText: "The editing in this is next level. Can't believe you did this in 10 minutes. Definitely stealing some of these techniques!",
-  },
-];
-
-const mockNegativeComments = [
-  {
-    commenterHandle: "@criticalviewer",
-    timestamp: "3h ago",
-    likes: 7,
-    originalText: "The audio quality was pretty rough in the outdoor shots. Maybe invest in a better lav mic? Otherwise great content.",
-  },
-  {
-    commenterHandle: "@honestfeedback",
-    timestamp: "6h ago",
-    likes: 15,
-    originalText: "Not a fan of the clickbait title. The video was good but didn't really match what you promised in the thumbnail.",
-  },
-];
-
-const VideoDetailPage = ({
-  videoTitle = "How I Film Cinematic B-Roll in 10 Minutes",
-  publishedAt = "2 days ago",
-  sentimentSummary = "Mostly positive. Viewers love the mic quality and editing.",
-  plan,
-}: VideoDetailPageProps) => {
+const VideoDetailPage = ({ plan }: VideoDetailPageProps) => {
   const navigate = useNavigate();
+  const { id: videoId } = useParams<{ id: string }>();
+
+  // Fetch video metadata
+  const { data: videos, isLoading: videosLoading } = useQuery({
+    queryKey: ["videos"],
+    queryFn: () => api.getVideos({ mine: true, limit: 50 }),
+  });
+
+  // Fetch video analysis
+  const {
+    data: analysis,
+    isLoading: analysisLoading,
+    error: analysisError,
+    refetch: refetchAnalysis,
+    isError: hasError,
+  } = useQuery({
+    queryKey: ["analysis", videoId],
+    queryFn: () => api.getVideoAnalysis(videoId!),
+    enabled: !!videoId,
+    retry: false,
+  });
+
+  // Auto-analyze on mount if no analysis exists
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [hasTriggeredAnalysis, setHasTriggeredAnalysis] = useState(false);
+  const [analysisFailure, setAnalysisFailure] = useState<string | null>(null);
+
+  // Reset state when videoId changes
+  React.useEffect(() => {
+    setHasTriggeredAnalysis(false);
+    setIsAnalyzing(false);
+    setAnalysisFailure(null);
+  }, [videoId]);
+
+  const video = videos?.find((v) => v.videoId === videoId);
+
+  // Automatically trigger analysis if none exists OR if there are new comments
+  React.useEffect(() => {
+    console.log("[VideoDetailPage] useEffect check:", {
+      videoId,
+      hasTriggeredAnalysis,
+      isAnalyzing,
+      hasError,
+      analysisError: !!analysisError,
+      analysis: !!analysis,
+      analysisLoading,
+      videosLoading,
+      video: !!video,
+      videoCommentCount: video?.stats?.commentCount,
+      analysisCommentCount: analysis?.totalComments,
+    });
+
+    if (!videoId || hasTriggeredAnalysis || isAnalyzing || analysisLoading || videosLoading) return;
+
+    // Check if we should trigger analysis
+    let shouldAnalyze = false;
+    let reason = "";
+
+    // Case 1: No analysis exists (404 error)
+    if (hasError && !analysis) {
+      shouldAnalyze = true;
+      reason = "No analysis found";
+    }
+    // Case 2: Analysis exists but there are new comments
+    else if (analysis && video?.stats?.commentCount) {
+      const videoCommentCount = video.stats.commentCount;
+      const analyzedCommentCount = analysis.totalComments || 0;
+
+      if (videoCommentCount > analyzedCommentCount) {
+        shouldAnalyze = true;
+        reason = `New comments detected (${videoCommentCount} current vs ${analyzedCommentCount} analyzed)`;
+      }
+    }
+
+    if (shouldAnalyze) {
+      setHasTriggeredAnalysis(true);
+      setIsAnalyzing(true);
+
+      console.log(`[VideoDetailPage] ${reason}, auto-analyzing videoId:`, videoId);
+
+      api.analyzeVideo(videoId)
+        .then((result) => {
+          console.log("[VideoDetailPage] Auto-analysis result:", result);
+          setAnalysisFailure(null);
+          refetchAnalysis();
+        })
+        .catch((error) => {
+          console.error("[VideoDetailPage] Failed to auto-analyze video:", error);
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          setAnalysisFailure(errorMessage);
+        })
+        .finally(() => {
+          setIsAnalyzing(false);
+        });
+    }
+  }, [videoId, hasError, analysis, hasTriggeredAnalysis, isAnalyzing, analysisLoading, videosLoading, video, refetchAnalysis]);
+  const isLoading = videosLoading || analysisLoading || isAnalyzing;
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate("/app/videos")}
+          className="gap-2"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Videos
+        </Button>
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">
+              {isAnalyzing ? "Analyzing comments..." : "Loading video details..."}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // If no analysis and we have a failure message, show error
+  if (analysisFailure && !analysis) {
+    return (
+      <div className="space-y-6">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate("/app/videos")}
+          className="gap-2"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Videos
+        </Button>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {analysisFailure}
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  // If no analysis, show loading (auto-analysis will trigger)
+  if (analysisError || !analysis) {
+    return (
+      <div className="space-y-6">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate("/app/videos")}
+          className="gap-2"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Videos
+        </Button>
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Analyzing comments...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  console.log('[VideoDetailPage] Analysis data:', analysis);
+  console.log('[VideoDetailPage] categoryCounts:', analysis.categoryCounts);
+
+  // Use category counts directly (not percentages)
+  const sentimentCounts = {
+    positive: analysis.categoryCounts?.pos || 0,
+    neutral: analysis.categoryCounts?.neu || 0,
+    negative: analysis.categoryCounts?.neg || 0,
+  };
+
+  // Get sentiment label based on category counts (not sentiment scores)
+  const getSentimentLabel = (counts: { positive: number; neutral: number; negative: number }): "Positive" | "Neutral" | "Negative" => {
+    if (counts.positive > counts.neutral && counts.positive > counts.negative) {
+      return "Positive";
+    } else if (counts.negative > counts.positive && counts.negative > counts.neutral) {
+      return "Negative";
+    } else if (counts.neutral > counts.positive && counts.neutral > counts.negative) {
+      return "Neutral";
+    }
+    // If tied, default to neutral
+    return "Neutral";
+  };
+
+  const sentimentLabel = getSentimentLabel(sentimentCounts);
+
+  // Calculate percentage for the dominant sentiment to show in the pill
+  const total = sentimentCounts.positive + sentimentCounts.neutral + sentimentCounts.negative;
+  let sentimentPercentage = 0;
+  if (total > 0) {
+    if (sentimentLabel === "Positive") {
+      sentimentPercentage = (sentimentCounts.positive / total) * 100;
+    } else if (sentimentLabel === "Negative") {
+      sentimentPercentage = (sentimentCounts.negative / total) * 100;
+    } else {
+      sentimentPercentage = (sentimentCounts.neutral / total) * 100;
+    }
+  }
+
+  console.log('[VideoDetailPage] sentimentCounts:', sentimentCounts);
+
+  // Helper function to format timestamp
+  const formatTimestamp = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 60) {
+      return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
+    } else if (diffHours < 24) {
+      return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+    } else if (diffDays < 30) {
+      return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+    } else {
+      return date.toLocaleDateString();
+    }
+  };
+
+  // Manual re-analyze handler
+  const handleReanalyze = () => {
+    if (!videoId) return;
+
+    setIsAnalyzing(true);
+    api.analyzeVideo(videoId)
+      .then(() => {
+        refetchAnalysis();
+      })
+      .catch((error) => {
+        console.error("[VideoDetailPage] Failed to re-analyze:", error);
+        alert(`Failed to re-analyze: ${error instanceof Error ? error.message : String(error)}`);
+      })
+      .finally(() => {
+        setIsAnalyzing(false);
+      });
+  };
 
   return (
     <div className="space-y-6">
@@ -76,18 +282,41 @@ const VideoDetailPage = ({
           {/* Thumbnail */}
           <div className="flex-shrink-0 w-64 h-36 rounded-xl overflow-hidden bg-muted">
             <img
-              src="https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=512&h=288&fit=crop"
-              alt={videoTitle}
+              src={video?.thumbnailUrl || "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=512&h=288&fit=crop"}
+              alt={video?.title || "Video"}
               className="w-full h-full object-cover"
             />
           </div>
 
           {/* Info */}
           <div className="flex-1">
-            <h1 className="text-2xl font-bold mb-2">{videoTitle}</h1>
-            <p className="text-sm text-muted-foreground mb-4">{publishedAt}</p>
+            <div className="flex items-start justify-between mb-2">
+              <h1 className="text-2xl font-bold">{video?.title || "Video Details"}</h1>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleReanalyze}
+                disabled={isAnalyzing}
+                className="ml-4"
+              >
+                {isAnalyzing ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Re-analyzing...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Re-analyze
+                  </>
+                )}
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              {video ? new Date(video.publishedAt).toLocaleDateString() : ""}
+            </p>
             <div className="mb-4">
-              <SentimentPill sentiment="Positive" score={0.78} />
+              <SentimentPill sentiment={sentimentLabel} score={sentimentPercentage / 100} />
             </div>
           </div>
         </div>
@@ -101,11 +330,15 @@ const VideoDetailPage = ({
             <CardTitle>Comment Sentiment</CardTitle>
             <CardDescription>
               Distribution of comment sentiment
+              {analysis.totalComments && ` (${analysis.totalComments} comments analyzed)`}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <SentimentChart positive={78} neutral={15} negative={7} />
-            {/* TODO: POST /api/analyze-comments for this specific video ID */}
+            <SentimentChart
+              positive={sentimentCounts.positive}
+              neutral={sentimentCounts.neutral}
+              negative={sentimentCounts.negative}
+            />
           </CardContent>
         </Card>
 
@@ -119,40 +352,56 @@ const VideoDetailPage = ({
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Overall, the response to this video is highly positive. Viewers are praising the production quality, 
-              editing techniques, and practical advice. Multiple comments highlight the "10-minute" workflow as 
-              game-changing. Some constructive feedback mentions audio quality in outdoor shots and a mismatch 
-              between the title and content. Several viewers are asking about specific gear (LUTs, lighting setup) 
-              and requesting follow-up tutorials on color grading.
+              {analysis.summary}
             </p>
-            {/* TODO: Generated by POST /api/analyze-comments with GPT-4o-mini */}
           </CardContent>
         </Card>
       </div>
 
       {/* Top Positive Comments */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-          <span className="text-success">✓</span> Top Positive Comments
-        </h2>
-        <div className="space-y-3">
-          {mockPositiveComments.map((comment, idx) => (
-            <CommentWithReply key={idx} {...comment} sentiment="positive" />
-          ))}
+      {analysis.topPositive.length > 0 && (
+        <div>
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <span className="text-success">✓</span> Top Positive Comments
+          </h2>
+          <div className="space-y-3">
+            {analysis.topPositive.map((comment) => {
+              console.log('[VideoDetailPage] Positive comment:', JSON.stringify(comment, null, 2));
+              return (
+                <CommentWithReply
+                  key={comment.commentId}
+                  commenterHandle={comment.author || 'Unknown'}
+                  timestamp={comment.publishedAt ? formatTimestamp(comment.publishedAt) : 'Unknown time'}
+                  likes={comment.likeCount ?? 0}
+                  originalText={comment.text}
+                  sentiment="positive"
+                />
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Top Negative Comments */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-          <span className="text-destructive">!</span> Top Negative Comments
-        </h2>
-        <div className="space-y-3">
-          {mockNegativeComments.map((comment, idx) => (
-            <CommentWithReply key={idx} {...comment} sentiment="negative" />
-          ))}
+      {analysis.topNegative.length > 0 && (
+        <div>
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <span className="text-destructive">!</span> Top Negative Comments
+          </h2>
+          <div className="space-y-3">
+            {analysis.topNegative.map((comment) => (
+              <CommentWithReply
+                key={comment.commentId}
+                commenterHandle={comment.author}
+                timestamp={formatTimestamp(comment.publishedAt)}
+                likes={comment.likeCount}
+                originalText={comment.text}
+                sentiment="negative"
+              />
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

@@ -8,16 +8,19 @@ interface SentimentChartProps {
 
 const SentimentChart = ({ positive, neutral, negative }: SentimentChartProps) => {
   const total = positive + neutral + negative;
-  
+
+  // Filter out zero values to render a cleaner pie chart
   const data = [
     { name: "Positive", value: positive, color: "hsl(var(--success))" },
     { name: "Neutral", value: neutral, color: "hsl(var(--warning))" },
     { name: "Negative", value: negative, color: "hsl(var(--destructive))" },
-  ];
+  ].filter(entry => entry.value > 0);
+
+  console.log('[SentimentChart] Data:', { positive, neutral, negative, data, total });
 
   const renderLabel = (entry: any) => {
     const percent = ((entry.value / total) * 100).toFixed(0);
-    return `${entry.name} (${entry.value})`;
+    return `${entry.name} (${percent}%)`;
   };
 
   return (

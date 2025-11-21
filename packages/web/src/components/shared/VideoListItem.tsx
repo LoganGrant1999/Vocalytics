@@ -7,7 +7,7 @@ interface VideoListItemProps {
   title: string;
   publishedAt: string;
   sentimentSummary: string;
-  sentiment: "Positive" | "Mixed" | "Negative";
+  sentiment: "Positive" | "Mixed" | "Neutral" | "Negative";
   sentimentScore: number;
   newComments: number;
   priorityReplies: number;
@@ -18,21 +18,31 @@ const VideoListItem = ({
   thumbnailUrl,
   title,
   publishedAt,
+  sentimentSummary,
   sentiment,
   sentimentScore,
   newComments,
   priorityReplies,
 }: VideoListItemProps) => {
   const navigate = useNavigate();
-  
+
+  // Check if video has no comments
+  const hasNoComments = sentimentSummary === "No comments";
+
   const handleClick = () => {
-    navigate(`/app/video/${videoId}`);
+    if (!hasNoComments) {
+      navigate(`/app/video/${videoId}`);
+    }
   };
 
   return (
     <div
       onClick={handleClick}
-      className="rounded-2xl border border-border bg-card p-4 hover:border-primary/30 hover:glow-border transition-all duration-300 cursor-pointer group"
+      className={`rounded-2xl border border-border bg-card p-4 transition-all duration-300 ${
+        hasNoComments
+          ? "cursor-default"
+          : "hover:border-primary/30 hover:glow-border cursor-pointer"
+      } group`}
     >
       <div className="flex gap-4">
         {/* Thumbnail */}
@@ -40,19 +50,29 @@ const VideoListItem = ({
           <img
             src={thumbnailUrl}
             alt={title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className={`w-full h-full object-cover transition-transform duration-300 ${
+              !hasNoComments && "group-hover:scale-105"
+            }`}
           />
         </div>
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold mb-1 truncate group-hover:text-primary transition-colors">
+          <h3
+            className={`font-semibold mb-1 truncate transition-colors ${
+              !hasNoComments && "group-hover:text-primary"
+            }`}
+          >
             {title}
           </h3>
           <p className="text-xs text-muted-foreground mb-3">{publishedAt}</p>
-          
+
           <div className="flex items-center gap-3 flex-wrap">
-            <SentimentPill sentiment={sentiment} score={sentimentScore} />
+            {hasNoComments ? (
+              <span className="text-xs text-muted-foreground">No comments</span>
+            ) : (
+              <SentimentPill sentiment={sentiment} score={sentimentScore} />
+            )}
             <span className="text-xs text-muted-foreground">
               {newComments} new comments • {priorityReplies} priority replies
             </span>

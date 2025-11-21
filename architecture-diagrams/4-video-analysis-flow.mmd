@@ -1,0 +1,52 @@
+sequenceDiagram
+    actor User
+    participant UI as VideoDetailPage
+    participant API as /api/analysis/:videoId
+    participant Paywall as enforceAnalyze()
+    participant YouTube as YouTube API
+    participant OpenAI as OpenAI API
+    participant DB as Supabase
+
+    User->>UI: Click "Analyze" button
+    UI->>UI: setIsAnalyzing(true)
+    UI->>API: POST /analysis/:videoId
+
+    Note over API,DB: Quota Check
+    API->>Paywall: Check user quota
+    Paywall->>DB: SELECT * FROM usage_counters
+    DB-->>Paywall: analyze_weekly_count: 1/2
+    Paywall-->>API: Allowed ✓
+
+    Note over API,YouTube: Fetch Comments (up to 1000)
+    loop Pagination (max 10 pages)
+        API->>YouTube: GET commentThreads<br/>?videoId=X&pageToken=Y
+        YouTube-->>API: {items: [...], nextPageToken}
+    end
+    API->>API: Collected 347 comments
+
+    Note over API,OpenAI: AI Sentiment Analysis
+    loop For each comment batch
+        API->>OpenAI: POST /chat/completions<br/>Analyze sentiment
+        OpenAI-->>API: {positive: 0.8, neutral: 0.1, neg: 0.1}
+    end
+
+    API->>API: Aggregate results:<br/>pos: 0.65, neu: 0.25, neg: 0.10
+    API->>API: Extract top 5 positive
+    API->>API: Extract top 5 negative
+
+    Note over API,OpenAI: Generate Summary
+    API->>OpenAI: POST /chat/completions<br/>Summarize comments
+    OpenAI-->>API: "Overall positive reception..."
+
+    Note over API,DB: Save Results
+    API->>DB: INSERT INTO video_analyses<br/>{sentiment, score, summary...}
+    DB-->>API: Analysis saved
+
+    API->>DB: UPDATE usage_counters<br/>SET analyze_weekly_count = 2
+    DB-->>API: Quota incremented
+
+    API-->>UI: {videoId, sentiment, topPositive,<br/>topNegative, summary}
+    UI->>UI: setAnalysis(result)
+    UI-->>User: Display charts & comments
+
+    Note over User: Total time: 10-30 seconds<br/>Cost: ~$0.10-$0.50 per video

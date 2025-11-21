@@ -178,6 +178,27 @@ class ApiClient {
     }>(`/youtube/comments?${query}`);
   }
 
+  async getPublicComments(params: {
+    videoId: string;
+    maxResults?: number;
+    order?: 'time' | 'relevance';
+  }) {
+    const query = new URLSearchParams({
+      videoId: params.videoId,
+    });
+    if (params.maxResults) query.set('maxResults', String(params.maxResults));
+    if (params.order) query.set('order', params.order);
+
+    return this.request<{
+      items: Array<any>;
+      nextPageToken?: string;
+      pageInfo?: {
+        totalResults: number;
+        resultsPerPage: number;
+      };
+    }>(`/youtube/public-comments?${query}`);
+  }
+
   async postReply(data: { parentId: string; text: string }) {
     return this.request<{
       success: boolean;
@@ -192,18 +213,130 @@ class ApiClient {
   // ANALYSIS ENDPOINTS
   // ========================================
 
-  async analyzeComments(data: { videoId: string }) {
-    return this.request<{
-      videoId: string;
-      sentiment: string;
-      score: number;
-      summary: string;
-      totalComments: number;
-      analyzedAt: string;
-    }>('/analyze-comments', {
+  async analyzeComments(data: {
+    comments: Array<{ id: string; text: string }>;
+  }) {
+    return this.request<
+      Array<{
+        commentId: string;
+        sentiment: {
+          label: 'positive' | 'neutral' | 'negative';
+          positive: number;
+          neutral: number;
+          negative: number;
+        };
+        topics: string[];
+        intent: string;
+        toxicity: number;
+        category: string;
+      }>
+    >('/analyze-comments', {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  }
+
+  async getVideoAnalysis(videoId: string) {
+    return this.request<{
+      videoId: string;
+      analyzedAt: string;
+      sentiment: {
+        pos: number;
+        neu: number;
+        neg: number;
+      };
+      score: number;
+      topPositive: Array<{
+        commentId: string;
+        text: string;
+        author: string;
+        publishedAt: string;
+        likeCount: number;
+        sentiment: {
+          pos: number;
+          neu: number;
+          neg: number;
+        };
+      }>;
+      topNegative: Array<{
+        commentId: string;
+        text: string;
+        author: string;
+        publishedAt: string;
+        likeCount: number;
+        sentiment: {
+          pos: number;
+          neu: number;
+          neg: number;
+        };
+      }>;
+      summary: string;
+      categoryCounts: {
+        pos: number;
+        neu: number;
+        neg: number;
+      };
+      totalComments?: number;
+    }>(`/analysis/${videoId}`);
+  }
+
+  async analyzeVideo(videoId: string) {
+    return this.request<{
+      videoId: string;
+      analyzedAt: string;
+      sentiment: {
+        pos: number;
+        neu: number;
+        neg: number;
+      };
+      score: number;
+      topPositive: Array<{
+        commentId: string;
+        text: string;
+        author: string;
+        publishedAt: string;
+        likeCount: number;
+        sentiment: {
+          pos: number;
+          neu: number;
+          neg: number;
+        };
+      }>;
+      topNegative: Array<{
+        commentId: string;
+        text: string;
+        author: string;
+        publishedAt: string;
+        likeCount: number;
+        sentiment: {
+          pos: number;
+          neu: number;
+          neg: number;
+        };
+      }>;
+      summary: string;
+    }>(`/analysis/${videoId}`, {
+      method: 'POST',
+    });
+  }
+
+  async listAnalyses() {
+    return this.request<
+      Array<{
+        videoId: string;
+        analyzedAt: string;
+        sentiment: {
+          pos: number;
+          neu: number;
+          neg: number;
+        };
+        score: number;
+        summary: string;
+        title?: string;
+        thumbnailUrl?: string;
+        publishedAt?: string;
+      }>
+    >('/analysis');
   }
 
   async generateReplies(data: {

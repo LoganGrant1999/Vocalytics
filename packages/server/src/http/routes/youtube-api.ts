@@ -1,5 +1,6 @@
 import { FastifyInstance, FastifyReply } from 'fastify';
 import { getAuthedYouTubeForUser } from '../../lib/google.js';
+import { google } from 'googleapis';
 
 // Simple in-memory rate limiter (serverless-safe with short TTL)
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -171,6 +172,80 @@ export async function youtubeApiRoutes(fastify: FastifyInstance) {
       return reply.code(500).send({
         error: 'Internal Server Error',
         message: `Failed to post reply: ${err.message}`,
+      });
+    }
+  });
+
+  /**
+   * GET /api/youtube/public-comments
+   * Public endpoint - uses YouTube Data API with API key
+   *
+   * Fetches comments from any public YouTube video without requiring OAuth.
+   * This endpoint is for analyzing arbitrary videos by URL/ID.
+   */
+  fastify.get('/youtube/public-comments', async (request: any, reply: FastifyReply) => {
+    const { videoId, maxResults, order } = request.query as any;
+
+    if (!videoId) {
+      return reply.code(400).send({
+        error: 'Bad Request',
+        message: 'videoId is required',
+      });
+    }
+
+    const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
+    if (!YOUTUBE_API_KEY) {
+      console.error('[youtube-api.ts] YOUTUBE_API_KEY not configured');
+      return reply.code(500).send({
+        error: 'Configuration Error',
+        message: 'YouTube API key not configured',
+      });
+    }
+
+    try {
+      const youtube = google.youtube({
+        version: 'v3',
+        auth: YOUTUBE_API_KEY,
+      });
+
+      const response = await youtube.commentThreads.list({
+        part: ['id', 'snippet'],
+        videoId,
+        order: order || 'relevance',
+        maxResults: Math.min(parseInt(maxResults) || 50, 100),
+        textFormat: 'plainText',
+      }) as any;
+
+      const items = response?.data?.items || [];
+      const nextPageToken = response?.data?.nextPageToken;
+      const pageInfo = response?.data?.pageInfo;
+
+      return reply.send({
+        items,
+        nextPageToken,
+        pageInfo,
+      });
+    } catch (err: any) {
+      console.error('[youtube-api.ts] Error fetching public comments:', err);
+
+      // Handle common YouTube API errors
+      if (err.code === 403) {
+        return reply.code(403).send({
+          error: 'Access Forbidden',
+          message: 'Unable to access video comments. The video may be private or comments may be disabled.',
+        });
+      }
+
+      if (err.code === 404) {
+        return reply.code(404).send({
+          error: 'Video Not Found',
+          message: 'The specified video does not exist or is not available.',
+        });
+      }
+
+      return reply.code(500).send({
+        error: 'Internal Server Error',
+        message: `Failed to fetch comments: ${err.message}`,
       });
     }
   });

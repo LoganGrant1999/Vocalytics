@@ -1,0 +1,51 @@
+graph TB
+    subgraph "User Layer"
+        User[👤 User Browser]
+    end
+
+    subgraph "Vercel Platform"
+        subgraph "Frontend Layer"
+            React[React SPA<br/>TypeScript + Vite]
+            Components[UI Components<br/>68 components]
+            Router[React Router<br/>14 pages]
+        end
+
+        subgraph "Backend Layer - Serverless Functions"
+            API[Fastify API<br/>35+ endpoints]
+            Routes[Route Handlers<br/>16 files]
+            Services[Business Logic<br/>2 services]
+            Workers[Background Workers<br/>2 cron jobs]
+        end
+    end
+
+    subgraph "Supabase"
+        DB[(PostgreSQL<br/>8 tables)]
+        Auth[Row-Level Security<br/>RLS Policies]
+    end
+
+    subgraph "External Services"
+        OpenAI[OpenAI API<br/>GPT-4]
+        YouTube[YouTube Data API<br/>v3]
+        StripeAPI[Stripe API<br/>Payments]
+    end
+
+    User -->|HTTPS| React
+    React -->|API Calls| API
+    API --> Routes
+    Routes --> Services
+    Services -->|SQL Queries| DB
+    DB -->|Enforces| Auth
+
+    Routes -->|AI Requests| OpenAI
+    Routes -->|Fetch Videos/Comments| YouTube
+    Routes -->|Billing| StripeAPI
+
+    Workers -->|Daily Reset| DB
+    StripeAPI -->|Webhooks| Routes
+
+    style React fill:#61dafb,stroke:#333,stroke-width:2px
+    style API fill:#f39c12,stroke:#333,stroke-width:2px
+    style DB fill:#3ecf8e,stroke:#333,stroke-width:2px
+    style OpenAI fill:#74aa9c,stroke:#333,stroke-width:2px
+    style YouTube fill:#ff0000,stroke:#333,stroke-width:2px
+    style StripeAPI fill:#635bff,stroke:#333,stroke-width:2px

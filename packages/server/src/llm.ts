@@ -183,6 +183,74 @@ export async function chatReply(system: string, user: string): Promise<string | 
 }
 
 /**
+ * Generates a comprehensive AI summary of video comments.
+ * Summarizes themes, sentiment patterns, and key feedback.
+ */
+export async function generateCommentSummary(
+  comments: Array<{ text: string }>,
+  sentiment: { pos: number; neu: number; neg: number }
+): Promise<string | null> {
+  if (!OPENAI_API_KEY) {
+    return null;
+  }
+
+  try {
+    // Sample comments if there are too many (to stay within token limits)
+    const sampleSize = Math.min(comments.length, 50);
+    const sampledComments = comments
+      .slice(0, sampleSize)
+      .map((c) => c.text)
+      .join('\n---\n');
+
+    const system = `You are an expert at analyzing YouTube comment sentiment and themes. Generate a concise 2-3 sentence summary of the overall comment sentiment and key themes. Focus on what viewers are saying, common feedback patterns, and notable reactions. Be specific and actionable.
+
+CRITICAL RULE: NEVER include any percentages, numbers, or statistics in your response. Use ONLY qualitative descriptive terms like "overwhelmingly", "mostly", "many", "some", "a few", "mixed", "predominantly", etc.`;
+
+    const user = `Analyze these YouTube comments and provide a brief summary:
+
+Sample Comments:
+${sampledComments}
+
+Provide a 2-3 sentence summary of the key themes and overall sentiment. Do NOT include any numbers or percentages - only use descriptive words.`;
+
+    const res = await safeFetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: CHAT_MODEL,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ] as ChatMessage[],
+        temperature: 0.7,
+        max_tokens: 300,
+      }),
+    });
+
+    if (!res.ok) {
+      console.error("generateCommentSummary status:", res.status, await res.text());
+      return null;
+    }
+
+    const json: any = await res.json();
+    const text: string | undefined = json?.choices?.[0]?.message?.content;
+
+    if (typeof text === "string" && text.trim()) {
+      return text.trim();
+    }
+
+    console.warn("generateCommentSummary: empty response from OpenAI");
+    return null;
+  } catch (err) {
+    console.error("generateCommentSummary error:", err);
+    return null;
+  }
+}
+
+/**
  * Uses OpenAI to analyze sentiment and categorize a comment.
  * Returns category and sentiment scores based on AI analysis.
  */

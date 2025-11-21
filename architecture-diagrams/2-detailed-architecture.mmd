@@ -1,0 +1,84 @@
+graph LR
+    subgraph "Frontend - React App"
+        subgraph "Pages"
+            Landing[LandingPage]
+            SignIn[SignInPage]
+            Register[RegisterPage]
+            Dashboard[DashboardPage]
+            Videos[VideosPage]
+            VideoDetail[VideoDetailPage]
+            Comments[CommentsPage]
+            Billing[BillingPage]
+        end
+
+        subgraph "State Management"
+            AuthContext[useAuth Hook<br/>User + Quota]
+            ReactQuery[React Query<br/>API Cache]
+        end
+
+        subgraph "API Client"
+            APIClient[api.ts<br/>All HTTP calls]
+        end
+    end
+
+    subgraph "Backend - Fastify API"
+        subgraph "Routes - HTTP Endpoints"
+            AuthRoutes[auth.ts<br/>register, login, me]
+            AnalysisRoutes[analysis.ts<br/>analyze, get, trends]
+            YouTubeRoutes[youtube-api.ts<br/>videos, comments]
+            BillingRoutes[billing.ts<br/>checkout, portal]
+            WebhookRoutes[webhook.ts<br/>stripe events]
+        end
+
+        subgraph "Middleware"
+            AuthMiddleware[JWT Validation]
+            RateLimit[Rate Limiting]
+            Paywall[Quota Check]
+        end
+
+        subgraph "Services"
+            CommentScoring[commentScoring.ts]
+            ToneAnalysis[toneAnalysis.ts]
+        end
+
+        subgraph "Data Access"
+            AnalysesDB[analyses.ts]
+            UsersDB[users.ts]
+            UsageDB[usage.ts]
+            RateLimitsDB[rateLimits.ts]
+        end
+    end
+
+    subgraph "Database - Supabase PostgreSQL"
+        profiles[(profiles<br/>Users)]
+        video_analyses[(video_analyses<br/>Results)]
+        usage_counters[(usage_counters<br/>Quotas)]
+        tone_profiles[(tone_profiles<br/>Voice)]
+    end
+
+    Dashboard --> AuthContext
+    Videos --> ReactQuery
+    ReactQuery --> APIClient
+    APIClient -->|POST /auth/login| AuthRoutes
+    APIClient -->|POST /analysis/:id| AnalysisRoutes
+    APIClient -->|GET /youtube/videos| YouTubeRoutes
+    APIClient -->|POST /billing/checkout| BillingRoutes
+
+    AuthRoutes --> AuthMiddleware
+    AnalysisRoutes --> RateLimit
+    AnalysisRoutes --> Paywall
+
+    AnalysisRoutes --> CommentScoring
+    AnalysisRoutes --> AnalysesDB
+    AuthRoutes --> UsersDB
+    Paywall --> RateLimitsDB
+
+    AnalysesDB --> video_analyses
+    UsersDB --> profiles
+    RateLimitsDB --> usage_counters
+    ToneAnalysis --> tone_profiles
+
+    style Dashboard fill:#61dafb
+    style AnalysisRoutes fill:#f39c12
+    style profiles fill:#3ecf8e
+    style AuthMiddleware fill:#e74c3c

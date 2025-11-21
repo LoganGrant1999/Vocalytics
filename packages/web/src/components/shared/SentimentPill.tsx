@@ -1,5 +1,5 @@
 interface SentimentPillProps {
-  sentiment: "Positive" | "Mixed" | "Negative";
+  sentiment: "Positive" | "Mixed" | "Neutral" | "Negative";
   score?: number;
 }
 
@@ -9,6 +9,7 @@ const SentimentPill = ({ sentiment, score }: SentimentPillProps) => {
       case "Positive":
         return "bg-success/10 text-success";
       case "Mixed":
+      case "Neutral":
         return "bg-warning/10 text-warning";
       case "Negative":
         return "bg-destructive/10 text-destructive";

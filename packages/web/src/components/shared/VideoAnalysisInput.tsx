@@ -1,23 +1,15 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { extractYouTubeId } from "@/lib/youtube";
 import { Search, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import api from "@/lib/api";
 
-interface AnalysisResult {
-  videoId: string;
-  sentiment: string;
-  score: number;
-  summary: string;
-  totalComments: number;
-  analyzedAt: string;
-}
-
 const VideoAnalysisInput = () => {
+  const navigate = useNavigate();
   const [input, setInput] = useState("");
   const [debouncedInput, setDebouncedInput] = useState("");
   const [validationState, setValidationState] = useState<
@@ -25,7 +17,6 @@ const VideoAnalysisInput = () => {
   >("idle");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState("");
-  const [result, setResult] = useState<AnalysisResult | null>(null);
 
   // Debounce input changes
   useEffect(() => {
@@ -53,15 +44,17 @@ const VideoAnalysisInput = () => {
 
     setIsAnalyzing(true);
     setError("");
-    setResult(null);
 
     try {
-      const data = await api.analyzeComments({ videoId });
-      setResult(data);
+      // Use the same endpoint as analyzing your own videos
+      // This uses your YouTube OAuth token to fetch and analyze comments
+      await api.analyzeVideo(videoId);
+
+      // Navigate to the video detail page
+      navigate(`/app/video/${videoId}`);
     } catch (err: any) {
       console.error("Failed to analyze video:", err);
       setError(err.message || "Failed to analyze video");
-    } finally {
       setIsAnalyzing(false);
     }
   };
@@ -70,20 +63,6 @@ const VideoAnalysisInput = () => {
     if (e.key === "Enter" && validationState === "valid" && !isAnalyzing) {
       handleAnalyze();
     }
-  };
-
-  const getSentimentColor = (sentiment: string) => {
-    const lower = sentiment.toLowerCase();
-    if (lower.includes("positive")) return "text-green-600";
-    if (lower.includes("negative")) return "text-red-600";
-    return "text-yellow-600";
-  };
-
-  const getSentimentBgColor = (sentiment: string) => {
-    const lower = sentiment.toLowerCase();
-    if (lower.includes("positive")) return "bg-green-50 border-green-200";
-    if (lower.includes("negative")) return "bg-red-50 border-red-200";
-    return "bg-yellow-50 border-yellow-200";
   };
 
   return (
@@ -139,7 +118,7 @@ const VideoAnalysisInput = () => {
               Invalid YouTube video URL or ID
             </p>
           )}
-          {validationState === "valid" && !result && (
+          {validationState === "valid" && (
             <p className="text-sm text-green-600">
               Valid video ID: {extractYouTubeId(input)}
             </p>
@@ -162,49 +141,6 @@ const VideoAnalysisInput = () => {
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>{error}</AlertDescription>
         </Alert>
-      )}
-
-      {/* Results Display */}
-      {result && (
-        <Card className={`p-6 border-2 ${getSentimentBgColor(result.sentiment)}`}>
-          <div className="space-y-4">
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="text-lg font-semibold mb-1">Analysis Complete</h3>
-                <p className="text-sm text-muted-foreground">
-                  Video ID: {result.videoId}
-                </p>
-              </div>
-              <div className={`text-2xl font-bold ${getSentimentColor(result.sentiment)}`}>
-                {result.sentiment}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-medium">Sentiment Score</span>
-                <span className={`font-semibold ${getSentimentColor(result.sentiment)}`}>
-                  {result.score.toFixed(1)}/10
-                </span>
-              </div>
-              <Progress value={result.score * 10} className="h-2" />
-            </div>
-
-            <div>
-              <h4 className="text-sm font-medium mb-2">Summary</h4>
-              <p className="text-sm text-muted-foreground">{result.summary}</p>
-            </div>
-
-            <div className="flex items-center justify-between pt-2 border-t text-sm">
-              <span className="text-muted-foreground">
-                {result.totalComments} comments analyzed
-              </span>
-              <span className="text-muted-foreground">
-                {new Date(result.analyzedAt).toLocaleString()}
-              </span>
-            </div>
-          </div>
-        </Card>
       )}
     </div>
   );

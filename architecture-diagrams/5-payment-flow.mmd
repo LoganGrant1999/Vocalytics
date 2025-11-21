@@ -1,0 +1,63 @@
+sequenceDiagram
+    actor User
+    participant UI as BillingPage
+    participant API as Backend API
+    participant Stripe as Stripe API
+    participant Webhook as /webhook/stripe
+    participant DB as Supabase
+
+    Note over User,DB: Checkout Flow
+
+    User->>UI: Click "Upgrade to Pro"
+    UI->>API: POST /billing/checkout
+    API->>DB: SELECT * FROM profiles
+    DB-->>API: User data
+
+    alt No Stripe customer exists
+        API->>Stripe: POST /customers
+        Stripe-->>API: {id: "cus_abc123"}
+        API->>DB: UPDATE profiles<br/>SET stripe_customer_id = "cus_abc123"
+    end
+
+    API->>Stripe: POST /checkout/sessions<br/>{customer, price, success_url}
+    Stripe-->>API: {url: "checkout.stripe.com/..."}
+    API-->>UI: {url}
+    UI->>UI: window.location.href = url
+    UI-->>User: Redirect to Stripe
+
+    Note over User,Stripe: User on Stripe Checkout
+
+    User->>Stripe: Enter card details
+    User->>Stripe: Click "Subscribe"
+    Stripe->>Stripe: Process payment
+    Stripe-->>User: Redirect to success_url
+    User->>UI: Back on app
+
+    Note over Stripe,DB: Background Webhook
+
+    Stripe->>Webhook: POST /webhook/stripe<br/>event: checkout.session.completed
+    Webhook->>Webhook: Verify signature
+    Webhook->>DB: INSERT INTO stripe_events<br/>(idempotency check)
+
+    alt Event already processed
+        DB-->>Webhook: Duplicate
+        Webhook-->>Stripe: 200 OK (duplicate: true)
+    else New event
+        Webhook->>Stripe: GET /subscriptions/:id
+        Stripe-->>Webhook: {status: "active", current_period_end}
+
+        Webhook->>DB: UPDATE profiles SET<br/>tier = 'pro',<br/>subscription_status = 'active',<br/>subscribed_until = period_end
+        DB-->>Webhook: Updated
+
+        Webhook->>DB: UPDATE stripe_events<br/>SET processed = true
+        Webhook-->>Stripe: 200 OK
+    end
+
+    Note over User,DB: User Refreshes Page
+
+    User->>UI: Refresh page
+    UI->>API: GET /auth/me
+    API->>DB: SELECT * FROM profiles
+    DB-->>API: {tier: "pro", subscription_status: "active"}
+    API-->>UI: User data
+    UI-->>User: Show Pro badge + unlimited features ✓

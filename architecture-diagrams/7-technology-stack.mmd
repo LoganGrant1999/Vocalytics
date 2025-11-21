@@ -1,0 +1,83 @@
+graph TB
+    subgraph "Frontend Stack"
+        React[React 18.3.1]
+        TS1[TypeScript 5.8.3]
+        Vite[Vite 5.4.19]
+        Router[React Router 6.30.1]
+        Query[React Query 5.83.0]
+        Tailwind[Tailwind CSS 3.4.17]
+        Radix[Radix UI Components]
+        Recharts[Recharts 2.15.4]
+    end
+
+    subgraph "Backend Stack"
+        Fastify[Fastify 4.26.0]
+        TS2[TypeScript 5.9.3]
+        Node[Node.js 20.x]
+        Zod[Zod 3.22.4]
+        JWT[jsonwebtoken 9.0.2]
+        Bcrypt[bcrypt 6.0.0]
+    end
+
+    subgraph "External APIs"
+        OpenAISDK[openai 6.5.0]
+        GoogleAPIs[googleapis 162.0.0]
+        StripeSDK[stripe 19.1.0]
+        SupabaseSDK[supabase-js 2.75.0]
+    end
+
+    subgraph "Database"
+        PostgreSQL[PostgreSQL 15<br/>via Supabase]
+    end
+
+    subgraph "Deployment"
+        Vercel[Vercel<br/>Serverless Functions]
+        Cron[Vercel Cron Jobs]
+    end
+
+    subgraph "Testing"
+        Vitest[Vitest 1.2.1]
+        Tests[38 test files<br/>17,912 lines]
+    end
+
+    subgraph "Development"
+        pnpm[pnpm 10.18.1<br/>Monorepo]
+        ESLint[ESLint + Prettier]
+        TSX[tsx 4.20.6]
+    end
+
+    React --> Vite
+    React --> Router
+    React --> Query
+    React --> Tailwind
+    React --> Radix
+    React --> Recharts
+
+    Fastify --> Zod
+    Fastify --> JWT
+    Fastify --> Bcrypt
+
+    Fastify --> OpenAISDK
+    Fastify --> GoogleAPIs
+    Fastify --> StripeSDK
+    Fastify --> SupabaseSDK
+
+    SupabaseSDK --> PostgreSQL
+
+    Fastify --> Vercel
+    Vercel --> Cron
+
+    TS1 --> Tests
+    TS2 --> Tests
+    Tests --> Vitest
+
+    React --> pnpm
+    Fastify --> pnpm
+    pnpm --> ESLint
+
+    style React fill:#61dafb
+    style Fastify fill:#f39c12
+    style PostgreSQL fill:#3ecf8e
+    style Vercel fill:#000000,color:#fff
+    style OpenAISDK fill:#74aa9c
+    style StripeSDK fill:#635bff
