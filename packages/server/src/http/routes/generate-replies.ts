@@ -8,24 +8,15 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 const GenerateRepliesBodySchema = {
   type: 'object',
-  required: ['comment'],
+  required: ['videoId', 'commentIds'],
   properties: {
-    comment: {
-      type: 'object',
-      required: ['id', 'text'],
-      properties: {
-        id: { type: 'string', minLength: 1 },
-        text: { type: 'string', minLength: 1, maxLength: 10000 }
-      },
-      additionalProperties: false
-    },
-    tones: {
+    videoId: { type: 'string', minLength: 1 },
+    commentIds: {
       type: 'array',
-      items: {
-        type: 'string',
-        enum: ['friendly', 'concise', 'enthusiastic']
-      }
-    }
+      items: { type: 'string' },
+      minItems: 1
+    },
+    tone: { type: 'string' }
   },
   additionalProperties: false
 } as const;
@@ -36,24 +27,40 @@ export async function generateRepliesRoute(fastify: FastifyInstance) {
       body: GenerateRepliesBodySchema
     }
   }, async (request: any, reply) => {
-    const { comment, tones } = request.body || {};
+    const { videoId, commentIds, tone } = request.body || {};
     const auth = request.auth;
 
     try {
-      // Enforce paywall (increment by number of tones/replies)
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+
+      // Fetch comments from comment_scores table
+      const { data: comments, error: fetchError } = await supabase
+        .from('comment_scores')
+        .select('comment_id, comment_text, author_name')
+        .eq('user_id', auth.userDbId)
+        .eq('video_id', videoId)
+        .in('comment_id', commentIds);
+
+      if (fetchError || !comments || comments.length === 0) {
+        return reply.code(404).send({
+          error: 'NOT_FOUND',
+          message: 'Comments not found'
+        });
+      }
+
+      // Enforce paywall (increment by number of replies)
       const enforcement = await enforceReply({
         userDbId: auth.userDbId,
-        incrementBy: tones?.length || 1
+        incrementBy: comments.length
       });
 
       if (!enforcement.allowed) {
         return reply.code(402).send('error' in enforcement ? enforcement.error : { error: 'Payment required' });
       }
 
-      // Check if user has a tone profile (Pro users only)
+      // Fetch user's tone profile
       let toneProfile = null;
       try {
-        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
         const { data } = await supabase
           .from('tone_profiles')
           .select('tone, formality_level, emoji_usage, common_emojis, avg_reply_length, common_phrases, uses_name, asks_questions, uses_commenter_name')
@@ -64,14 +71,38 @@ export async function generateRepliesRoute(fastify: FastifyInstance) {
           toneProfile = data;
         }
       } catch (err) {
-        // Tone profile not found or error - continue without it
         console.log('[generate-replies] No tone profile found for user');
       }
 
-      // Process the request
-      const result = await generateReplies(comment, tones || ['friendly'], toneProfile);
+      // Generate replies for each comment
+      const replies = [];
+      for (const comment of comments) {
+        const result = await generateReplies(
+          { id: comment.comment_id, text: comment.comment_text },
+          [tone || 'friendly'],
+          toneProfile
+        );
 
-      return reply.send(result);
+        const suggestedReply = result[0]?.reply || '';
+
+        // Save the generated reply to the database
+        await supabase
+          .from('comment_scores')
+          .update({
+            suggested_reply: suggestedReply,
+            reply_generated_at: new Date().toISOString()
+          })
+          .eq('user_id', auth.userDbId)
+          .eq('comment_id', comment.comment_id);
+
+        replies.push({
+          commentId: comment.comment_id,
+          originalComment: comment.comment_text,
+          suggestedReply
+        });
+      }
+
+      return reply.send({ replies });
     } catch (error: any) {
       console.error('Error generating replies:', error);
       return reply.code(500).send({

@@ -437,6 +437,7 @@ class ApiClient {
         reasons: string[];
         shouldAutoReply: boolean;
         sentiment: string;
+        suggestedReply?: string | null;
       }>;
     }>(`/comments/inbox${params}`);
   }

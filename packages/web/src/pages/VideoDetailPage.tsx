@@ -442,6 +442,8 @@ const VideoDetailPage = ({ plan }: VideoDetailPageProps) => {
                   originalText={comment.text}
                   sentiment="positive"
                   canReply={!!video}
+                  commentId={comment.commentId}
+                  videoId={videoId}
                 />
               );
             })}
@@ -465,6 +467,8 @@ const VideoDetailPage = ({ plan }: VideoDetailPageProps) => {
                 originalText={comment.text}
                 sentiment="negative"
                 canReply={!!video}
+                commentId={comment.commentId}
+                videoId={videoId}
               />
             ))}
           </div>

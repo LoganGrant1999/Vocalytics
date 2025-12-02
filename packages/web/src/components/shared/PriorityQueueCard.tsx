@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import CommentRow from "./CommentRow";
 import { useQuery } from "@tanstack/react-query";
@@ -8,14 +9,88 @@ interface PriorityQueueCardProps {
 }
 
 const PriorityQueueCard = ({ plan }: PriorityQueueCardProps) => {
+  const [replies, setReplies] = useState<Record<string, string>>({});
+  const [isGeneratingReplies, setIsGeneratingReplies] = useState(false);
+
   // Fetch high-priority comments
   const { data, isLoading } = useQuery({
     queryKey: ['commentsInbox', 'high-priority'],
     queryFn: () => api.getCommentsInbox('high-priority'),
     refetchInterval: 30000, // Refresh every 30 seconds
+    staleTime: 0, // Always fetch fresh data
+    cacheTime: 0, // Don't cache
   });
 
   const comments = data?.comments || [];
+
+  // Load cached replies and generate new ones for comments without replies
+  useEffect(() => {
+    if (comments.length > 0) {
+      console.log('[DEBUG] Comments received:', comments);
+
+      // First, load any cached replies from the API response
+      const cachedReplies: Record<string, string> = {};
+      const commentsNeedingReplies = [];
+
+      for (const comment of comments) {
+        console.log('[DEBUG] Comment ID:', comment.id, 'suggestedReply:', comment.suggestedReply);
+        if (comment.suggestedReply) {
+          cachedReplies[comment.id] = comment.suggestedReply;
+        } else {
+          commentsNeedingReplies.push(comment);
+        }
+      }
+
+      console.log('[DEBUG] Cached replies:', cachedReplies);
+      console.log('[DEBUG] Comments needing replies:', commentsNeedingReplies.length);
+
+      // Set cached replies immediately
+      setReplies(cachedReplies);
+
+      // Generate replies for comments that don't have them yet
+      if (commentsNeedingReplies.length > 0) {
+        generateReplies(commentsNeedingReplies);
+      }
+    }
+  }, [comments]);
+
+  const generateReplies = async (commentsToGenerate: typeof comments) => {
+    if (commentsToGenerate.length === 0) return;
+
+    setIsGeneratingReplies(true);
+    try {
+      // Group comments by video ID for batch processing
+      const videoGroups = commentsToGenerate.reduce((acc, comment) => {
+        const videoId = comment.videoId;
+        if (!acc[videoId]) {
+          acc[videoId] = [];
+        }
+        acc[videoId].push(comment);
+        return acc;
+      }, {} as Record<string, typeof comments>);
+
+      // Generate replies for each video
+      const newReplies: Record<string, string> = {};
+      for (const [videoId, videoComments] of Object.entries(videoGroups)) {
+        const response = await api.generateReplies({
+          videoId,
+          commentIds: videoComments.map(c => c.id),
+        });
+
+        // Map replies by comment ID
+        response.replies.forEach(reply => {
+          newReplies[reply.commentId] = reply.suggestedReply;
+        });
+      }
+
+      // Merge new replies with existing cached ones
+      setReplies(prev => ({ ...prev, ...newReplies }));
+    } catch (error) {
+      console.error('Failed to generate replies:', error);
+    } finally {
+      setIsGeneratingReplies(false);
+    }
+  };
 
   const handleSendAll = () => {
     console.log("TODO: batch POST /api/youtube/reply");
@@ -94,8 +169,18 @@ const PriorityQueueCard = ({ plan }: PriorityQueueCardProps) => {
         </div>
       )}
 
+      {/* Generating replies state */}
+      {!isLoading && comments.length > 0 && isGeneratingReplies && (
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3"></div>
+            <p className="text-sm text-muted-foreground">Generating AI replies in your voice...</p>
+          </div>
+        </div>
+      )}
+
       {/* Comments list */}
-      {!isLoading && comments.length > 0 && (
+      {!isLoading && comments.length > 0 && !isGeneratingReplies && (
         <>
           <div className="space-y-0">
             {comments.map((comment) => (
@@ -106,7 +191,7 @@ const PriorityQueueCard = ({ plan }: PriorityQueueCardProps) => {
                 likes={comment.likeCount}
                 badges={generateBadges(comment.reasons)}
                 originalText={comment.text}
-                draftedReply="" // TODO: Implement AI reply generation
+                draftedReply={replies[comment.id] || ""}
               />
             ))}
           </div>

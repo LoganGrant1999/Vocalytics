@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Sparkles } from "lucide-react";
+import api from "@/lib/api";
 
 interface CommentWithReplyProps {
   commenterHandle: string;
@@ -10,6 +11,8 @@ interface CommentWithReplyProps {
   originalText: string;
   sentiment?: "positive" | "negative";
   canReply?: boolean;
+  commentId?: string;
+  videoId?: string;
 }
 
 const CommentWithReply = ({
@@ -19,23 +22,44 @@ const CommentWithReply = ({
   originalText,
   sentiment,
   canReply = false,
+  commentId,
+  videoId,
 }: CommentWithReplyProps) => {
   const [reply, setReply] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleGenerateReply = async () => {
+    if (!commentId || !videoId) {
+      console.error("Cannot generate reply: missing commentId or videoId");
+      return;
+    }
+
     setIsGenerating(true);
-    // TODO: POST /api/generate-replies
-    console.log("TODO: POST /api/generate-replies for comment:", originalText);
-    
-    // Simulate API call
-    setTimeout(() => {
-      const mockReply = sentiment === "positive" 
-        ? "Thanks so much! Really appreciate you watching and taking the time to comment 🙏 More content coming soon!"
-        : "Hey, thanks for the feedback! I appreciate you sharing your thoughts. I'll definitely keep this in mind for future videos 👊";
-      setReply(mockReply);
+    setError(null);
+
+    try {
+      const response = await api.generateReplies({
+        videoId,
+        commentIds: [commentId],
+      });
+
+      if (response.replies && response.replies.length > 0) {
+        setReply(response.replies[0].suggestedReply);
+      } else {
+        setError("Failed to generate reply");
+      }
+    } catch (err) {
+      console.error("Failed to generate reply:", err);
+      setError(err instanceof Error ? err.message : "Failed to generate reply");
+    } finally {
       setIsGenerating(false);
-    }, 1500);
+    }
+  };
+
+  const handleSendReply = () => {
+    console.log("TODO: POST /api/youtube/reply with commentId:", commentId, "reply:", reply);
+    // Placeholder for future implementation
   };
 
   const sentimentColor = sentiment === "positive" 
@@ -70,6 +94,9 @@ const CommentWithReply = ({
       {/* Reply section - only show for owned videos */}
       {canReply && (
         <div className="space-y-2 pt-2 border-t border-border/50">
+          {error && (
+            <div className="text-xs text-destructive">{error}</div>
+          )}
           {reply ? (
             <>
               <Textarea
@@ -97,8 +124,12 @@ const CommentWithReply = ({
                     </>
                   )}
                 </Button>
-                <Button size="sm" className="bg-primary hover:bg-primary/90">
-                  Approve & Send
+                <Button
+                  size="sm"
+                  className="bg-primary hover:bg-primary/90"
+                  onClick={handleSendReply}
+                >
+                  Send (Coming Soon)
                 </Button>
               </div>
             </>

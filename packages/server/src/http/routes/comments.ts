@@ -298,7 +298,8 @@ export async function commentsRoutes(fastify: FastifyInstance) {
         priorityScore: score.priority_score,
         reasons: score.reasons,
         shouldAutoReply: score.should_auto_reply,
-        sentiment: score.sentiment
+        sentiment: score.sentiment,
+        suggestedReply: score.suggested_reply || null // Cached AI-generated reply
       }));
 
       // Fetch video titles for context

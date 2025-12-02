@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -23,6 +23,11 @@ const CommentRow = ({
 }: CommentRowProps) => {
   const [approved, setApproved] = useState(initialApproved);
   const [reply, setReply] = useState(draftedReply);
+
+  // Update reply state when draftedReply prop changes
+  useEffect(() => {
+    setReply(draftedReply);
+  }, [draftedReply]);
 
   return (
     <div className="border-b border-border py-6 first:pt-0 last:border-b-0">
@@ -53,9 +58,8 @@ const CommentRow = ({
           value={reply}
           onChange={(e) => setReply(e.target.value)}
           className="min-h-[80px] resize-none bg-secondary/50 border-border"
-          placeholder="Edit reply..."
+          placeholder={reply ? "" : "Generating reply..."}
         />
-        {/* TODO: draftedReply from POST /api/generate-replies */}
       </div>
 
       {/* Approve checkbox */}
