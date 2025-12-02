@@ -4,8 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { extractYouTubeId } from "@/lib/youtube";
-import { Search, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Search, AlertCircle, CheckCircle2 } from "lucide-react";
 import api from "@/lib/api";
 
 const VideoAnalysisInput = () => {
@@ -16,7 +15,6 @@ const VideoAnalysisInput = () => {
     "idle" | "valid" | "invalid"
   >("idle");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [error, setError] = useState("");
 
   // Debounce input changes
   useEffect(() => {
@@ -38,29 +36,22 @@ const VideoAnalysisInput = () => {
     setValidationState(videoId ? "valid" : "invalid");
   }, [debouncedInput]);
 
-  const handleAnalyze = async () => {
+  const handleAnalyze = () => {
     const videoId = extractYouTubeId(input);
     if (!videoId) return;
 
+    // Start analysis and navigate immediately - don't wait
     setIsAnalyzing(true);
-    setError("");
 
-    try {
-      // Use the same endpoint as analyzing your own videos
-      // This uses your YouTube OAuth token to fetch and analyze comments
-      await api.analyzeVideo(videoId);
+    // Trigger analysis in background (fire and forget)
+    api.analyzeVideo(videoId).catch(err => console.error('Analysis failed:', err));
 
-      // Navigate to the video detail page
-      navigate(`/app/video/${videoId}`);
-    } catch (err: any) {
-      console.error("Failed to analyze video:", err);
-      setError(err.message || "Failed to analyze video");
-      setIsAnalyzing(false);
-    }
+    // Navigate immediately with a flag to trigger re-fetch
+    navigate(`/app/video/${videoId}?analyzing=true`);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && validationState === "valid" && !isAnalyzing) {
+    if (e.key === "Enter" && validationState === "valid") {
       handleAnalyze();
     }
   };
@@ -84,7 +75,6 @@ const VideoAnalysisInput = () => {
                 onKeyDown={handleKeyDown}
                 placeholder="https://youtube.com/watch?v=... or video ID"
                 className="pr-10"
-                disabled={isAnalyzing}
               />
               <div className="absolute right-3 top-1/2 -translate-y-1/2">
                 {validationState === "valid" && (
@@ -97,19 +87,10 @@ const VideoAnalysisInput = () => {
             </div>
             <Button
               onClick={handleAnalyze}
-              disabled={validationState !== "valid" || isAnalyzing}
+              disabled={validationState !== "valid"}
             >
-              {isAnalyzing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Analyzing...
-                </>
-              ) : (
-                <>
-                  <Search className="mr-2 h-4 w-4" />
-                  Analyze
-                </>
-              )}
+              <Search className="mr-2 h-4 w-4" />
+              Analyze
             </Button>
           </div>
 
@@ -134,14 +115,6 @@ const VideoAnalysisInput = () => {
           </div>
         </div>
       </Card>
-
-      {/* Error Display */}
-      {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
     </div>
   );
 };

@@ -267,6 +267,10 @@ export const zAnalysisResult = z.object({
     neg: z.number(),
   }).optional(),
   totalComments: z.number().optional(),
+  // Sampling metadata (for large videos)
+  sampled: z.boolean().optional(),
+  sampledCount: z.number().optional(),
+  totalCommentsFetched: z.number().optional(),
 });
 
 export type AnalysisResult = z.infer<typeof zAnalysisResult>;

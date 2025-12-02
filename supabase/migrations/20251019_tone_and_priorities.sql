@@ -24,7 +24,7 @@ COMMENT ON COLUMN public.profiles.reset_date IS 'Weekly reset date for replies_w
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS public.tone_profiles (
-  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id UUID PRIMARY KEY REFERENCES public.profiles(id) ON DELETE CASCADE,
 
   -- Analysis results
   tone VARCHAR(50), -- casual/professional/enthusiastic/etc
@@ -152,7 +152,7 @@ END$$;
 
 CREATE TABLE IF NOT EXISTS public.comment_scores (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
   comment_id TEXT NOT NULL,
   video_id TEXT NOT NULL,
 

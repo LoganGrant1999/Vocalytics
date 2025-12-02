@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutDashboard, MessageSquare, Video, Mic, CreditCard, Settings } from "lucide-react";
+import { LayoutDashboard, Video, Mic, CreditCard, Settings } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import PlanBadge from "./PlanBadge";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,6 @@ interface SidebarNavProps {
 
 const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/app/dashboard" },
-  { label: "Comments", icon: MessageSquare, path: "/app/comments" },
   { label: "Videos", icon: Video, path: "/app/videos" },
   { label: "Voice Profile", icon: Mic, path: "/app/voice" },
   { label: "Billing", icon: CreditCard, path: "/app/billing" },

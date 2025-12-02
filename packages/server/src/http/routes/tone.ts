@@ -153,6 +153,84 @@ export async function toneRoutes(fastify: FastifyInstance) {
   });
 
   /**
+   * PUT /api/tone/profile
+   * Manually update user's tone profile with custom settings
+   */
+  fastify.put('/tone/profile', async (request: any, reply) => {
+    const auth = request.auth;
+    const userId = auth?.userId || auth?.userDbId;
+
+    if (!userId) {
+      return reply.code(401).send({
+        code: 'UNAUTHORIZED',
+        message: 'Missing auth'
+      });
+    }
+
+    const { tone, emojiLevel, replyLength, phrases } = request.body as {
+      tone?: string;
+      emojiLevel?: number;
+      replyLength?: number;
+      phrases?: string;
+    };
+
+    try {
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+
+      // Map slider values to database format
+      const emojiUsageMap = ['none', 'light', 'heavy'];
+      const emoji_usage = emojiLevel !== undefined ? emojiUsageMap[emojiLevel] : undefined;
+
+      const lengthMap = ['short', 'medium', 'long'];
+      const avg_reply_length = replyLength !== undefined ? lengthMap[replyLength] : undefined;
+
+      // Parse phrases (comma or newline separated)
+      let common_phrases: string[] = [];
+      if (phrases) {
+        common_phrases = phrases
+          .split(/[,\n]+/)
+          .map(p => p.trim())
+          .filter(p => p.length > 0);
+      }
+
+      const updates: any = {
+        user_id: userId,
+        updated_at: new Date().toISOString()
+      };
+
+      if (tone !== undefined) updates.tone = tone;
+      if (emoji_usage !== undefined) updates.emoji_usage = emoji_usage;
+      if (avg_reply_length !== undefined) updates.avg_reply_length = avg_reply_length;
+      if (common_phrases.length > 0) updates.common_phrases = common_phrases;
+
+      const { data: savedProfile, error: saveError } = await supabase
+        .from('tone_profiles')
+        .upsert(updates, { onConflict: 'user_id' })
+        .select()
+        .single();
+
+      if (saveError) {
+        console.error('[tone.ts] Failed to update tone profile:', saveError);
+        return reply.code(500).send({
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to update tone profile'
+        });
+      }
+
+      return reply.send({
+        success: true,
+        profile: savedProfile
+      });
+    } catch (error: any) {
+      console.error('[tone.ts] Error updating tone profile:', error);
+      return reply.code(500).send({
+        code: 'INTERNAL_ERROR',
+        message: error.message || 'Failed to update tone profile'
+      });
+    }
+  });
+
+  /**
    * DELETE /api/tone/profile
    * Delete user's tone profile
    */

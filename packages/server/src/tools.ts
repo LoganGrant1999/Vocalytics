@@ -1,8 +1,16 @@
+// packages/server/src/tools.ts
+//
+// Core comment analysis and processing tools.
+// Provides sentiment analysis, reply generation, and comment fetching.
+
 import type { TWComment } from './types.js';
 import { htmlToText } from './types.js';
-import { chatReply, moderateText, analyzeSentiment } from './llm.js';
+import { chatReply, moderateText, analyzeSentiment, classifyCommentsBatch, DEFAULT_BATCH_SIZE, setMaxParallel } from './llm.js';
 
-// ---------------- Types used by the mock analyzers/replies/summary ----------------
+// ============================================================================
+// Type Definitions
+// ============================================================================
+
 type SentimentScore = {
   positive: number;
   negative: number;
@@ -17,7 +25,7 @@ type Analysis = {
   topics: string[];
   intent: string;
   toxicity: number;
-  category: Category; // <-- added
+  category: Category;
 };
 
 type GeneratedReply = {
@@ -31,15 +39,213 @@ type SentimentSummary = {
   totalComments: number;
   topTopics: Array<{ topic: string; count: number }>;
   toxicityLevel: string;
-  counts: Record<Category, number>; // <-- added
+  counts: Record<Category, number>;
 };
 
-// ---------------- Local helpers ----------------
+// ============================================================================
+// Utility Functions
+// ============================================================================
+
+/** Sort comments by publish date (newest first) */
 const byPublishedDesc = (a: TWComment, b: TWComment): number =>
   Date.parse(b.publishedAt) - Date.parse(a.publishedAt);
 
+/** Sort comments by like count (most liked first) */
 const byLikesDesc = (a: TWComment, b: TWComment): number =>
   (b.likeCount ?? 0) - (a.likeCount ?? 0);
+
+/** Sleep helper for jitter delays */
+async function sleep(ms: number): Promise<void> {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+/**
+ * Add random jitter delay to spread requests over time.
+ * Helps prevent rate-limit spikes when processing in parallel.
+ */
+async function jitterDelay(baseMs: number = 50, varianceMs: number = 100): Promise<void> {
+  const delay = baseMs + Math.floor(Math.random() * varianceMs);
+  await sleep(delay);
+}
+
+// ============================================================================
+// Heuristic Classification
+// ============================================================================
+
+/**
+ * Fast heuristic classifier for obvious sentiment cases.
+ *
+ * Confidently classifies:
+ * - Clear spam (URLs, promotions)
+ * - Simple positive praise (short, with strong signals)
+ * - Clear negative hate/criticism (strong negative words)
+ *
+ * Returns "uncertain" for:
+ * - Long/nuanced comments
+ * - Mixed sentiment
+ * - Questions or constructive feedback
+ *
+ * @returns Confident classification or uncertain marker
+ */
+export function heuristicClassify(text: string):
+  | { type: "confident"; category: Category; sentiment: SentimentScore }
+  | { type: "uncertain" } {
+
+  const t = text.toLowerCase();
+  const len = text.length;
+
+  // === SPAM ===
+  if (/https?:\/\//.test(text)) {
+    return { type: "confident", category: "spam", sentiment: { positive: 0.05, neutral: 0.15, negative: 0.8 } };
+  }
+  if (/(check out|subscribe to|visit|follow) (my|our) (channel|page|instagram|twitter|tiktok)/i.test(text)) {
+    return { type: "confident", category: "spam", sentiment: { positive: 0.05, neutral: 0.15, negative: 0.8 } };
+  }
+  if (/\bfree\b/i.test(t) && /(click|download|win|prize|offer|gift)/i.test(t)) {
+    return { type: "confident", category: "spam", sentiment: { positive: 0.05, neutral: 0.15, negative: 0.8 } };
+  }
+
+  // === SENTIMENT INDICATORS ===
+  // Positive words/phrases
+  const positiveWords = /\b(love|adore|amazing|awesome|excellent|fantastic|brilliant|perfect|great|wonderful|beautiful|best|favorite|favourite|incredible|outstanding|phenomenal|masterpiece|legend|goat|fire)\b/i;
+  const positiveSlang = /\b(lit|dope|sick|banger|bussin|slaps|vibes|based|chad|gigachad|W|king|queen)\b/i;
+  const positiveEmoji = /❤️?|😊|😍|🎉|💯|👍|🔥|✨|⭐|🙌|😎|🤩|😄|😁|🥰|💪|👏|🏆|💕|💖/;
+  const thankYou = /\b(thank|thanks|thx|ty|appreciate|grateful|appreciate it|bless)\b/i;
+  const supportive = /\b(keep it up|keep going|you got this|well done|good job|nice work|proud|respect|salute)\b/i;
+
+  // Negative words/phrases
+  const negativeWords = /\b(hate|terrible|awful|worst|horrible|trash|garbage|suck|boring|lame|cringe|crappy|pathetic)\b/i;
+  const disappointment = /\b(disappointed|letdown|let down|underwhelming|meh|overrated|overhyped)\b/i;
+  const negativeEmoji = /😠|😡|👎|💩|😢|😭|😤|🤮|😒|🙄|😑/;
+  const profanity = /\b(f+u+c+k|sh+i+t|d+a+m+n|hell|crap|piss|ass|bitch|wtf)\b/i;
+
+  // Constructive indicators
+  const questions = /\?$/;
+  const suggestions = /\b(could|should|would|might|perhaps|maybe|consider|suggest|recommend|idea|what if|how about)\b/i;
+  const feedback = /\b(but|however|although|though|except|improvement|improve|better|fix|issue|problem)\b/i;
+
+  // Count indicators
+  const positiveCount = [positiveWords.test(text), positiveSlang.test(text), positiveEmoji.test(text), thankYou.test(text), supportive.test(text)].filter(Boolean).length;
+  const negativeCount = [negativeWords.test(text), disappointment.test(text), negativeEmoji.test(text), profanity.test(text)].filter(Boolean).length;
+  const constructiveCount = [suggestions.test(text), feedback.test(text)].filter(Boolean).length;
+
+  // === POSITIVE CLASSIFICATION ===
+  // Strong positive (2+ positive indicators, no negative)
+  if (positiveCount >= 2 && negativeCount === 0) {
+    return { type: "confident", category: "positive", sentiment: { positive: 0.85, neutral: 0.1, negative: 0.05 } };
+  }
+  // Medium positive (1 positive indicator, no negative, short)
+  if (positiveCount >= 1 && negativeCount === 0 && len < 150) {
+    return { type: "confident", category: "positive", sentiment: { positive: 0.75, neutral: 0.2, negative: 0.05 } };
+  }
+  // Pure emoji positive (2+ emojis, minimal text)
+  const positiveEmojiCount = (text.match(positiveEmoji) || []).length;
+  if (positiveEmojiCount >= 2 && len < 80 && negativeCount === 0) {
+    return { type: "confident", category: "positive", sentiment: { positive: 0.9, neutral: 0.05, negative: 0.05 } };
+  }
+
+  // === NEGATIVE CLASSIFICATION ===
+  // Strong negative (2+ negative indicators)
+  if (negativeCount >= 2) {
+    return { type: "confident", category: "negative", sentiment: { positive: 0.05, neutral: 0.15, negative: 0.8 } };
+  }
+  // Medium negative (1 negative indicator, no positive)
+  if (negativeCount >= 1 && positiveCount === 0) {
+    return { type: "confident", category: "negative", sentiment: { positive: 0.1, neutral: 0.2, negative: 0.7 } };
+  }
+
+  // === CONSTRUCTIVE CLASSIFICATION ===
+  // Question
+  if (questions.test(text) && negativeCount <= 1 && positiveCount <= 1) {
+    return { type: "confident", category: "constructive", sentiment: { positive: 0.4, neutral: 0.45, negative: 0.15 } };
+  }
+  // Suggestion/feedback with mixed sentiment
+  if (constructiveCount >= 1 && (positiveCount > 0 || negativeCount > 0)) {
+    return { type: "confident", category: "constructive", sentiment: { positive: 0.35, neutral: 0.45, negative: 0.2 } };
+  }
+
+  // === NEUTRAL CLASSIFICATION (default for most) ===
+  // Factual statements, simple observations, announcements
+  // Any comment that doesn't strongly lean positive/negative
+  if (positiveCount === 0 && negativeCount === 0) {
+    return refineNeutralClassification(text, { positive: 0.15, neutral: 0.75, negative: 0.1 });
+  }
+
+  // Mixed sentiment (1 positive + 1 negative) → neutral
+  if (positiveCount >= 1 && negativeCount >= 1) {
+    return refineNeutralClassification(text, { positive: 0.3, neutral: 0.5, negative: 0.2 });
+  }
+
+  // === UNCERTAIN (truly ambiguous, < 5% of comments) ===
+  // Only send complex nuanced comments to GPT
+  if (len > 300 || (constructiveCount >= 2 && positiveCount >= 2 && negativeCount >= 1)) {
+    return { type: "uncertain" };
+  }
+
+  // Final fallback: neutral
+  return refineNeutralClassification(text, { positive: 0.2, neutral: 0.65, negative: 0.15 });
+}
+
+/**
+ * Post-processing helper to reduce "lazy neutral" classifications.
+ * Performs a second-pass token check on comments initially classified as neutral
+ * to catch sentiment signals that were too weak for the main classifier but
+ * should still avoid the neutral bucket.
+ */
+function refineNeutralClassification(
+  text: string,
+  defaultSentiment: SentimentScore
+): { type: "confident"; category: Category; sentiment: SentimentScore } {
+  const t = text.toLowerCase();
+
+  // Token lists for second-pass detection
+  const positiveTokens = ["love", "amazing", "awesome", "great", "fantastic", "so good", "fire", "🔥", "❤️", "😂", "lol", "lmao", "best", "incredible", "haha", "nice", "cool", "good"];
+  const negativeTokens = ["hate", "terrible", "awful", "trash", "cringe", "worst", "boring", "disappointing", "bad", "stupid", "dumb", "🤮", "👎", "💩", "sucks", "suck"];
+  const questionSuggestionPatterns = [
+    "you should", "could you", "can you", "why don't you", "why dont you",
+    "idk if", "i think you should", "maybe try", "?", "what if", "how about"
+  ];
+
+  // Check for tokens
+  const hasPositive = positiveTokens.some(token => t.includes(token));
+  const hasNegative = negativeTokens.some(token => t.includes(token));
+  const hasQuestionOrSuggestion = questionSuggestionPatterns.some(pattern => t.includes(pattern));
+
+  // Reclassify based on detected signals
+  // a) Positive signal only → positive
+  if (hasPositive && !hasNegative) {
+    return {
+      type: "confident",
+      category: "positive",
+      sentiment: { positive: 0.65, neutral: 0.25, negative: 0.1 }
+    };
+  }
+
+  // b) Negative signal only → negative
+  if (hasNegative && !hasPositive) {
+    return {
+      type: "confident",
+      category: "negative",
+      sentiment: { positive: 0.1, neutral: 0.25, negative: 0.65 }
+    };
+  }
+
+  // c) Mixed signals OR question/suggestion → constructive
+  if ((hasPositive && hasNegative) || hasQuestionOrSuggestion) {
+    return {
+      type: "confident",
+      category: "constructive",
+      sentiment: { positive: 0.35, neutral: 0.4, negative: 0.25 }
+    };
+  }
+
+  // d) No signals detected → truly neutral (timestamps, bland factual comments)
+  return {
+    type: "confident",
+    category: "neutral",
+    sentiment: defaultSentiment
+  };
+}
 
 // Very small keyword heuristics to diversify categories for fixtures
 function classifyCategory(text: string): Category {
@@ -139,8 +345,27 @@ function mapYouTubeItemToTWComment(item: any, parentId?: string): TWComment {
   };
 }
 
-// ---------------- Core tool implementations ----------------
+// ============================================================================
+// Comment Fetching
+// ============================================================================
 
+/**
+ * Fetch comments from YouTube or return mock data.
+ *
+ * Tries in order:
+ * 1. Authenticated YouTube API (if userId provided)
+ * 2. Public YouTube Data API (if API key available)
+ * 3. Mock data (for testing/development)
+ *
+ * @param videoId - Video ID to fetch comments for
+ * @param channelId - Channel ID to fetch comments for
+ * @param max - Maximum comments per page (1-100)
+ * @param pageToken - Pagination token for next page
+ * @param includeReplies - Include comment replies
+ * @param order - Sort order (time or relevance)
+ * @param userId - User ID for authenticated access
+ * @returns Comments array and next page token
+ */
 export async function fetchComments(
   videoId?: string,
   channelId?: string,
@@ -303,102 +528,295 @@ export async function fetchComments(
   };
 }
 
-export async function analyzeComments(comments: Partial<TWComment>[]): Promise<Analysis[]> {
-  const results: Analysis[] = [];
-  for (const comment of comments) {
-    const baseText = comment.text ?? "";
+// ============================================================================
+// Comment Analysis Helpers
+// ============================================================================
 
-    // Try AI-based sentiment analysis first
-    console.log('[analyzeComments] Analyzing comment:', baseText.substring(0, 100));
-    const aiAnalysis = await analyzeSentiment(baseText);
-    console.log('[analyzeComments] AI analysis result:', aiAnalysis);
+/**
+ * Extract topics from comment text using keyword matching.
+ */
+function extractTopics(text: string): string[] {
+  const topics: string[] = [];
+  const lower = text.toLowerCase();
 
-    if (aiAnalysis) {
-      // Use AI analysis results
-      let { category, sentiment, topics, intent } = aiAnalysis;
+  if (lower.includes("audio")) topics.push("audio");
+  if (lower.includes("compressor")) topics.push("post-processing");
+  if (lower.includes("timestamp")) topics.push("timestamps");
 
-      // Calculate toxicity based on category and sentiment
-      let toxicity = category === "spam" ? 0.7 :
-                     category === "negative" ? Math.max(0.4, sentiment.negative) :
-                     category === "constructive" ? 0.15 :
-                     sentiment.negative * 0.6;
+  return topics.length > 0 ? topics : ["general"];
+}
 
-      // First-pass moderation (best-effort) - override if needed
-      const mod = await moderateText(baseText);
-      if (mod.flagged) {
-        if (mod.category === "hate" || mod.category === "violence" || mod.category === "harassment") {
-          category = "negative";
-          toxicity = Math.max(toxicity, 0.6);
-        } else if (mod.category === "sexual" || mod.category === "self-harm") {
-          category = "negative";
-          toxicity = Math.max(toxicity, 0.7);
-        }
+/**
+ * Calculate toxicity score based on category and sentiment.
+ */
+function calculateToxicity(category: Category, sentiment: SentimentScore): number {
+  switch (category) {
+    case "spam":
+      return 0.7;
+    case "negative":
+      return Math.max(0.4, sentiment.negative);
+    case "constructive":
+      return 0.15;
+    default:
+      return sentiment.negative * 0.6;
+  }
+}
+
+/**
+ * Determine intent from category.
+ */
+function determineIntent(category: Category): string {
+  switch (category) {
+    case "spam":
+      return "promotion";
+    case "negative":
+      return "critique";
+    case "constructive":
+      return "suggestion";
+    default:
+      return "appreciation";
+  }
+}
+
+/**
+ * Apply moderation overrides to category and toxicity.
+ * Returns updated values if moderation flags content.
+ *
+ * OPTIMIZED: Disabled OpenAI moderation API calls to avoid rate limiting.
+ * Only applies heuristic-based overrides (e.g., URL detection for spam).
+ */
+async function applyModerationOverrides(
+  text: string,
+  category: Category,
+  toxicity: number
+): Promise<{ category: Category; toxicity: number }> {
+  // DISABLED: Moderation API causes rate limiting (429) when analyzing 600+ comments
+  // const mod = await moderateText(text);
+  //
+  // if (mod.flagged) {
+  //   if (mod.category === "hate" || mod.category === "violence" || mod.category === "harassment") {
+  //     return { category: "negative", toxicity: Math.max(toxicity, 0.6) };
+  //   }
+  //   if (mod.category === "sexual" || mod.category === "self-harm") {
+  //     return { category: "negative", toxicity: Math.max(toxicity, 0.7) };
+  //   }
+  // }
+
+  // URL heuristic → spam override
+  if (/\bhttps?:\/\//.test(text)) {
+    return { category: "spam", toxicity: Math.max(toxicity, 0.7) };
+  }
+
+  return { category, toxicity };
+}
+
+/**
+ * Build fallback sentiment scores based on category.
+ */
+function getFallbackSentiment(category: Category): SentimentScore {
+  switch (category) {
+    case "positive":
+      return { positive: 0.85, neutral: 0.1, negative: 0.05 };
+    case "constructive":
+      return { positive: 0.45, neutral: 0.35, negative: 0.2 };
+    case "negative":
+      return { positive: 0.1, neutral: 0.2, negative: 0.7 };
+    case "spam":
+      return { positive: 0.05, neutral: 0.15, negative: 0.8 };
+    default:
+      return { positive: 0.2, neutral: 0.7, negative: 0.1 };
+  }
+}
+
+// ============================================================================
+// Main Analysis Function
+// ============================================================================
+
+/**
+ * Analyze sentiment for a batch of comments.
+ *
+ * Features:
+ * - Incremental caching (reuses previous results)
+ * - Heuristic pre-filtering (avoids GPT for obvious cases)
+ * - Batch GPT classification (50 comments per batch)
+ * - Pro user concurrency boost (2x parallel requests)
+ * - Automatic result storage for future reuse
+ *
+ * @param comments - Comments to analyze
+ * @param options - Configuration options
+ * @returns Array of sentiment analysis results
+ */
+export async function analyzeComments(
+  comments: Partial<TWComment>[],
+  options?: {
+    userId?: string;
+    videoId?: string;
+    userTier?: string;
+    batchSize?: number;
+  }
+): Promise<Analysis[]> {
+  // Configure concurrency based on user tier
+  const isPro = options?.userTier === 'pro';
+  setMaxParallel(isPro);
+
+  const BATCH_SIZE = options?.batchSize || DEFAULT_BATCH_SIZE;
+  console.log(`[analyzeComments] Batch size: ${BATCH_SIZE}, Pro user: ${isPro}`);
+
+  // Step 0: Check for cached sentiments (if userId and videoId provided)
+  const cachedSentiments = new Map<string, any>();
+  let cacheHits = 0;
+
+  if (options?.userId && options?.videoId) {
+    try {
+      const { getCachedSentiments } = await import('./db/comment-sentiments.js');
+      const commentsWithText = comments
+        .filter(c => c.id && c.text)
+        .map(c => ({ id: c.id!, text: c.text! }));
+
+      const cached = await getCachedSentiments(
+        options.userId,
+        options.videoId,
+        commentsWithText
+      );
+
+      for (const [commentId, sentiment] of cached.entries()) {
+        cachedSentiments.set(commentId, sentiment);
       }
 
-      // URL heuristic → spam override
-      if (/\bhttps?:\/\//.test(baseText)) {
-        category = "spam";
-        toxicity = Math.max(toxicity, 0.7);
-      }
+      cacheHits = cachedSentiments.size;
+      console.log(`[analyzeComments] Cache: ${cacheHits}/${comments.length} sentiments found`);
+    } catch (err) {
+      console.error('[analyzeComments] Error loading cached sentiments:', err);
+      // Continue without cache on error
+    }
+  }
 
-      results.push({
-        commentId: comment.id ?? 'unknown',
-        sentiment,
-        topics: topics.length > 0 ? topics : ["general"],
-        intent,
-        toxicity,
-        category
+  // Step 1: Run heuristic classifier on all comments (excluding cached)
+  const commentsToAnalyze = comments.filter(c => !cachedSentiments.has(c.id || ''));
+  console.log(`[analyzeComments] Running heuristic classifier on ${commentsToAnalyze.length} comments (${cacheHits} cached)`);
+
+  const heuristicResults = new Map<number, { category: Category; sentiment: SentimentScore }>();
+  const uncertainComments: Array<{ id: string; text: string; originalIndex: number }> = [];
+
+  // Only run heuristics on comments that aren't cached
+  for (let i = 0; i < comments.length; i++) {
+    const comment = comments[i];
+
+    // Skip if we have cached sentiment for this comment
+    if (cachedSentiments.has(comment.id || '')) {
+      continue;
+    }
+
+    const text = comment.text ?? "";
+    const heuristic = heuristicClassify(text);
+
+    if (heuristic.type === "confident") {
+      heuristicResults.set(i, {
+        category: heuristic.category,
+        sentiment: heuristic.sentiment,
       });
     } else {
-      // Fallback to keyword-based classification if AI fails
-      let category = classifyCategory(baseText);
-      let toxicity = category === "spam" ? 0.7 :
-                     category === "negative" ? 0.4 :
-                     category === "constructive" ? 0.15 : 0.05;
+      uncertainComments.push({
+        id: comment.id ?? `unknown_${i}`,
+        text,
+        originalIndex: i,
+      });
+    }
+  }
 
-      // First-pass moderation (best-effort)
-      const mod = await moderateText(baseText);
-      if (mod.flagged) {
-        if (mod.category === "hate" || mod.category === "violence" || mod.category === "harassment") {
-          category = "negative";
-          toxicity = Math.max(toxicity, 0.6);
-        } else if (mod.category === "sexual" || mod.category === "self-harm") {
-          category = "negative";
-          toxicity = Math.max(toxicity, 0.7);
+  console.log(`[analyzeComments] Heuristics: ${heuristicResults.size} confident, ${uncertainComments.length} uncertain (need GPT)`);
+
+  // Step 2: Send only uncertain comments to GPT in batches
+  const aiAnalysisMap = new Map<number, { category: Category; sentiment: SentimentScore; topics: string[]; intent: string }>();
+
+  if (uncertainComments.length > 0) {
+    const batches: Array<{ id: string; text: string; originalIndex: number }[]> = [];
+    for (let i = 0; i < uncertainComments.length; i += BATCH_SIZE) {
+      batches.push(uncertainComments.slice(i, i + BATCH_SIZE));
+    }
+
+    console.log(`[analyzeComments] Processing ${uncertainComments.length} uncertain comments in ${batches.length} GPT batches of ${BATCH_SIZE}`);
+
+    // Process batches in parallel with jitter (limited by withGate in llm.ts)
+    const batchResults = await Promise.all(
+      batches.map(async (batch, idx) => {
+        // Add small jitter delay between batch starts to avoid rate-limit spikes
+        if (idx > 0) {
+          await jitterDelay(30, 70); // 30-100ms jitter
         }
-      }
+        console.log(`[analyzeComments] Processing GPT batch ${idx + 1}/${batches.length} (${batch.length} comments)`);
+        return await classifyCommentsBatch(batch);
+      })
+    );
 
-      // URL heuristic → spam
-      if (/\bhttps?:\/\//.test(baseText) || /\bfree\b/i.test(baseText)) {
-        category = "spam";
-        toxicity = Math.max(toxicity, 0.7);
-      }
-
-      const sentiment: SentimentScore = (() => {
-        switch (category) {
-          case "positive": return { positive: 0.85, neutral: 0.1, negative: 0.05 };
-          case "constructive": return { positive: 0.45, neutral: 0.35, negative: 0.2 };
-          case "negative": return { positive: 0.1, neutral: 0.2, negative: 0.7 };
-          case "spam": return { positive: 0.05, neutral: 0.15, negative: 0.8 };
-          default: return { positive: 0.2, neutral: 0.7, negative: 0.1 };
+    // Flatten batch results
+    batchResults.forEach((batchResult) => {
+      batchResult.forEach((result) => {
+        if (result) {
+          // Find original index from the batch
+          const batchItem = uncertainComments.find(item => item.id === result.id);
+          if (batchItem) {
+            aiAnalysisMap.set(batchItem.originalIndex, {
+              category: result.category,
+              sentiment: result.sentiment,
+              topics: result.topics,
+              intent: result.intent,
+            });
+          }
         }
-      })();
+      });
+    });
 
-      const topics = (() => {
-        const t: string[] = [];
-        const low = baseText.toLowerCase();
-        if (low.includes("audio")) t.push("audio");
-        if (low.includes("compressor")) t.push("post-processing");
-        if (low.includes("timestamp")) t.push("timestamps");
-        if (t.length === 0) t.push("general");
-        return t;
-      })();
+    console.log(`[analyzeComments] GPT analysis succeeded for ${aiAnalysisMap.size}/${uncertainComments.length} uncertain comments`);
+  }
 
-      const intent =
-        category === "constructive" ? "suggestion" :
-        category === "negative" ? "critique" :
-        category === "spam" ? "promotion" :
-        "appreciation";
+  // Step 3: Build final results, merging cached, heuristic, and GPT results
+  const results: Analysis[] = [];
+  const newSentimentsToStore: Array<{
+    commentId: string;
+    text: string;
+    sentiment: SentimentScore;
+    category: Category;
+    topics: string[];
+    intent: string;
+    toxicity: number;
+  }> = [];
+
+  for (let i = 0; i < comments.length; i++) {
+    const comment = comments[i];
+    const baseText = comment.text ?? "";
+
+    // Check cached sentiment first
+    const cached = cachedSentiments.get(comment.id || '');
+    if (cached) {
+      // Use cached sentiment result
+      results.push({
+        commentId: comment.id ?? 'unknown',
+        sentiment: cached.sentiment,
+        topics: cached.topics,
+        intent: cached.intent,
+        toxicity: cached.toxicity,
+        category: cached.category,
+      });
+      continue;
+    }
+
+    // Check heuristic results, then GPT results
+    const heuristicResult = heuristicResults.get(i);
+    const aiAnalysis = aiAnalysisMap.get(i);
+
+    if (heuristicResult) {
+      // Use heuristic classification (confident, no GPT needed)
+      let { category, sentiment } = heuristicResult;
+
+      const topics = extractTopics(baseText);
+      const intent = determineIntent(category);
+      let toxicity = calculateToxicity(category, sentiment);
+
+      // Apply moderation overrides
+      const moderated = await applyModerationOverrides(baseText, category, toxicity);
+      category = moderated.category;
+      toxicity = moderated.toxicity;
 
       results.push({
         commentId: comment.id ?? 'unknown',
@@ -408,11 +826,123 @@ export async function analyzeComments(comments: Partial<TWComment>[]): Promise<A
         toxicity,
         category
       });
+
+      // Collect for storage
+      if (comment.id && comment.text) {
+        newSentimentsToStore.push({
+          commentId: comment.id,
+          text: comment.text,
+          sentiment,
+          category,
+          topics,
+          intent,
+          toxicity,
+        });
+      }
+    } else if (aiAnalysis) {
+      // Use GPT analysis results (uncertain comments needed AI)
+      let { category, sentiment, topics, intent } = aiAnalysis;
+
+      let toxicity = calculateToxicity(category, sentiment);
+
+      // Apply moderation overrides
+      const moderated = await applyModerationOverrides(baseText, category, toxicity);
+      category = moderated.category;
+      toxicity = moderated.toxicity;
+
+      results.push({
+        commentId: comment.id ?? 'unknown',
+        sentiment,
+        topics: topics.length > 0 ? topics : ["general"],
+        intent,
+        toxicity,
+        category
+      });
+
+      // Collect for storage
+      if (comment.id && comment.text) {
+        newSentimentsToStore.push({
+          commentId: comment.id,
+          text: comment.text,
+          sentiment,
+          category,
+          topics: topics.length > 0 ? topics : ["general"],
+          intent,
+          toxicity,
+        });
+      }
+    } else {
+      // Fallback: All analysis methods failed, use keyword-based classification
+      console.log(`[analyzeComments] Using fallback for comment ${i}`);
+      let category = classifyCategory(baseText);
+      const sentiment = getFallbackSentiment(category);
+      let toxicity = calculateToxicity(category, sentiment);
+
+      // Apply moderation overrides
+      const moderated = await applyModerationOverrides(baseText, category, toxicity);
+      category = moderated.category;
+      toxicity = moderated.toxicity;
+
+      const topics = extractTopics(baseText);
+      const intent = determineIntent(category);
+
+      results.push({
+        commentId: comment.id ?? 'unknown',
+        sentiment,
+        topics,
+        intent,
+        toxicity,
+        category
+      });
+
+      // Collect for storage
+      if (comment.id && comment.text) {
+        newSentimentsToStore.push({
+          commentId: comment.id,
+          text: comment.text,
+          sentiment,
+          category,
+          topics,
+          intent,
+          toxicity,
+        });
+      }
     }
   }
+
+  // Step 4: Store new sentiment results for future reuse
+  if (options?.userId && options?.videoId && newSentimentsToStore.length > 0) {
+    try {
+      const { storeSentiments } = await import('./db/comment-sentiments.js');
+      await storeSentiments(options.userId, options.videoId, newSentimentsToStore);
+      console.log(`[analyzeComments] Stored ${newSentimentsToStore.length} new sentiment results for future reuse`);
+    } catch (err) {
+      console.error('[analyzeComments] Error storing sentiment results:', err);
+      // Don't fail the analysis if storage fails
+    }
+  }
+
   return results;
 }
 
+// ============================================================================
+// Reply Generation
+// ============================================================================
+
+/**
+ * Generate AI-powered replies in multiple tones.
+ *
+ * Features:
+ * - Multiple tone options (friendly, concise, enthusiastic)
+ * - Optional tone profile matching (for Pro users)
+ * - Fallback templates if AI fails
+ * - Channel-safe content (no links, hashtags)
+ *
+ * @param comment - Comment to reply to
+ * @param tones - Array of tone styles to generate
+ * @param toneProfile - Optional learned tone profile for personalization
+ * @returns Array of generated replies with tone labels
+ */
 export async function generateReplies(
   comment: Partial<TWComment>,
   tones: string[],
@@ -537,7 +1067,11 @@ export async function summarizeSentiment(analysis: Analysis[]): Promise<Sentimen
   };
 }
 
-// ---------------- Snake_case aliases (if other parts of code expect them) ----------------
+// ============================================================================
+// Legacy Aliases (Snake Case)
+// ============================================================================
+// These maintain backward compatibility with older parts of the codebase
+
 export const fetch_comments = fetchComments;
 
 export async function analyze_comments(input: { comments: TWComment[] } | TWComment[]): Promise<Analysis[]> {

@@ -1,40 +1,52 @@
 import { Button } from "@/components/ui/button";
 import CommentRow from "./CommentRow";
+import { useQuery } from "@tanstack/react-query";
+import api from "@/lib/api";
 
 interface PriorityQueueCardProps {
   plan: "free" | "pro";
 }
 
-const mockComments = [
-  {
-    commenterHandle: "@filmnerd92",
-    timestamp: "2h ago",
-    likes: 34,
-    badges: ["Top Fan", "Question"],
-    originalText: "This tutorial saved my project! Quick question - what LUT are you using for the color grade? Would love to match this look.",
-    draftedReply: "You're insane 😂 appreciate you big time! The LUT is FilmConvert Nitrate - Cinema pack. More coming soon 🙏",
-  },
-  {
-    commenterHandle: "@techsteve",
-    timestamp: "5h ago",
-    likes: 89,
-    badges: ["Sponsor mention"],
-    originalText: "Just wanted to say thanks for mentioning Riverside in this video. I've been using it since your recommendation and it's a game changer for my podcast!",
-    draftedReply: "That's awesome to hear! Riverside really levels up the audio quality. Keep crushing it with the podcast 🔥",
-  },
-  {
-    commenterHandle: "@creativemind",
-    timestamp: "8h ago",
-    likes: 12,
-    badges: ["Question"],
-    originalText: "Can you share more about your lighting setup? The soft light on the left looks amazing.",
-    draftedReply: "Thanks! It's a single Aputure 300d with a lantern modifier. Super simple but gives that wrap-around glow. More lighting tutorials coming soon 👊",
-  },
-];
-
 const PriorityQueueCard = ({ plan }: PriorityQueueCardProps) => {
+  // Fetch high-priority comments
+  const { data, isLoading } = useQuery({
+    queryKey: ['commentsInbox', 'high-priority'],
+    queryFn: () => api.getCommentsInbox('high-priority'),
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  const comments = data?.comments || [];
+
   const handleSendAll = () => {
     console.log("TODO: batch POST /api/youtube/reply");
+  };
+
+  // Helper to format timestamp
+  const formatTimestamp = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffHours < 24) {
+      return `${diffHours}h ago`;
+    } else if (diffDays < 7) {
+      return `${diffDays}d ago`;
+    } else {
+      return date.toLocaleDateString();
+    }
+  };
+
+  // Helper to generate badges from reasons
+  const generateBadges = (reasons: string[]) => {
+    return reasons.map(reason => {
+      // Map reasons to badges
+      if (reason.includes('question')) return 'Question';
+      if (reason.includes('sponsor') || reason.includes('brand')) return 'Sponsor mention';
+      if (reason.includes('fan') || reason.includes('loyal')) return 'Top Fan';
+      return reason.charAt(0).toUpperCase() + reason.slice(1); // Capitalize first letter
+    });
   };
 
   return (
@@ -43,14 +55,16 @@ const PriorityQueueCard = ({ plan }: PriorityQueueCardProps) => {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <h3 className="text-lg font-semibold">High-Priority Replies</h3>
-          <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
-            {mockComments.length} ready
-          </span>
+          {!isLoading && comments.length > 0 && (
+            <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+              {comments.length} ready
+            </span>
+          )}
         </div>
-        
+
         <Button
           onClick={handleSendAll}
-          disabled={plan === "free"}
+          disabled={plan === "free" || comments.length === 0}
           className="bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {plan === "free" ? "Send All (Pro only)" : "Send All Approved"}
@@ -60,19 +74,49 @@ const PriorityQueueCard = ({ plan }: PriorityQueueCardProps) => {
       <p className="text-sm text-muted-foreground mb-6">
         We pull the comments that matter most. You approve the replies. We send them for you.
       </p>
-      {/* TODO: GET /api/youtube/comments + POST /api/analyze-comments + POST /api/generate-replies */}
+
+      {/* Loading state */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!isLoading && comments.length === 0 && (
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">
+            No comments to respond to right now
+          </p>
+          <p className="text-sm text-muted-foreground mt-2">
+            High-priority comments will appear here when you analyze your videos
+          </p>
+        </div>
+      )}
 
       {/* Comments list */}
-      <div className="space-y-0">
-        {mockComments.map((comment, idx) => (
-          <CommentRow key={idx} {...comment} />
-        ))}
-      </div>
+      {!isLoading && comments.length > 0 && (
+        <>
+          <div className="space-y-0">
+            {comments.map((comment) => (
+              <CommentRow
+                key={comment.id}
+                commenterHandle={comment.authorDisplayName}
+                timestamp={formatTimestamp(comment.publishedAt)}
+                likes={comment.likeCount}
+                badges={generateBadges(comment.reasons)}
+                originalText={comment.text}
+                draftedReply="" // TODO: Implement AI reply generation
+              />
+            ))}
+          </div>
 
-      {/* Footer note */}
-      <p className="text-xs text-muted-foreground mt-6 text-center">
-        Replies post from your channel. We space timing so it looks natural.
-      </p>
+          {/* Footer note */}
+          <p className="text-xs text-muted-foreground mt-6 text-center">
+            Replies post from your channel. We space timing so it looks natural.
+          </p>
+        </>
+      )}
     </div>
   );
 };

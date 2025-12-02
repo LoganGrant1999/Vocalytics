@@ -1,16 +1,70 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
+import { createClient } from '@supabase/supabase-js';
 import { zAnalysisResult, zTrendPoint } from '../../schemas.js';
 import { enforceAnalyze } from '../paywall.js';
 import { fetchComments, analyzeComments } from '../../tools.js';
 import { generateCommentSummary } from '../../llm.js';
 import { insertAnalysis, getLatestAnalysis, listLatestAnalysesPerVideo, getTrends } from '../../db/analyses.js';
 import { getUserVideo } from '../../db/videos.js';
+import { getVideoStatsAuthed, getAuthedYouTubeForUser } from '../../lib/google.js';
 
 const pSchema = z.object({ videoId: z.string() });
 const trendsQuerySchema = z.object({
   days: z.coerce.number().int().min(1).max(365).default(90),
 });
+
+// ============================================================================
+// Comment Fetching & Sampling Configuration
+// ============================================================================
+/**
+ * Normal videos (commentCount <= LARGE_VIDEO_COMMENT_THRESHOLD):
+ *   - Fetch up to MAX_COMMENTS_PER_VIDEO comments (1000)
+ *   - Use up to MAX_PAGES_NORMAL pages (10 pages × 100 = 1000 max)
+ *   - If total fetched > 2000, apply intelligent sampling (top 450 + random 550)
+ *   - Otherwise analyze all fetched comments
+ *
+ * Large videos (commentCount > LARGE_VIDEO_COMMENT_THRESHOLD):
+ *   - Use LARGE VIDEO FAST PATH to avoid excessive YouTube API calls
+ *   - Fetch only LARGE_VIDEO_MAX_COMMENTS_TO_FETCH comments (600)
+ *   - Use only LARGE_VIDEO_MAX_PAGES pages (6 pages × 100 = 600 max)
+ *   - Apply sampling within this subset: top 250 + random fill to 500
+ *   - Marked as sampled=true in database
+ *
+ * This dramatically reduces latency for videos with 10k+ comments while
+ * preserving quality for normal videos.
+ */
+const MAX_COMMENTS_PER_VIDEO = 1000;           // Max to analyze for normal videos
+const MAX_PAGES_NORMAL = 10;                   // Max pagination for normal videos
+const LARGE_VIDEO_COMMENT_THRESHOLD = 2000;   // Videos with more comments use fast path
+const LARGE_VIDEO_MAX_COMMENTS_TO_FETCH = 600; // Cap fetch for large videos
+const LARGE_VIDEO_MAX_PAGES = 6;              // 6 pages × 100 = 600 comments
+const LARGE_VIDEO_TOP_ENGAGED_COUNT = 250;    // Top comments by engagement (large videos)
+const LARGE_VIDEO_TARGET_SAMPLE_SIZE = 500;   // Target sample size for large videos
+
+// ============================================================================
+// Progress Tracking
+// ============================================================================
+interface AnalysisProgress {
+  progress: number; // 0-100
+  status: string;
+  error?: string;
+}
+
+const progressTracker = new Map<string, AnalysisProgress>();
+
+function updateProgress(videoId: string, progress: number, status: string) {
+  progressTracker.set(videoId, { progress, status });
+  console.log(`[analysis progress] ${videoId}: ${progress}% - ${status}`);
+}
+
+function clearProgress(videoId: string) {
+  progressTracker.delete(videoId);
+}
+
+function setProgressError(videoId: string, error: string) {
+  progressTracker.set(videoId, { progress: 0, status: 'Error', error });
+}
 
 export default async function route(app: FastifyInstance) {
   // POST /analysis/:videoId - Run analysis on a video and persist
@@ -32,6 +86,9 @@ export default async function route(app: FastifyInstance) {
     }
 
     try {
+      // Initialize progress tracking
+      updateProgress(videoId, 0, 'Starting analysis...');
+
       // In development mode, skip paywall enforcement for testing
       // In production, enforce paywall and quotas
       const isDev = process.env.NODE_ENV !== 'production';
@@ -43,15 +100,55 @@ export default async function route(app: FastifyInstance) {
         });
 
         if (!enforcement.allowed) {
+          setProgressError(videoId, 'Payment required');
           return reply.code(402).send('error' in enforcement ? enforcement.error : { error: 'Payment required' });
         }
       }
 
-      // Fetch ALL comments for the video using pagination
-      // Use the user's YouTube OAuth token to fetch comments from any public video
+      // ============================================================================
+      // Phase 1: Determine Video Size & Select Fetching Strategy
+      // ============================================================================
+      updateProgress(videoId, 5, 'Checking video size...');
+
+      // Fetch video statistics and channel info to determine comment count and ownership
+      const yt = await getAuthedYouTubeForUser(userId);
+
+      // Get video details (stats + snippet for channel ID)
+      const videoResponse = await yt.videos.list({
+        id: [videoId],
+        part: ['statistics', 'snippet'],
+      });
+
+      const videoData = videoResponse.data.items?.[0];
+      const videoCommentCount = videoData?.statistics?.commentCount ? Number(videoData.statistics.commentCount) : 0;
+      const videoChannelId = videoData?.snippet?.channelId;
+
+      // Get user's own channel ID
+      const channelsResponse = await yt.channels.list({
+        part: ['id'],
+        mine: true,
+      });
+      const userChannelId = channelsResponse.data.items?.[0]?.id;
+
+      // Determine if this video belongs to the user
+      const isOwnVideo = videoChannelId && userChannelId && videoChannelId === userChannelId;
+      console.log(`[analysis] Video ownership check: videoChannel=${videoChannelId}, userChannel=${userChannelId}, isOwn=${isOwnVideo}`);
+
+      // Determine if this is a large video requiring the fast path
+      const isLargeVideo = videoCommentCount > LARGE_VIDEO_COMMENT_THRESHOLD;
+      const maxPages = isLargeVideo ? LARGE_VIDEO_MAX_PAGES : MAX_PAGES_NORMAL;
+      const maxCommentsToFetch = isLargeVideo ? LARGE_VIDEO_MAX_COMMENTS_TO_FETCH : MAX_COMMENTS_PER_VIDEO;
+
+      console.log(`[analysis] Video stats: commentCount=${videoCommentCount}, isLargeVideo=${isLargeVideo}`);
+      console.log(`[analysis] Fetch limits: maxPages=${maxPages}, maxCommentsToFetch=${maxCommentsToFetch}`);
+
+      // ============================================================================
+      // Phase 2: Fetch Comments with Pagination (using selected strategy)
+      // ============================================================================
+      updateProgress(videoId, 10, 'Fetching comments...');
+
       let allComments: any[] = [];
       let nextPageToken: string | undefined = undefined;
-      const maxPages = 10; // Limit to prevent infinite loops (10 pages * 100 = 1000 comments max)
       let pageCount = 0;
 
       console.log(`[analysis] Starting to fetch comments for video ${videoId} with userId ${userId}`);
@@ -69,24 +166,149 @@ export default async function route(app: FastifyInstance) {
         allComments = allComments.concat(comments);
         nextPageToken = newToken;
         pageCount++;
+
+        // Update progress during pagination (10% to 50%)
+        const paginationProgress = Math.min(50, 10 + (pageCount / maxPages) * 40);
+        updateProgress(videoId, Math.round(paginationProgress), `Fetching comments (${pageCount}/${maxPages} pages)...`);
+
         console.log(`[analysis] Fetched page ${pageCount}: ${comments.length} comments, nextPageToken: ${nextPageToken ? 'exists' : 'none'}`);
+
+        // Stop if we've hit the max comments limit for this strategy
+        if (allComments.length >= maxCommentsToFetch) {
+          console.log(`[analysis] Reached maxCommentsToFetch (${maxCommentsToFetch}), stopping pagination`);
+          break;
+        }
       } while (nextPageToken && pageCount < maxPages);
 
-      const comments = allComments;
-      console.log(`[analysis] Total comments fetched: ${comments.length}`);
+      const totalCommentsFetched = allComments.length;
+      console.log(`[analysis] Total comments fetched: ${totalCommentsFetched} (from ${videoCommentCount} total on video)`);
 
-      if (comments.length === 0) {
+      if (totalCommentsFetched === 0) {
+        setProgressError(videoId, 'No comments found');
         return reply.code(400).send({
           error: 'No comments found',
           message: 'This video has no comments to analyze',
         });
       }
 
-      // Run sentiment analysis
-      const rawAnalysis = await analyzeComments(comments);
+      // ============================================================================
+      // Phase 3: Intelligent Sampling
+      // ============================================================================
+      updateProgress(videoId, 55, 'Processing comments...');
+
+      let comments = allComments;
+      let sampled = false;
+      let sampledCount = totalCommentsFetched;
+
+      if (isLargeVideo) {
+        // Large video fast path: always sample from the capped subset we fetched
+        sampled = true;
+        const TOP_ENGAGED_COUNT = LARGE_VIDEO_TOP_ENGAGED_COUNT;
+        const TARGET_SAMPLE_SIZE = LARGE_VIDEO_TARGET_SAMPLE_SIZE;
+
+        console.log(`[analysis] Large video fast path: sampling ${TARGET_SAMPLE_SIZE} from ${totalCommentsFetched} fetched comments`);
+
+        // Sort by engagement score (likes + replies * 2)
+        const sortedByEngagement = [...allComments].sort((a, b) => {
+          const scoreA = (a.likeCount ?? 0) + (a.replyCount ?? 0) * 2;
+          const scoreB = (b.likeCount ?? 0) + (b.replyCount ?? 0) * 2;
+          return scoreB - scoreA;
+        });
+
+        // Take top comments by engagement
+        const topComments = sortedByEngagement.slice(0, TOP_ENGAGED_COUNT);
+        const topCommentIds = new Set(topComments.map(c => c.id));
+
+        // Remaining comments for random sampling
+        const remainingComments = allComments.filter(c => !topCommentIds.has(c.id));
+        const needToSample = TARGET_SAMPLE_SIZE - topComments.length;
+
+        // Random sample from remaining
+        const sampledRemaining: typeof allComments = [];
+        if (remainingComments.length > needToSample) {
+          // Fisher-Yates shuffle for random sampling
+          const shuffled = [...remainingComments];
+          for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+          }
+          sampledRemaining.push(...shuffled.slice(0, needToSample));
+        } else {
+          sampledRemaining.push(...remainingComments);
+        }
+
+        // Combine and sort by original order (publishedAt)
+        comments = [...topComments, ...sampledRemaining].sort((a, b) =>
+          new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+        );
+
+        sampledCount = comments.length;
+
+        console.log(`[analysis] Large video sampling complete: ${sampledCount} comments selected (${topComments.length} top + ${sampledRemaining.length} random)`);
+      } else if (totalCommentsFetched > 2000) {
+        // Normal video but fetched many comments: apply traditional sampling
+        sampled = true;
+        const MAX_COMMENTS = 1000;
+        const TOP_COMMENTS = 450;
+
+        console.log(`[analysis] Normal video with many comments (${totalCommentsFetched}). Applying intelligent sampling...`);
+
+        // Sort by engagement score (likes + replies * 2)
+        const sortedByEngagement = [...allComments].sort((a, b) => {
+          const scoreA = (a.likeCount ?? 0) + (a.replyCount ?? 0) * 2;
+          const scoreB = (b.likeCount ?? 0) + (b.replyCount ?? 0) * 2;
+          return scoreB - scoreA;
+        });
+
+        // Take top comments by engagement
+        const topComments = sortedByEngagement.slice(0, TOP_COMMENTS);
+        const topCommentIds = new Set(topComments.map(c => c.id));
+
+        // Remaining comments for random sampling
+        const remainingComments = allComments.filter(c => !topCommentIds.has(c.id));
+        const needToSample = MAX_COMMENTS - TOP_COMMENTS;
+
+        // Random sample from remaining
+        const sampledRemaining: typeof allComments = [];
+        if (remainingComments.length > needToSample) {
+          // Fisher-Yates shuffle for random sampling
+          const shuffled = [...remainingComments];
+          for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+          }
+          sampledRemaining.push(...shuffled.slice(0, needToSample));
+        } else {
+          sampledRemaining.push(...remainingComments);
+        }
+
+        // Combine and sort by original order (publishedAt)
+        comments = [...topComments, ...sampledRemaining].sort((a, b) =>
+          new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+        );
+
+        sampledCount = comments.length;
+
+        console.log(`[analysis] Normal video sampling complete: ${sampledCount} comments selected (${TOP_COMMENTS} top + ${sampledRemaining.length} random) from ${totalCommentsFetched} total`);
+      } else {
+        // Normal video with reasonable number of comments: analyze all
+        console.log(`[analysis] Normal video (${totalCommentsFetched} comments). Analyzing all without sampling.`);
+      }
+
+      // Get user tier for concurrency optimization
+      const userTier = req.user?.tier || req.auth?.tier || 'free';
+
+      // Run sentiment analysis (with incremental caching and tier-based concurrency)
+      updateProgress(videoId, 60, `Analyzing ${comments.length} comments...`);
+      const rawAnalysis = await analyzeComments(comments, {
+        userId,
+        videoId,
+        userTier,
+      });
 
       // Filter out null results from failed API calls
       const analysis = rawAnalysis.filter((a) => a !== null);
+      updateProgress(videoId, 75, 'Aggregating results...');
 
       // Calculate aggregate sentiment as average of individual sentiment scores
       const total = analysis.length;
@@ -116,7 +338,7 @@ export default async function route(app: FastifyInstance) {
         else categoryCounts.neu++;
       }
 
-      // Get top positive and negative comments with full metadata
+      // Get top positive and negative comments with full metadata (sorted by likes)
       const positiveComments = analysis
         .filter((a) => a.category === 'positive')
         .map((a) => {
@@ -126,7 +348,7 @@ export default async function route(app: FastifyInstance) {
             text: comment?.text || '',
             author: comment?.author || 'Anonymous',
             publishedAt: comment?.publishedAt || new Date().toISOString(),
-            likeCount: comment?.likeCount || 0,
+            likeCount: comment?.likeCount ?? 0,
             sentiment: {
               pos: a.sentiment.positive,
               neu: a.sentiment.neutral,
@@ -134,6 +356,7 @@ export default async function route(app: FastifyInstance) {
             },
           };
         })
+        .sort((a, b) => b.likeCount - a.likeCount) // Sort by likes descending
         .slice(0, 5);
 
       const negativeComments = analysis
@@ -145,7 +368,7 @@ export default async function route(app: FastifyInstance) {
             text: comment?.text || '',
             author: comment?.author || 'Anonymous',
             publishedAt: comment?.publishedAt || new Date().toISOString(),
-            likeCount: comment?.likeCount || 0,
+            likeCount: comment?.likeCount ?? 0,
             sentiment: {
               pos: a.sentiment.positive,
               neu: a.sentiment.neutral,
@@ -153,9 +376,11 @@ export default async function route(app: FastifyInstance) {
             },
           };
         })
+        .sort((a, b) => b.likeCount - a.likeCount) // Sort by likes descending
         .slice(0, 5);
 
       // Generate AI summary
+      updateProgress(videoId, 85, 'Generating AI summary...');
       console.log('[analysis] Generating AI summary...');
       const aiSummary = await generateCommentSummary(
         comments.map(c => ({ text: c.text })),
@@ -167,6 +392,7 @@ export default async function route(app: FastifyInstance) {
       console.log('[analysis] Summary generated:', summary);
 
       // Insert into database
+      updateProgress(videoId, 95, 'Saving results...');
       const payload = {
         sentiment,
         score,
@@ -178,10 +404,84 @@ export default async function route(app: FastifyInstance) {
           comments: comments.map((c) => c.id),
           categoryCounts, // Include category counts in raw for retrieval
           totalComments: total,
+          // Sampling metadata
+          sampled,
+          sampledCount: sampled ? sampledCount : undefined,
+          totalCommentsFetched: sampled ? totalCommentsFetched : undefined,
+          // Large video fast path metadata
+          isLargeVideo,
+          videoCommentCount,
+          usedFastPath: isLargeVideo,
         },
       };
 
       const row = await insertAnalysis(userId, videoId, payload);
+
+      // Insert high-priority comments into comment_scores table for dashboard
+      const supabase = createClient(
+        process.env.SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+
+      // Only insert high-priority comments if this is the user's own video
+      // (users can only reply to comments on their own videos)
+      if (isOwnVideo) {
+        // Clear existing scores for this video first
+        await supabase
+          .from('comment_scores')
+          .delete()
+          .eq('user_id', userId)
+          .eq('video_id', videoId);
+
+        // Insert top positive comments with high priority
+        const positiveScores = positiveComments.map((comment) => ({
+          user_id: userId,
+          video_id: videoId,
+          comment_id: comment.commentId,
+          comment_text: comment.text,
+          author_name: comment.author,
+          like_count: comment.likeCount,
+          published_at: comment.publishedAt,
+          priority_score: 80, // High priority for top positive
+          sentiment: 'positive',
+          reasons: ['Top positive comment', 'High engagement'],
+          should_auto_reply: false,
+        }));
+
+        // Insert top negative comments with high priority
+        const negativeScores = negativeComments.map((comment) => ({
+          user_id: userId,
+          video_id: videoId,
+          comment_id: comment.commentId,
+          comment_text: comment.text,
+          author_name: comment.author,
+          like_count: comment.likeCount,
+          published_at: comment.publishedAt,
+          priority_score: 85, // Higher priority for negatives (need attention)
+          sentiment: 'negative',
+          reasons: ['Top negative comment', 'Needs response'],
+          should_auto_reply: false,
+        }));
+
+        // Combine and insert
+        const allScores = [...positiveScores, ...negativeScores];
+        if (allScores.length > 0) {
+          console.log(`[analysis] Attempting to insert ${allScores.length} scores for user ${userId}:`, JSON.stringify(allScores, null, 2));
+          const { data, error } = await supabase.from('comment_scores').insert(allScores);
+          if (error) {
+            console.error(`[analysis] Error inserting comment scores:`, error);
+            throw error;
+          }
+          console.log(`[analysis] Successfully inserted ${allScores.length} high-priority comments to dashboard (user's own video)`);
+        }
+      } else {
+        console.log(`[analysis] Skipping comment scores insertion - not user's video`);
+      }
+
+      // Clear progress tracking - analysis complete
+      updateProgress(videoId, 100, 'Analysis complete!');
+      // Clean up after a short delay to allow frontend to see 100%
+      setTimeout(() => clearProgress(videoId), 2000);
 
       // Return result
       const result: any = {
@@ -194,11 +494,18 @@ export default async function route(app: FastifyInstance) {
         summary,
         categoryCounts,
         totalComments: total,
+        // Include sampling metadata if applicable
+        sampled: sampled || undefined,
+        sampledCount: sampled ? sampledCount : undefined,
+        totalCommentsFetched: sampled ? totalCommentsFetched : undefined,
       };
 
       return reply.send(zAnalysisResult.parse(result));
     } catch (error: any) {
       console.error('[analysis] POST error:', error);
+
+      // Set progress error
+      setProgressError(videoId, error.message || 'Analysis failed');
 
       if (error.code === 'YOUTUBE_NOT_CONNECTED' || error.message?.includes('YouTube not connected')) {
         return reply.status(403).send({
@@ -212,6 +519,19 @@ export default async function route(app: FastifyInstance) {
         message: error.message,
       });
     }
+  });
+
+  // GET /analysis/:videoId/progress - Get analysis progress
+  app.get('/analysis/:videoId/progress', async (req: FastifyRequest, reply) => {
+    const { videoId } = pSchema.parse(req.params);
+
+    const progress = progressTracker.get(videoId);
+
+    if (!progress) {
+      return reply.send({ progress: null });
+    }
+
+    return reply.send(progress);
   });
 
   // GET /analysis/:videoId - Get latest analysis for a video
@@ -277,6 +597,10 @@ export default async function route(app: FastifyInstance) {
         summary: row.summary,
         categoryCounts,
         totalComments: row.raw?.totalComments || row.raw?.analysis?.length,
+        // Include sampling metadata if present
+        sampled: row.raw?.sampled || undefined,
+        sampledCount: row.raw?.sampledCount || undefined,
+        totalCommentsFetched: row.raw?.totalCommentsFetched || undefined,
       };
 
       console.log('[analysis GET] Result before Zod parse:', JSON.stringify(result));

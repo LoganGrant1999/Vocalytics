@@ -1,310 +1,269 @@
 meta:
-product_name: "Vocalytics"
-codename: "TubeWhisper"
-owner: "Logan Gibbons"
-date_created: "2025-10-07"
-target_launch: "2025-11-01"
-version: "v1.0-MVP"
-stack:
-backend: "Node.js + Fastify (API + MCP Server)"
-frontend: "React + Vite (Next + ChatGPT App widgets)"
-database: "Supabase (PostgreSQL + Auth + Billing)"
-external_apis:
-- "YouTube Data API v3"
-- "OpenAI API (GPT-4o-mini / GPT-4-turbo)"
-- "Stripe API (subscription billing)"
-deployment:
-- "Vercel (frontend + landing page)"
-- "Render / Fly.io (API server)"
-- "Supabase (auth + usage + storage)"
-environment:
-node_version: "20.x"
-runtime: "pnpm workspaces"
-build: "pnpm -r build"
-package_entry: "packages/server/src/index.ts"
+  product_name: "Vocalytics"
+  codename: "TubeWhisper"
+  owner: "Logan Gibbons"
+  version: "v1.0-MVP"
+  date_created: "2025-11-21"
+  target_launch: "2025-12-05"
+  stack:
+    frontend: "React 18 + Vite + Tailwind + React Query"
+    backend: "Node.js 20 + Fastify + TypeScript + MCP"
+    database: "Supabase (PostgreSQL + Auth + RLS)"
+    infrastructure:
+      - "Supabase (DB + Auth + Row-level security + Usage)"
+      - "Vercel (Serverless functions + Cron)"
+      - "MCP Server (fast local dev + ChatGPT app integration)"
+    external_apis:
+      - "YouTube Data API v3"
+      - "OpenAI API (GPT-4o-mini / omni-moderation-latest)"
+      - "Stripe Billing"
+  environment:
+    node_version: "20.x"
+    package_manager: "pnpm workspaces"
+    backend_entry: "packages/server/src/http/index.ts"
+    frontend_entry: "packages/web/src/main.tsx"
 
 problem_statement:
-summary: >
-Creators struggle to keep up with comments across growing YouTube channels.
-Manual moderation drains hours, and default analytics ignore audience emotion.
-Existing tools give numbers, not feeling — and no way to act instantly.
-user_pain_points:
-- "Creators spend 30–90 min daily moderating manually."
-- "YouTube Studio shows metrics but no sentiment."
-- "Toxicity and spam blur real fan feedback."
-- "AI reply tools feel generic and disconnected from creator tone."
-why_now:
-- "ChatGPT App Store launch = early discoverability (Q4 2025)."
-- "Creators already experimenting with AI co-pilots."
-- "YouTube Data API + OpenAI make this technically lightweight."
-- "Low-friction subscription model mirrors creator spend."
+  summary: >
+    YouTube creators drown in comments. They waste hours replying,
+    struggle to sense audience mood, and miss toxic or high-value feedback.
+    YouTube Studio doesn’t provide emotional analytics or AI-assisted replies.
+  user_pain_points:
+    - "Creators spend 30–90 minutes/day reading comments manually."
+    - "Sentiment and tone are invisible in YouTube Studio."
+    - "Spam and toxicity bury real fan messages."
+    - "Generic AI reply tools don’t match creator voice."
+  why_now:
+    - "ChatGPT App Store launch gives free distribution."
+    - "Creators increasingly expect AI copilots."
+    - "OpenAI + YouTube API make sentiment analysis cheap and fast."
+    - "Creators already pay for tools that save time."
 
 value_proposition:
-statement: >
-Vocalytics becomes a creator’s emotional dashboard for YouTube — a single
-place to see how audiences feel and instantly craft authentic replies.
-key_benefits:
-- "Turns raw comments into clear emotional insight."
-- "Shows which videos spark positivity vs frustration."
-- "Auto-drafts authentic replies in the creator’s tone."
-- "Saves hours per week on community engagement."
-- "Feels native to YouTube and ChatGPT."
+  statement: >
+    Vocalytics is the emotional analytics and AI co-pilot for YouTube creators—
+    one place to measure audience sentiment and instantly draft authentic replies.
+  key_benefits:
+    - "Instant understanding of audience emotion per video."
+    - "Pinpoint what fans love, hate, or want next."
+    - "Generate replies in creator’s voice with 1 click."
+    - "Save hours per week moderating comments."
 
 target_users:
-primary_persona:
-name: "Indie Creator"
-profile:
-- "10k–250k subs"
-- "1–3 uploads per week"
-- "Handles own comments"
-- "Comfortable with AI tools"
-- "Willing to pay $10–20 / mo for time savings"
-secondary_personas:
-- "Podcast hosts posting episodes to YouTube"
-- "Small-brand social managers"
-- "Micro-agencies servicing clients"
+  primary_persona:
+    name: "Indie Creator"
+    profile:
+      - "10k–250k subs"
+      - "1–3 uploads/week"
+      - "Reads replies personally"
+      - "Comfortable using ChatGPT"
+      - "Willing to pay $12–$20/mo for comment automation"
+  secondary_personas:
+    - "Podcasters uploading to YouTube"
+    - "Solo brand marketers"
+    - "Micro-creators growing from 2k–10k subs"
 
 success_metrics:
-prelaunch:
-- "10 creator interviews by Oct 20"
-- "3 private beta channels before launch"
-postlaunch:
-- "≥1000 installs by Dec 1"
-- "≥5 % paid conversion within 30 days"
-- "≥70 % weekly retention (free tier)"
-- "NPS ≥ 8 among first 100 paid users"
-- "≥95 % uptime on /healthz"
+  prelaunch:
+    - "10 creator interviews"
+    - "3 private beta channels"
+  postlaunch:
+    - "> 1200 installs by Jan 1"
+    - "> 5% paid conversion within 30 days"
+    - "> 70% weekly retention (free)"
+    - "> 8 NPS from early adopters"
+    - "> 95% uptime on API health checks"
 
-MVP Scope
+mvp_scope:
+  scope_summary: >
+    Deliver a web app + ChatGPT App where creators connect YouTube,
+    view their recent uploaded videos, run fast semantic sentiment analysis,
+    generate tone-aligned replies, and upgrade to a Pro plan when free-tier
+    limits are exceeded.
 
-scope_summary: >
-Deliver a web + ChatGPT-embedded app where creators connect YouTube,
-instantly see their latest uploads in a personalized dashboard, analyze
-audience sentiment per video, generate AI replies, and upgrade via Stripe
-when free-tier limits are hit.
-
-Core Features
-ID	Name	Description	Success Criteria
-F1	YouTube OAuth Login	Secure Google OAuth (youtube.readonly) for channel access	User connects in < 60 s
-F2	Fetch User Videos	List 10–20 latest uploads (thumbnail, title, stats)	Videos appear instantly after OAuth
-F3	Persistent Video Analysis	Analyze and store sentiment + summary per video	Analysis persists and reloads in dashboard
-F4	AI Comment Classification	Label each comment Positive / Neutral / Negative / Spam	≥85 % accuracy
-F5	AI Reply Generation	1–3 tone-matched replies per comment	≥70 % tone alignment
-F6	Channel Dashboard	Show videos grid + sentiment heatmap + usage bars	Visible “channel health” insight
-F7	Video Detail Page	Tabs: Overview (sentiment chart + summary), Comments, Replies	Insight loads < 5 s
-F8	Trends & Analytics	Plot avg sentiment over time + rank videos by emotion	Trend chart populated after ≥3 analyses
-F9	Paywall Integration	Supabase + Stripe usage enforcement	Limits + upgrade flow work end-to-end
+core_features:
+  F1:
+    name: "YouTube OAuth Login"
+    description: "Google OAuth2 flow with youtube.readonly permission."
+    success: "User connects in under 60 seconds."
+  F2:
+    name: "Fetch User Videos"
+    description: "List latest 10–20 uploads with title, thumbnail, stats."
+    success: "Videos appear instantly after OAuth."
+  F3:
+    name: "Fast Sentiment Analysis (Batch + Heuristic + Caching)"
+    description: >
+      Using hierarchical batching, heuristics, incremental caching,
+      intelligent sampling, and GPT-4o-mini classification.
+    success: "1000 comments analyzed in 10–30 seconds."
+  F4:
+    name: "Persistent Video Analysis Storage"
+    description: "Store sentiment & summary for each (user, video)."
+    success: "Re-analysis loads instantly and is nearly free."
+  F5:
+    name: "AI Reply Generation"
+    description: "Draft multiple human-like replies per comment."
+    success: "≥70% tone alignment with creator personality."
+  F6:
+    name: "Dashboard Overview"
+    description: "Grid of videos + sentiment score + quick stats."
+    success: "Users understand channel 'emotional health' at a glance."
+  F7:
+    name: "Video Detail Page"
+    description: "Tabs: Overview (sentiment, summary), Comments, AI Replies."
+    success: "Loads analysis in < 5 seconds from cached storage."
+  F8:
+    name: "Usage Limits + Paywall"
+    description: "Free vs Pro enforcement via Supabase usage counters."
+    success: "Perfectly enforced limits with Stripe Checkout for upgrade."
+  F9:
+    name: "ChatGPT App Integration"
+    description: "Full MCP bridge: analyze videos, generate replies in ChatGPT."
+    success: "ChatGPT app mirrors web functionality."
 
 optional_features:
-
-id: F10
-name: "Analyze Next Recommendations"
-description: "Suggest un-analyzed videos to encourage continued use."
-
-id: F11
-name: "Tone Memory"
-description: "Persist creator style for future replies (Pro only)."
-
-id: F12
-name: "CSV Export"
-description: "Allow Pro users to download sentiment data."
-
-UX Flow
-
-entry_point: "Connect YouTube → auto-populate dashboard with channel videos"
-
-main_journey:
-
-"Install Vocalytics → Connect YouTube"
-
-"Dashboard shows recent uploads with sentiment placeholders"
-
-"User clicks ‘Analyze’ → AI sentiment + summary + top comments appear"
-
-"Trends chart updates automatically"
-
-"User opens Replies tab → generate tone-matched responses"
-
-"Hit free limit → upgrade modal → Stripe checkout"
-
-"Pro user returns to see full channel history and analytics"
-
-empty_state: "Connected but no analyses yet — click Analyze to see audience emotion."
-tone_guidelines:
-
-"Friendly, creator-to-creator voice"
-
-"Quick, insightful, positive"
-
-Monetization Model
-
-pricing_tiers:
-
-name: "Free"
-features:
-
-"Analyze 3 videos / month"
-
-"10 AI replies / day"
-
-"Basic dashboard and sentiment overview"
-
-name: "Pro — $12 / mo"
-features:
-
-"Unlimited analyses + replies"
-
-"Auto-reply posting"
-
-"Trends analytics + Tone Memory + Export"
-checkout: "Stripe Checkout via vocalytics.app/upgrade"
-
-Go-to-Market
-
-prelaunch:
-
-"Interview 10 creators (reddit & DMs)"
-
-"Publish teaser site vocalytics.app"
-
-"Short demo clip on X / TikTok / Reddit"
-
-launch_channels:
-
-"ChatGPT App Store"
-
-"Product Hunt (Nov 1)"
-
-"Reddit r/YouTube & r/Productivity"
-
-viral_hooks:
-
-"‘Emotional scorecard’ share card per video"
-
-"Beta testimonials + before/after replies"
-
-Data Model (Updated)
-
-tables:
-
-name: users
-description: "Creator record + subscription tier + usage counts."
-columns:
-
-id: uuid PK
-
-email: text
-
-tier: text enum [free, pro]
-
-comments_analyzed_count: int
-
-replies_generated_count: int
-
-reset_date: date
-
-subscribed_until: timestamptz
-
-stripe_customer_id: text
-
-stripe_subscription_id: text
-
-created_at: timestamptz default now()
-
-updated_at: timestamptz default now()
-
-name: user_videos
-description: "Cached YouTube uploads per user for dashboard population."
-columns:
-
-user_id: uuid FK → users.id
-
-video_id: text
-
-title: text
-
-thumbnail_url: text
-
-published_at: timestamptz
-
-stats: jsonb (views, likes, comments)
-
-fetched_at: timestamptz default now()
-
-primary key: (user_id, video_id)
-
-name: video_analyses
-description: "Stored sentiment analyses for each (video, user)."
-columns:
-
-user_id: uuid FK → users.id
-
-video_id: text
-
-analyzed_at: timestamptz default now()
-
-sentiment: jsonb {pos, neu, neg}
-
-score: numeric
-
-top_positive: jsonb
-
-top_negative: jsonb
-
-summary: text
-
-raw: jsonb
-
-primary key: (user_id, video_id, analyzed_at)
-
-name: usage_events
-description: "Audit log for usage tracking."
-
-name: stripe_events
-description: "Webhook store for billing."
-
-API (Incremental Additions)
-
-GET /api/youtube/videos?mine=true — list recent uploads for connected user
-
-POST /api/analysis/:videoId?persist=true — run and store sentiment analysis
-
-GET /api/analysis/:videoId — fetch latest analysis for video
-
-GET /api/analysis — list all analyses for dashboard overview
-
-GET /api/analysis/trends — return sentiment timeseries
-
-(existing endpoints for fetch-comments, generate-replies, summarize-sentiment remain)
-
-Frontend UI Overview
-
-Landing Page: Hero + 3 feature cards (Sentiment Analysis, AI Replies, YouTube Integration) + Connect CTA
-
-Dashboard:
-
-Channel overview with video thumbnails + sentiment heatmap
-
-Quick stats (total videos analyzed, avg sentiment, replies sent)
-
-Trends chart (avg sentiment vs time)
-
-Upgrade prompt at limit
-
-Video Detail: Overview (tab sentiment + summary), Comments, Replies
-
-Billing: Free vs Pro comparison + Stripe integration
-
-Error & Paywall Dialogs, Cookie Banner, Debug Drawer (preserved)
-
-Milestones (Updated)
-
-week_1 (Oct 7-13): Backend auth + fetch comments
-week_2 (Oct 14-20): OAuth + list videos endpoint + mock dashboard
-week_3 (Oct 21-27): Persistent analysis tables + trends chart + UI integration
-week_4 (Oct 28-Nov 1): Stripe checkout + beta + launch submission
-
-North Star
-
-Become the creator’s emotional analytics co-pilot —
-the first place YouTubers check to understand how their audience feels and what to say next.
+  - F10:
+      name: "Tone Memory"
+      description: "Store user writing samples to influence reply generation."
+  - F11:
+      name: "Sentiment Trends"
+      description: "Plot sentiment over time for Pro users."
+  - F12:
+      name: "Export to CSV"
+      description: "Pro users can export comment sentiment data."
+
+ux_flow:
+  entry_point: "Connect YouTube → Auto-populate dashboard"
+  flows:
+    - "User installs app → Google OAuth → Dashboard loads videos"
+    - "User clicks ‘Analyze’ → Runs fast batched sentiment pipeline"
+    - "Sentiment, top comments, toxicity, and summary appear"
+    - "User opens Comments → generates AI replies"
+    - "User hits free tier limit → paywall modal → Stripe checkout"
+    - "User returns with Pro unlocked: unlimited analysis + advanced tools"
+  empty_state:
+    message: "No analyses yet — click a video to run your first sentiment analysis."
+
+monetization:
+  pricing:
+    free:
+      price: "$0"
+      features:
+        - "Analyze 3 videos per month"
+        - "10 AI replies/day"
+        - "Basic sentiment + summary"
+        - "Dashboard of last 10 uploads"
+    pro:
+      price: "$12/mo"
+      features:
+        - "Unlimited analysis"
+        - "Unlimited replies"
+        - "Tone Memory"
+        - "Trend analytics"
+        - "Export tools"
+        - "Priority batching (8x concurrency)"
+  billing:
+    provider: "Stripe"
+    upgrade_flow: "Stripe Checkout → Webhook → Supabase tier=pro"
+
+data_model:
+  tables:
+
+    users:
+      description: "Creator account + subscription tier"
+      columns:
+        id: "uuid"
+        email: "text"
+        tier: "free | pro"
+        created_at: "timestamptz"
+        stripe_customer_id: "text"
+        stripe_subscription_id: "text"
+        subscribed_until: "timestamptz"
+
+    user_videos:
+      description: "Cached YouTube uploads"
+      columns:
+        user_id: "uuid"
+        video_id: "text"
+        title: "text"
+        thumbnail_url: "text"
+        stats: "jsonb"
+        published_at: "timestamptz"
+        fetched_at: "timestamptz"
+
+    video_analyses:
+      description: "Stored sentiment analyses per (video, user)"
+      columns:
+        user_id: "uuid"
+        video_id: "text"
+        sentiment: "jsonb"
+        score: "numeric"
+        summary: "text"
+        top_positive: "jsonb"
+        top_negative: "jsonb"
+        raw: "jsonb"
+        analyzed_at: "timestamptz"
+
+    comment_sentiments:
+      description: "Incremental sentiment caching per comment"
+      columns:
+        user_id: "uuid"
+        video_id: "text"
+        comment_id: "text"
+        text_hash: "text"
+        sentiment: "jsonb"
+        category: "text"
+        intent: "text"
+        topics: "text[]"
+        toxicity: "numeric"
+        created_at: "timestamptz"
+
+api_endpoints:
+  - GET /youtube/videos: "List videos"
+  - GET /analysis/:videoId: "Fetch stored analysis"
+  - POST /analysis/:videoId: "Run fresh sentiment analysis"
+  - GET /analysis/trends: "Sentiment over time (Pro)"
+  - POST /generate-replies: "Generate AI replies"
+  - GET /fetch-comments/:videoId: "Get YouTube comments"
+  - POST /billing/checkout: "Stripe Checkout"
+  - POST /billing/webhook: "Stripe webhook updates"
+
+frontend_ui:
+  pages:
+    - LandingPage
+    - DashboardPage
+    - VideoDetailPage
+    - CommentsPage
+    - RepliesPage
+    - BillingPage
+  components:
+    - SentimentChart
+    - SummaryCard
+    - VideoGrid
+    - PaywallModal
+    - UpgradeBanner
+    - AnalysisProgress
+    - CommentThread
+    - ReplyGenerator
+
+milestones:
+  week_1:
+    - "OAuth + video fetch"
+    - "Dashboard skeleton"
+  week_2:
+    - "Sentiment engine integration (heuristics + batch GPT)"
+    - "Video analysis storage"
+  week_3:
+    - "Replies + paywall"
+    - "Stripe integration"
+    - "Frontend polish"
+  week_4:
+    - "Beta rollout + bug fixes"
+    - "ChatGPT app submission"
+    - "Public launch"
+
+north_star:
+  statement: >
+    Become the emotional analytics co-pilot for YouTubers —
+    the place creators check first to understand their audience and
+    the assistant they trust to help them reply authentically.

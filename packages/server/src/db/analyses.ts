@@ -161,5 +161,9 @@ function rowToAnalysisResult(row: VideoAnalysisRow): AnalysisResult {
     summary: row.summary ?? undefined,
     categoryCounts,
     totalComments: row.raw?.totalComments || row.raw?.analysis?.length,
+    // Include sampling metadata if present
+    sampled: row.raw?.sampled || undefined,
+    sampledCount: row.raw?.sampledCount || undefined,
+    totalCommentsFetched: row.raw?.totalCommentsFetched || undefined,
   };
 }

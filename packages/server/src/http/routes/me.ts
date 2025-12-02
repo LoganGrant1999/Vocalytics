@@ -156,4 +156,81 @@ export async function meRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // Get dashboard stats (only from user's own videos)
+  fastify.get('/me/dashboard-stats', async (request: any, reply) => {
+    const auth = request.auth;
+    const userId = auth?.userId || auth?.userDbId;
+
+    if (!userId) {
+      return reply.code(401).send({
+        code: 'UNAUTHORIZED',
+        message: 'Missing auth'
+      });
+    }
+
+    try {
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+      const now = new Date();
+      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+      // Count new comments in last 24h (based on when they were published)
+      const { count: newComments24h } = await supabase
+        .from('comment_scores')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .gte('published_at', yesterday.toISOString());
+
+      // Count high-priority comments to reply to (priority >= 40)
+      const { count: highPriorityCount, data: highPriorityData } = await supabase
+        .from('comment_scores')
+        .select('video_id, comment_id, priority_score', { count: 'exact' })
+        .eq('user_id', userId)
+        .gte('priority_score', 40);
+
+      console.log(`[dashboard-stats] High-priority count: ${highPriorityCount}, videos:`,
+        highPriorityData?.map(d => d.video_id));
+
+      // Count replies in queue (ready to send)
+      const { count: repliesReadyCount } = await supabase
+        .from('reply_queue')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('status', 'pending');
+
+      // Calculate time saved (assuming 3 min per reply)
+      const timeSavedMinutes = (repliesReadyCount || 0) * 3;
+
+      // Get comparison: comments from most recent video vs previous
+      const { data: recentAnalyses } = await supabase
+        .from('video_analyses')
+        .select('raw')
+        .eq('user_id', userId)
+        .order('analyzed_at', { ascending: false })
+        .limit(2);
+
+      let changePercent = 0;
+      if (recentAnalyses && recentAnalyses.length >= 2) {
+        const latestCount = (recentAnalyses[0].raw as any)?.totalComments || 0;
+        const previousCount = (recentAnalyses[1].raw as any)?.totalComments || 0;
+        if (previousCount > 0) {
+          changePercent = Math.round(((latestCount - previousCount) / previousCount) * 100);
+        }
+      }
+
+      return reply.send({
+        newComments24h: newComments24h || 0,
+        newCommentsChange: changePercent,
+        highPriorityToReply: highPriorityCount || 0,
+        repliesReady: repliesReadyCount || 0,
+        timeSavedMinutes
+      });
+    } catch (error: any) {
+      console.error('[me.ts] Error fetching dashboard stats:', error);
+      return reply.code(500).send({
+        error: 'Internal Server Error',
+        message: error.message
+      });
+    }
+  });
+
 }

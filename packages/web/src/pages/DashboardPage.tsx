@@ -7,6 +7,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import api from "@/lib/api";
 
 interface DashboardPageProps {
   plan: "free" | "pro";
@@ -16,6 +18,14 @@ const DashboardPage = ({ plan }: DashboardPageProps) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const hasYouTubeConnected = user?.hasYouTubeConnected || false;
+
+  // Fetch dashboard stats (only from user's own videos)
+  const { data: stats } = useQuery({
+    queryKey: ['dashboardStats'],
+    queryFn: () => api.getDashboardStats(),
+    enabled: hasYouTubeConnected,
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
 
   const handleConnectYouTube = () => {
     navigate("/connect");
@@ -50,24 +60,28 @@ const DashboardPage = ({ plan }: DashboardPageProps) => {
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <KpiCard
           label="New Comments (24h)"
-          value="482"
-          sublabel="+12% vs last video"
+          value={stats?.newComments24h?.toString() || "0"}
+          sublabel={
+            stats?.newCommentsChange
+              ? `${stats.newCommentsChange > 0 ? "+" : ""}${stats.newCommentsChange}% vs last video`
+              : "From your videos only"
+          }
         />
         <KpiCard
           label="High-Priority To Reply"
-          value="17"
+          value={stats?.highPriorityToReply?.toString() || "0"}
           sublabel="Most valuable fans & questions"
           tone="warning"
         />
         <KpiCard
           label="Replies Ready To Send"
-          value="17"
+          value={stats?.repliesReady?.toString() || "0"}
           sublabel="Drafted in your voice"
           tone="success"
         />
         <KpiCard
           label="Time Saved Today"
-          value="51 min"
+          value={stats?.timeSavedMinutes ? `${stats.timeSavedMinutes} min` : "0 min"}
           sublabel="via SmartBatch Reply"
         />
       </div>

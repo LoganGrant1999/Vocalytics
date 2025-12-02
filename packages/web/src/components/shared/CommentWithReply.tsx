@@ -9,6 +9,7 @@ interface CommentWithReplyProps {
   likes: number;
   originalText: string;
   sentiment?: "positive" | "negative";
+  canReply?: boolean;
 }
 
 const CommentWithReply = ({
@@ -17,6 +18,7 @@ const CommentWithReply = ({
   likes,
   originalText,
   sentiment,
+  canReply = false,
 }: CommentWithReplyProps) => {
   const [reply, setReply] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -65,62 +67,64 @@ const CommentWithReply = ({
       {/* Original comment */}
       <p className="text-sm leading-relaxed">{originalText}</p>
 
-      {/* Reply section */}
-      <div className="space-y-2 pt-2 border-t border-border/50">
-        {reply ? (
-          <>
-            <Textarea
-              value={reply}
-              onChange={(e) => setReply(e.target.value)}
-              className="min-h-[80px] resize-none"
-              placeholder="Edit your reply..."
-            />
-            <div className="flex gap-2">
-              <Button
-                onClick={handleGenerateReply}
-                variant="outline"
-                size="sm"
-                disabled={isGenerating}
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-3 h-3 mr-1" />
-                    Regenerate
-                  </>
-                )}
-              </Button>
-              <Button size="sm" className="bg-primary hover:bg-primary/90">
-                Approve & Send
-              </Button>
-            </div>
-          </>
-        ) : (
-          <Button
-            onClick={handleGenerateReply}
-            variant="outline"
-            size="sm"
-            disabled={isGenerating}
-            className="w-full"
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="w-3 h-3 mr-2 animate-spin" />
-                Generating reply...
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-3 h-3 mr-2" />
-                Generate Reply
-              </>
-            )}
-          </Button>
-        )}
-      </div>
+      {/* Reply section - only show for owned videos */}
+      {canReply && (
+        <div className="space-y-2 pt-2 border-t border-border/50">
+          {reply ? (
+            <>
+              <Textarea
+                value={reply}
+                onChange={(e) => setReply(e.target.value)}
+                className="min-h-[80px] resize-none"
+                placeholder="Edit your reply..."
+              />
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleGenerateReply}
+                  variant="outline"
+                  size="sm"
+                  disabled={isGenerating}
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3 h-3 mr-1" />
+                      Regenerate
+                    </>
+                  )}
+                </Button>
+                <Button size="sm" className="bg-primary hover:bg-primary/90">
+                  Approve & Send
+                </Button>
+              </div>
+            </>
+          ) : (
+            <Button
+              onClick={handleGenerateReply}
+              variant="outline"
+              size="sm"
+              disabled={isGenerating}
+              className="w-full"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                  Generating reply...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3 h-3 mr-2" />
+                  Generate Reply
+                </>
+              )}
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   );
 };

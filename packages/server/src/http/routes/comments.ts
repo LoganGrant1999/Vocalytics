@@ -254,71 +254,69 @@ export async function commentsRoutes(fastify: FastifyInstance) {
     try {
       const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-      // Check user tier
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('tier')
-        .eq('id', userId)
-        .single();
+      // Fetch from comment_scores table with filters (available for all users)
+      let query = supabase
+        .from('comment_scores')
+        .select('*')
+        .eq('user_id', userId);
 
-      const isPro = profile?.tier === 'pro';
+      // Apply filters
+      if (filter === 'high-priority') {
+        query = query.gte('priority_score', 40);
+      } else if (filter === 'negative') {
+        query = query.eq('sentiment', 'negative');
+      } else if (filter === 'unanswered') {
+        // Comments without AI replies (assume we'll track this later)
+        // For now, just return all
+      }
 
-      // For Pro users: fetch from comment_scores table with filters
-      if (isPro) {
-        let query = supabase
-          .from('comment_scores')
-          .select('*')
-          .eq('user_id', userId);
+      console.log(`[comments inbox] Querying user_id=${userId}, filter=${filter}`);
 
-        // Apply filters
-        if (filter === 'high-priority') {
-          query = query.gte('priority_score', 40);
-        } else if (filter === 'negative') {
-          query = query.eq('sentiment', 'negative');
-        } else if (filter === 'unanswered') {
-          // Comments without AI replies (assume we'll track this later)
-          // For now, just return all
-        }
+      const { data: scores, error } = await query
+        .order('priority_score', { ascending: false })
+        .limit(100);
 
-        const { data: scores, error } = await query
-          .order('priority_score', { ascending: false })
-          .limit(100);
+      if (error) {
+        console.error(`[comments inbox] Database error:`, error);
+        throw error;
+      }
 
-        if (error) throw error;
+      console.log(`[comments inbox] Found ${scores?.length || 0} comment scores for user ${userId}`);
+      if (scores && scores.length > 0) {
+        console.log(`[comments inbox] Sample score:`, JSON.stringify(scores[0], null, 2));
+      }
 
-        // Transform to frontend format
-        const comments = (scores || []).map((score: any) => ({
-          id: score.comment_id,
-          text: score.comment_text,
-          authorDisplayName: score.author_name,
-          likeCount: score.like_count,
-          publishedAt: score.published_at,
-          videoId: score.video_id,
-          videoTitle: '', // Will be populated from analysis table
-          priorityScore: score.priority_score,
-          reasons: score.reasons,
-          shouldAutoReply: score.should_auto_reply,
-          sentiment: score.sentiment
-        }));
+      // Transform to frontend format
+      const comments = (scores || []).map((score: any) => ({
+        id: score.comment_id,
+        text: score.comment_text,
+        authorDisplayName: score.author_name,
+        likeCount: score.like_count,
+        publishedAt: score.published_at,
+        videoId: score.video_id,
+        videoTitle: '', // Will be populated from user_videos table
+        priorityScore: score.priority_score,
+        reasons: score.reasons,
+        shouldAutoReply: score.should_auto_reply,
+        sentiment: score.sentiment
+      }));
 
-        // Fetch video titles for context
-        const videoIds = [...new Set(comments.map((c: any) => c.videoId))];
-        const { data: analyses } = await supabase
-          .from('analysis')
-          .select('video_id, video_title')
+      // Fetch video titles for context
+      const videoIds = [...new Set(comments.map((c: any) => c.videoId))];
+      if (videoIds.length > 0) {
+        const { data: videos } = await supabase
+          .from('user_videos')
+          .select('video_id, title')
           .eq('user_id', userId)
           .in('video_id', videoIds);
 
-        const videoTitles = new Map<string, string>((analyses || []).map((a: any) => [a.video_id, a.video_title]));
+        const videoTitles = new Map<string, string>((videos || []).map((v: any) => [v.video_id, v.title]));
         comments.forEach((c: any) => {
           c.videoTitle = videoTitles.get(c.videoId) || 'Unknown Video';
         });
-
-        return reply.send({ comments });
-      } else {
-        // Free users: return empty for now (would need YouTube API integration)
-        return reply.send({ comments: [] });
       }
+
+      return reply.send({ comments });
 
     } catch (error: any) {
       console.error('[comments.ts] Error fetching inbox:', error);

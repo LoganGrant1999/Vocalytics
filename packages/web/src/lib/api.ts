@@ -320,6 +320,14 @@ class ApiClient {
     });
   }
 
+  async getAnalysisProgress(videoId: string) {
+    return this.request<{
+      progress: number | null;
+      status?: string;
+      error?: string;
+    }>(`/analysis/${videoId}/progress`);
+  }
+
   async listAnalyses() {
     return this.request<
       Array<{
@@ -383,6 +391,16 @@ class ApiClient {
     }>('/me/usage');
   }
 
+  async getDashboardStats() {
+    return this.request<{
+      newComments24h: number;
+      newCommentsChange: number;
+      highPriorityToReply: number;
+      repliesReady: number;
+      timeSavedMinutes: number;
+    }>('/me/dashboard-stats');
+  }
+
   // ========================================
   // BILLING ENDPOINTS
   // ========================================
@@ -403,7 +421,60 @@ class ApiClient {
       method: 'POST',
     });
   }
+
+  async getCommentsInbox(filter?: 'high-priority' | 'negative' | 'unanswered') {
+    const params = filter ? `?filter=${filter}` : '';
+    return this.request<{
+      comments: Array<{
+        id: string;
+        text: string;
+        authorDisplayName: string;
+        likeCount: number;
+        publishedAt: string;
+        videoId: string;
+        videoTitle: string;
+        priorityScore: number;
+        reasons: string[];
+        shouldAutoReply: boolean;
+        sentiment: string;
+      }>;
+    }>(`/comments/inbox${params}`);
+  }
+
+  // ========================================
+  // TONE PROFILE ENDPOINTS
+  // ========================================
+
+  async getToneProfile() {
+    return this.request<{
+      tone: string;
+      emoji_usage: string;
+      avg_reply_length: string;
+      common_phrases: string[];
+      formality_level?: string;
+      common_emojis?: string[];
+      uses_name?: boolean;
+      asks_questions?: boolean;
+      uses_commenter_name?: boolean;
+    }>('/tone/profile');
+  }
+
+  async updateToneProfile(data: {
+    tone?: string;
+    emojiLevel?: number;
+    replyLength?: number;
+    phrases?: string;
+  }) {
+    return this.request<{
+      success: boolean;
+      profile: any;
+    }>('/tone/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
 }
 
-export const api = new ApiClient(API_BASE_URL);
+const api = new ApiClient(API_BASE_URL);
+
 export default api;

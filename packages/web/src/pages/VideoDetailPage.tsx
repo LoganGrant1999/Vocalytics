@@ -24,7 +24,7 @@ const VideoDetailPage = ({ plan }: VideoDetailPageProps) => {
     queryFn: () => api.getVideos({ mine: true, limit: 50 }),
   });
 
-  // Fetch video analysis
+  // Fetch video analysis with polling when analyzing
   const {
     data: analysis,
     isLoading: analysisLoading,
@@ -36,19 +36,52 @@ const VideoDetailPage = ({ plan }: VideoDetailPageProps) => {
     queryFn: () => api.getVideoAnalysis(videoId!),
     enabled: !!videoId,
     retry: false,
+    // Poll every 3 seconds when we're analyzing
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      // Stop polling once we have data
+      return data ? false : 3000;
+    },
   });
 
   // Auto-analyze on mount if no analysis exists
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [hasTriggeredAnalysis, setHasTriggeredAnalysis] = useState(false);
   const [analysisFailure, setAnalysisFailure] = useState<string | null>(null);
+  const [analysisProgress, setAnalysisProgress] = useState<{ progress: number; status: string } | null>(null);
 
   // Reset state when videoId changes
   React.useEffect(() => {
     setHasTriggeredAnalysis(false);
     setIsAnalyzing(false);
     setAnalysisFailure(null);
+    setAnalysisProgress(null);
   }, [videoId]);
+
+  // Poll progress while analyzing
+  React.useEffect(() => {
+    if (!videoId || !isAnalyzing) {
+      setAnalysisProgress(null);
+      return;
+    }
+
+    const pollProgress = async () => {
+      try {
+        const result = await api.getAnalysisProgress(videoId);
+        if (result.progress !== null && result.progress !== undefined) {
+          setAnalysisProgress({ progress: result.progress, status: result.status || '' });
+        }
+      } catch (error) {
+        console.error('[VideoDetailPage] Failed to fetch progress:', error);
+      }
+    };
+
+    // Poll immediately, then every 500ms
+    pollProgress();
+    const interval = setInterval(pollProgress, 500);
+
+    return () => clearInterval(interval);
+  }, [videoId, isAnalyzing]);
 
   const video = videos?.find((v) => v.videoId === videoId);
 
@@ -128,11 +161,24 @@ const VideoDetailPage = ({ plan }: VideoDetailPageProps) => {
           Back to Videos
         </Button>
         <div className="flex items-center justify-center py-12">
-          <div className="text-center">
+          <div className="text-center max-w-md w-full px-4">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground mb-4">
               {isAnalyzing ? "Analyzing comments..." : "Loading video details..."}
             </p>
+            {isAnalyzing && analysisProgress && (
+              <div className="space-y-2">
+                <div className="w-full bg-muted rounded-full h-2.5">
+                  <div
+                    className="bg-primary h-2.5 rounded-full transition-all duration-300"
+                    style={{ width: `${analysisProgress.progress}%` }}
+                  ></div>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {analysisProgress.progress}% - {analysisProgress.status}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -176,9 +222,22 @@ const VideoDetailPage = ({ plan }: VideoDetailPageProps) => {
           Back to Videos
         </Button>
         <div className="flex items-center justify-center py-12">
-          <div className="text-center">
+          <div className="text-center max-w-md w-full px-4">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Analyzing comments...</p>
+            <p className="text-muted-foreground mb-4">Analyzing comments...</p>
+            {analysisProgress && (
+              <div className="space-y-2">
+                <div className="w-full bg-muted rounded-full h-2.5">
+                  <div
+                    className="bg-primary h-2.5 rounded-full transition-all duration-300"
+                    style={{ width: `${analysisProgress.progress}%` }}
+                  ></div>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {analysisProgress.progress}% - {analysisProgress.status}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -282,9 +341,16 @@ const VideoDetailPage = ({ plan }: VideoDetailPageProps) => {
           {/* Thumbnail */}
           <div className="flex-shrink-0 w-64 h-36 rounded-xl overflow-hidden bg-muted">
             <img
-              src={video?.thumbnailUrl || "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=512&h=288&fit=crop"}
+              src={video?.thumbnailUrl || `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`}
               alt={video?.title || "Video"}
               className="w-full h-full object-cover"
+              onError={(e) => {
+                // Fallback to medium quality if maxresdefault doesn't exist
+                const target = e.target as HTMLImageElement;
+                if (target.src.includes('maxresdefault')) {
+                  target.src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+                }
+              }}
             />
           </div>
 
@@ -375,6 +441,7 @@ const VideoDetailPage = ({ plan }: VideoDetailPageProps) => {
                   likes={comment.likeCount ?? 0}
                   originalText={comment.text}
                   sentiment="positive"
+                  canReply={!!video}
                 />
               );
             })}
@@ -397,6 +464,7 @@ const VideoDetailPage = ({ plan }: VideoDetailPageProps) => {
                 likes={comment.likeCount}
                 originalText={comment.text}
                 sentiment="negative"
+                canReply={!!video}
               />
             ))}
           </div>
