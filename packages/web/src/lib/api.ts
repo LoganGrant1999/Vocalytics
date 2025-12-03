@@ -48,6 +48,7 @@ class ApiClient {
 
       if (!response.ok) {
         const error = data as ApiError;
+        console.log('[API Client] Error response:', { status: response.status, data, error });
         throw new Error(error.message || error.error || `HTTP ${response.status}`);
       }
 

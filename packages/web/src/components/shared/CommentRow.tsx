@@ -1,4 +1,3 @@
-import { useState, useEffect } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,8 @@ interface CommentRowProps {
   draftedReply: string;
   approved?: boolean;
   onDismiss?: () => void;
+  onApprovalChange?: (approved: boolean) => void;
+  onReplyChange?: (reply: string) => void;
 }
 
 const CommentRow = ({
@@ -22,16 +23,11 @@ const CommentRow = ({
   badges,
   originalText,
   draftedReply,
-  approved: initialApproved = false,
+  approved = false,
   onDismiss,
+  onApprovalChange,
+  onReplyChange,
 }: CommentRowProps) => {
-  const [approved, setApproved] = useState(initialApproved);
-  const [reply, setReply] = useState(draftedReply);
-
-  // Update reply state when draftedReply prop changes
-  useEffect(() => {
-    setReply(draftedReply);
-  }, [draftedReply]);
 
   return (
     <div className="border-b border-border py-6 first:pt-0 last:border-b-0">
@@ -59,10 +55,10 @@ const CommentRow = ({
           AI-Drafted Reply
         </label>
         <Textarea
-          value={reply}
-          onChange={(e) => setReply(e.target.value)}
+          value={draftedReply}
+          onChange={(e) => onReplyChange?.(e.target.value)}
           className="min-h-[80px] resize-none bg-secondary/50 border-border"
-          placeholder={reply ? "" : "Generating reply..."}
+          placeholder={draftedReply ? "" : "Generating reply..."}
         />
       </div>
 
@@ -72,7 +68,7 @@ const CommentRow = ({
           <Checkbox
             id={`approve-${commenterHandle}`}
             checked={approved}
-            onCheckedChange={(checked) => setApproved(checked as boolean)}
+            onCheckedChange={(checked) => onApprovalChange?.(checked as boolean)}
           />
           <label
             htmlFor={`approve-${commenterHandle}`}

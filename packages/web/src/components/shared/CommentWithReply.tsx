@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2, Sparkles, Crown } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 
 interface CommentWithReplyProps {
@@ -30,11 +31,13 @@ const CommentWithReply = ({
   videoId,
   postedReply = null,
 }: CommentWithReplyProps) => {
+  const navigate = useNavigate();
   const [reply, setReply] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
   const [isPosted, setIsPosted] = useState(!!postedReply);
   const [error, setError] = useState<string | null>(null);
+  const [needsUpgrade, setNeedsUpgrade] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const handleGenerateReply = async () => {
@@ -73,6 +76,7 @@ const CommentWithReply = ({
 
     setIsPosting(true);
     setError(null);
+    setNeedsUpgrade(false);
     setSuccessMessage(null);
 
     try {
@@ -89,7 +93,15 @@ const CommentWithReply = ({
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
       console.error("Failed to post reply:", err);
-      setError(err instanceof Error ? err.message : "Failed to post reply");
+      const errorMessage = err instanceof Error ? err.message : "Failed to post reply";
+
+      // Check if it's a 402 payment required error
+      if (errorMessage.includes("402") || errorMessage.toLowerCase().includes("pro") || errorMessage.toLowerCase().includes("upgrade")) {
+        setNeedsUpgrade(true);
+        setError("This feature requires a Pro subscription. Upgrade now to post replies!");
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setIsPosting(false);
     }
@@ -128,7 +140,19 @@ const CommentWithReply = ({
       {canReply && !isPosted && (
         <div className="space-y-2 pt-2 border-t border-border/50">
           {error && (
-            <div className="text-xs text-destructive">{error}</div>
+            <div className="space-y-2">
+              <div className="text-xs text-destructive">{error}</div>
+              {needsUpgrade && (
+                <Button
+                  onClick={() => navigate("/app/billing")}
+                  size="sm"
+                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                >
+                  <Crown className="w-3 h-3 mr-1" />
+                  Upgrade to Pro
+                </Button>
+              )}
+            </div>
           )}
           {successMessage && (
             <div className="text-xs text-success">{successMessage}</div>

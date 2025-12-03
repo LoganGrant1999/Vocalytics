@@ -34,12 +34,6 @@ const DashboardPage = ({ plan }: DashboardPageProps) => {
   if (!hasYouTubeConnected) {
     return (
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
-          <p className="text-muted-foreground">
-            Your engagement control center
-          </p>
-        </div>
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
@@ -61,28 +55,20 @@ const DashboardPage = ({ plan }: DashboardPageProps) => {
         <KpiCard
           label="New Comments (24h)"
           value={stats?.newComments24h?.toString() || "0"}
-          sublabel={
-            stats?.newCommentsChange
-              ? `${stats.newCommentsChange > 0 ? "+" : ""}${stats.newCommentsChange}% vs last video`
-              : "From your videos only"
-          }
         />
         <KpiCard
           label="High-Priority To Reply"
           value={stats?.highPriorityToReply?.toString() || "0"}
-          sublabel="Most valuable fans & questions"
           tone="warning"
         />
         <KpiCard
           label="Replies Ready To Send"
           value={stats?.repliesReady?.toString() || "0"}
-          sublabel="Drafted in your voice"
           tone="success"
         />
         <KpiCard
           label="Time Saved Today"
           value={stats?.timeSavedMinutes ? `${stats.timeSavedMinutes} min` : "0 min"}
-          sublabel="time saved by Vocalytics Pro"
         />
       </div>
       {/* TODO: GET /api/youtube/comments + POST /api/analyze-comments */}

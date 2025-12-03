@@ -2,7 +2,6 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';
 import { zAnalysisResult, zTrendPoint } from '../../schemas.js';
-import { enforceAnalyze } from '../paywall.js';
 import { fetchComments, analyzeComments } from '../../tools.js';
 import { generateCommentSummary } from '../../llm.js';
 import { insertAnalysis, getLatestAnalysis, listLatestAnalysesPerVideo, getTrends } from '../../db/analyses.js';
@@ -89,21 +88,8 @@ export default async function route(app: FastifyInstance) {
       // Initialize progress tracking
       updateProgress(videoId, 0, 'Starting analysis...');
 
-      // In development mode, skip paywall enforcement for testing
-      // In production, enforce paywall and quotas
-      const isDev = process.env.NODE_ENV !== 'production';
-
-      if (!isDev) {
-        const enforcement = await enforceAnalyze({
-          userDbId: userId,
-          incrementBy: 1,
-        });
-
-        if (!enforcement.allowed) {
-          setProgressError(videoId, 'Payment required');
-          return reply.code(402).send('error' in enforcement ? enforcement.error : { error: 'Payment required' });
-        }
-      }
+      // Video analysis is now available to all users (free and pro)
+      // No paywall enforcement needed
 
       // ============================================================================
       // Phase 1: Determine Video Size & Select Fetching Strategy

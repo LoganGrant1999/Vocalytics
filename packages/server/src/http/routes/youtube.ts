@@ -2,6 +2,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { createClient } from '@supabase/supabase-js';
 import { createOAuth2Client, getAuthedYouTubeForUser } from '../../lib/google.js';
 import { generateToken } from '../../lib/jwt.js';
+import { isPro } from '../paywall.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -336,6 +337,37 @@ export async function youtubeRoutes(fastify: FastifyInstance) {
     if (!userId) {
       return reply.code(401).send({ error: 'Unauthorized' });
     }
+
+    // Check if user is pro - only pro users can post replies
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, tier, subscription_status, subscribed_until')
+      .eq('id', userId)
+      .single();
+
+    console.log('[youtube.ts] POST /youtube/reply - User ID:', userId);
+    console.log('[youtube.ts] Profile data:', profile);
+    console.log('[youtube.ts] Profile error:', profileError);
+
+    if (profileError || !profile) {
+      console.log('[youtube.ts] Failed to fetch profile, returning 500');
+      return reply.code(500).send({ error: 'Failed to fetch user profile' });
+    }
+
+    const isUserPro = isPro(profile);
+    console.log('[youtube.ts] isPro() result:', isUserPro);
+
+    if (!isUserPro) {
+      console.log('[youtube.ts] User is not pro, returning 402');
+      return reply.code(402).send({
+        error: 'Pro Subscription Required',
+        message: 'Only Pro users can post replies. Please upgrade to continue.',
+        upgradeUrl: '/app/billing',
+      });
+    }
+
+    console.log('[youtube.ts] User is pro, proceeding with reply post');
 
     // Rate limit check
     if (!checkRateLimit(userId)) {

@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { Crown } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import CommentRow from "./CommentRow";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
@@ -9,8 +11,12 @@ interface PriorityQueueCardProps {
 }
 
 const PriorityQueueCard = ({ plan }: PriorityQueueCardProps) => {
+  const navigate = useNavigate();
   const [replies, setReplies] = useState<Record<string, string>>({});
+  const [approvedComments, setApprovedComments] = useState<Record<string, boolean>>({});
   const [isGeneratingReplies, setIsGeneratingReplies] = useState(false);
+  const [isSendingReplies, setIsSendingReplies] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   // Fetch high-priority comments
@@ -93,8 +99,60 @@ const PriorityQueueCard = ({ plan }: PriorityQueueCardProps) => {
     }
   };
 
-  const handleSendAll = () => {
-    console.log("TODO: batch POST /api/youtube/reply");
+  const handleSendAll = async () => {
+    // Get all approved comments
+    const approvedCommentIds = Object.keys(approvedComments).filter(
+      (id) => approvedComments[id]
+    );
+
+    if (approvedCommentIds.length === 0) {
+      console.log("No comments approved");
+      return;
+    }
+
+    setIsSendingReplies(true);
+    setSendError(null);
+
+    try {
+      // Post each approved reply
+      const postPromises = approvedCommentIds.map(async (commentId) => {
+        const comment = comments.find((c) => c.id === commentId);
+        if (!comment || !replies[commentId]) {
+          console.error(`Comment ${commentId} not found or no reply available`);
+          return;
+        }
+
+        return api.postReply({
+          parentId: commentId,
+          text: replies[commentId],
+          videoId: comment.videoId,
+        });
+      });
+
+      await Promise.all(postPromises);
+
+      console.log(`Successfully posted ${approvedCommentIds.length} replies`);
+
+      // Clear approved comments after sending
+      setApprovedComments({});
+
+      // Refetch the inbox to update the UI
+      refetch();
+      // Invalidate dashboard stats to update counts
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+    } catch (error) {
+      console.error("Failed to send replies:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to send replies";
+
+      // Check if it's a 402 payment required error
+      if (errorMessage.includes("402") || errorMessage.toLowerCase().includes("pro") || errorMessage.toLowerCase().includes("upgrade")) {
+        setSendError("Pro subscription required to post replies.");
+      } else {
+        setSendError(errorMessage);
+      }
+    } finally {
+      setIsSendingReplies(false);
+    }
   };
 
   const handleDismiss = async (commentId: string) => {
@@ -156,16 +214,40 @@ const PriorityQueueCard = ({ plan }: PriorityQueueCardProps) => {
 
         <Button
           onClick={handleSendAll}
-          disabled={plan === "free" || comments.length === 0}
+          disabled={
+            isSendingReplies ||
+            Object.values(approvedComments).filter(Boolean).length === 0
+          }
           className="bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {plan === "free" ? "Send All (Pro only)" : "Send All Approved"}
+          {isSendingReplies
+            ? "Sending..."
+            : Object.values(approvedComments).filter(Boolean).length > 0
+            ? `Send ${Object.values(approvedComments).filter(Boolean).length} Approved`
+            : "Send All Approved"}
         </Button>
       </div>
 
       <p className="text-sm text-muted-foreground mb-6">
         We pull the comments that matter most. You approve the replies. We send them for you.
       </p>
+
+      {/* Error message */}
+      {sendError && (
+        <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+          <div className="text-sm text-destructive mb-2">{sendError}</div>
+          {sendError.toLowerCase().includes("pro") && (
+            <Button
+              onClick={() => navigate("/app/billing")}
+              size="sm"
+              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+            >
+              <Crown className="w-3 h-3 mr-1" />
+              Upgrade to Pro
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* Loading state */}
       {isLoading && (
@@ -209,6 +291,19 @@ const PriorityQueueCard = ({ plan }: PriorityQueueCardProps) => {
                 badges={generateBadges(comment.reasons)}
                 originalText={comment.text}
                 draftedReply={replies[comment.id] || ""}
+                approved={approvedComments[comment.id] || false}
+                onApprovalChange={(approved) => {
+                  setApprovedComments((prev) => ({
+                    ...prev,
+                    [comment.id]: approved,
+                  }));
+                }}
+                onReplyChange={(reply) => {
+                  setReplies((prev) => ({
+                    ...prev,
+                    [comment.id]: reply,
+                  }));
+                }}
                 onDismiss={() => handleDismiss(comment.id)}
               />
             ))}

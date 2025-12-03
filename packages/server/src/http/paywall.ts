@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { tryConsumeAnalyze, tryConsumeReply } from '../db/usage.js';
+import { tryConsumeAnalyze } from '../db/usage.js';
 import { getCaps, getPublicUrls } from '../config/env.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL!;
@@ -138,7 +138,7 @@ export async function enforceReply(params: {
   userDbId: string;
   incrementBy: number;
 }): Promise<{ allowed: true } | { allowed: false; error: PaywallError }> {
-  const { userDbId, incrementBy } = params;
+  const { userDbId } = params;
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
@@ -155,47 +155,30 @@ export async function enforceReply(params: {
     throw new Error(`User not found: ${userDbId}`);
   }
 
-  // Pro users always allowed (no quota tracking needed)
+  // Only pro users can post replies - no quota, strict tier check
   if (isPro(profile)) {
     return { allowed: true };
   }
 
-  // Try to atomically consume quota for free tier
+  // Free users are not allowed to post replies
   const caps = getCaps();
-  const result = await tryConsumeReply({
-    userDbId,
-    cap: caps.dailyReply,
-    incrementBy
-  });
-
-  if (!result.allowed) {
-    // Get current counts for error message
-    const { data: currentProfile } = await supabase
-      .from('profiles')
-      .select('comments_analyzed_count, replies_generated_count')
-      .eq('id', userDbId)
-      .single();
-
-    const urls = getPublicUrls();
-    return {
-      allowed: false,
-      error: {
-        code: 'PAYWALL',
-        reason: 'FREE_TIER_EXCEEDED',
-        feature: 'reply',
-        upgradeUrl: urls.pricingUrl,
-        manageUrl: urls.billingUrl,
-        limits: {
-          weeklyAnalyze: caps.weeklyAnalyze,
-          dailyReply: caps.dailyReply
-        },
-        usage: {
-          commentsAnalyzed: currentProfile?.comments_analyzed_count ?? 0,
-          repliesGenerated: currentProfile?.replies_generated_count ?? 0
-        }
+  const urls = getPublicUrls();
+  return {
+    allowed: false,
+    error: {
+      code: 'PAYWALL',
+      reason: 'FREE_TIER_EXCEEDED',
+      feature: 'reply',
+      upgradeUrl: urls.pricingUrl,
+      manageUrl: urls.billingUrl,
+      limits: {
+        weeklyAnalyze: caps.weeklyAnalyze,
+        dailyReply: caps.dailyReply
+      },
+      usage: {
+        commentsAnalyzed: 0,
+        repliesGenerated: 0
       }
-    };
-  }
-
-  return { allowed: true };
+    }
+  };
 }

@@ -1,6 +1,5 @@
 import { FastifyInstance } from 'fastify';
 import { generateReplies } from '../../tools.js';
-import { enforceReply } from '../paywall.js';
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL!;
@@ -64,23 +63,9 @@ export async function generateRepliesRoute(fastify: FastifyInstance) {
         console.log('[generate-replies] No tone profile found for user');
       }
 
-      // Generate replies for each comment (enforce quota per reply)
+      // Generate replies for each comment (no paywall - all users can generate)
       const replies = [];
       for (const comment of comments) {
-        // Enforce paywall for each reply (atomic increment by 1)
-        const enforcement = await enforceReply({
-          userDbId: auth.userDbId,
-          incrementBy: 1
-        });
-
-        if (!enforcement.allowed) {
-          // If quota exceeded, return what we have so far
-          if (replies.length > 0) {
-            break; // Return partial results
-          } else {
-            return reply.code(402).send('error' in enforcement ? enforcement.error : { error: 'Payment required' });
-          }
-        }
         const result = await generateReplies(
           { id: comment.comment_id, text: comment.comment_text },
           [tone || 'friendly'],

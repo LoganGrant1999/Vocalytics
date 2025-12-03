@@ -1,7 +1,7 @@
 import { Menu, LogOut } from "lucide-react";
 import ChannelStatusBadge from "./ChannelStatusBadge";
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 interface HeaderBarProps {
   channelName: string;
@@ -11,11 +11,37 @@ interface HeaderBarProps {
 
 const HeaderBar = ({ channelName, hasYouTubeConnected, onMenuClick }: HeaderBarProps) => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = () => {
     console.log("TODO: POST /api/auth/logout");
     navigate("/");
   };
+
+  // Map routes to page titles and descriptions
+  const getPageInfo = () => {
+    const path = location.pathname;
+
+    if (path === "/app/dashboard") {
+      return { title: "Dashboard", subtitle: "Your engagement control center" };
+    } else if (path === "/app/comments") {
+      return { title: "Comments", subtitle: "Manage your YouTube comments" };
+    } else if (path === "/app/videos") {
+      return { title: "Videos", subtitle: "Analyze your video performance" };
+    } else if (path.startsWith("/app/video/")) {
+      return { title: "Video Details", subtitle: "Analyze comments and engagement" };
+    } else if (path === "/app/voice") {
+      return { title: "Voice Profile", subtitle: "Customize your AI reply tone" };
+    } else if (path === "/app/billing") {
+      return { title: "Billing", subtitle: "Manage your subscription" };
+    } else if (path === "/app/settings") {
+      return { title: "Settings", subtitle: "Configure your account" };
+    }
+
+    return { title: "Dashboard", subtitle: "Your engagement control center" };
+  };
+
+  const pageInfo = getPageInfo();
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -31,8 +57,8 @@ const HeaderBar = ({ channelName, hasYouTubeConnected, onMenuClick }: HeaderBarP
             <Menu className="h-5 w-5" />
           </Button>
           <div>
-            <h2 className="text-lg font-semibold">Dashboard</h2>
-            <p className="text-xs text-muted-foreground">Your engagement control center</p>
+            <h2 className="text-lg font-semibold">{pageInfo.title}</h2>
+            <p className="text-xs text-muted-foreground">{pageInfo.subtitle}</p>
           </div>
         </div>
 
