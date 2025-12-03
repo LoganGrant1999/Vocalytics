@@ -24,6 +24,11 @@ const WINDOW_MS = 60_000; // 1 minute
  */
 export function createRateLimiter(maxRequests: number = DEFAULT_RATE_LIMIT) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
+    // Skip rate limiting in development mode
+    if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV !== 'production') {
+      return;
+    }
+
     // Build key from user ID (if authenticated) + IP
     const userId = (request as any).auth?.userId || (request as any).auth?.userDbId;
     const ip = request.ip || request.headers['x-forwarded-for'] || 'unknown';

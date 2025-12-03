@@ -7,7 +7,7 @@ import { fetchComments, analyzeComments } from '../../tools.js';
 import { generateCommentSummary } from '../../llm.js';
 import { insertAnalysis, getLatestAnalysis, listLatestAnalysesPerVideo, getTrends } from '../../db/analyses.js';
 import { getUserVideo } from '../../db/videos.js';
-import { getVideoStatsAuthed, getAuthedYouTubeForUser } from '../../lib/google.js';
+import { getVideoStatsAuthed, getAuthedYouTubeForUser, getUnauthenticatedYouTube } from '../../lib/google.js';
 
 const pSchema = z.object({ videoId: z.string() });
 const trendsQuerySchema = z.object({
@@ -110,8 +110,24 @@ export default async function route(app: FastifyInstance) {
       // ============================================================================
       updateProgress(videoId, 5, 'Checking video size...');
 
-      // Fetch video statistics and channel info to determine comment count and ownership
-      const yt = await getAuthedYouTubeForUser(userId);
+      // Try to get authenticated YouTube client first, fall back to unauthenticated
+      let yt: any;
+      let isAuthenticated = true;
+      let isOwnVideo = false;
+      let userChannelId: string | undefined;
+
+      try {
+        yt = await getAuthedYouTubeForUser(userId);
+        console.log(`[analysis] Using authenticated YouTube API for user ${userId}`);
+      } catch (err: any) {
+        if (err.code === 'YOUTUBE_NOT_CONNECTED') {
+          console.log(`[analysis] YouTube not connected for user ${userId}, using unauthenticated API`);
+          yt = getUnauthenticatedYouTube();
+          isAuthenticated = false;
+        } else {
+          throw err;
+        }
+      }
 
       // Get video details (stats + snippet for channel ID)
       const videoResponse = await yt.videos.list({
@@ -123,16 +139,18 @@ export default async function route(app: FastifyInstance) {
       const videoCommentCount = videoData?.statistics?.commentCount ? Number(videoData.statistics.commentCount) : 0;
       const videoChannelId = videoData?.snippet?.channelId;
 
-      // Get user's own channel ID
-      const channelsResponse = await yt.channels.list({
-        part: ['id'],
-        mine: true,
-      });
-      const userChannelId = channelsResponse.data.items?.[0]?.id;
-
-      // Determine if this video belongs to the user
-      const isOwnVideo = videoChannelId && userChannelId && videoChannelId === userChannelId;
-      console.log(`[analysis] Video ownership check: videoChannel=${videoChannelId}, userChannel=${userChannelId}, isOwn=${isOwnVideo}`);
+      // If authenticated, check if this is the user's own video
+      if (isAuthenticated) {
+        const channelsResponse = await yt.channels.list({
+          part: ['id'],
+          mine: true,
+        });
+        userChannelId = channelsResponse.data.items?.[0]?.id;
+        isOwnVideo = videoChannelId && userChannelId && videoChannelId === userChannelId;
+        console.log(`[analysis] Video ownership check: videoChannel=${videoChannelId}, userChannel=${userChannelId}, isOwn=${isOwnVideo}`);
+      } else {
+        console.log(`[analysis] Unauthenticated mode: cannot determine video ownership`);
+      }
 
       // Determine if this is a large video requiring the fast path
       const isLargeVideo = videoCommentCount > LARGE_VIDEO_COMMENT_THRESHOLD;
@@ -339,8 +357,9 @@ export default async function route(app: FastifyInstance) {
       }
 
       // Get top positive and negative comments with full metadata (sorted by likes)
+      // Only include top-level comments (exclude replies which have dots in the ID)
       const positiveComments = analysis
-        .filter((a) => a.category === 'positive')
+        .filter((a) => a.category === 'positive' && !a.commentId.includes('.'))
         .map((a) => {
           const comment = comments.find((c) => c.id === a.commentId);
           return {
@@ -360,7 +379,7 @@ export default async function route(app: FastifyInstance) {
         .slice(0, 5);
 
       const negativeComments = analysis
-        .filter((a) => a.category === 'negative')
+        .filter((a) => a.category === 'negative' && !a.commentId.includes('.'))
         .map((a) => {
           const comment = comments.find((c) => c.id === a.commentId);
           return {
@@ -579,13 +598,30 @@ export default async function route(app: FastifyInstance) {
         console.log('[analysis GET] Using existing categoryCounts:', categoryCounts);
       }
 
+      // Fetch posted replies for this user and video
+      const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+      const { data: postedReplies } = await supabase
+        .from('posted_replies')
+        .select('comment_id, reply_text, posted_at')
+        .eq('user_id', userId)
+        .eq('video_id', videoId);
+
+      // Create a map of commentId -> reply info for quick lookup
+      const repliesMap = new Map(
+        (postedReplies || []).map(r => [r.comment_id, { replyText: r.reply_text, postedAt: r.posted_at }])
+      );
+
       // Ensure topPositive and topNegative have all required fields (for older analyses)
-      const ensureCommentFields = (comment: any) => ({
-        ...comment,
-        author: comment.author || 'Anonymous',
-        publishedAt: comment.publishedAt || new Date().toISOString(),
-        likeCount: comment.likeCount || 0,
-      });
+      const ensureCommentFields = (comment: any) => {
+        const postedReply = repliesMap.get(comment.commentId);
+        return {
+          ...comment,
+          author: comment.author || 'Anonymous',
+          publishedAt: comment.publishedAt || new Date().toISOString(),
+          likeCount: comment.likeCount || 0,
+          postedReply: postedReply || null,
+        };
+      };
 
       const result: any = {
         videoId: row.video_id,

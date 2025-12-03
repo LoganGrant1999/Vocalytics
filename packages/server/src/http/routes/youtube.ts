@@ -345,7 +345,7 @@ export async function youtubeRoutes(fastify: FastifyInstance) {
       });
     }
 
-    const { parentId, text } = request.body as any;
+    const { parentId, text, videoId } = request.body as any;
 
     if (!parentId || !text) {
       return reply.code(400).send({
@@ -353,6 +353,11 @@ export async function youtubeRoutes(fastify: FastifyInstance) {
         message: 'parentId and text are required',
       });
     }
+
+    // Extract the top-level comment thread ID (before the dot if it exists)
+    // YouTube comment IDs: "Ugw..." (thread) or "Ugw....xxxxx" (reply)
+    // When replying, we always need just the thread ID
+    const threadId = parentId.includes('.') ? parentId.split('.')[0] : parentId;
 
     // Enforce 220 character limit (YouTube comment max)
     const trimmedText = text.slice(0, 220);
@@ -364,11 +369,24 @@ export async function youtubeRoutes(fastify: FastifyInstance) {
         part: ['snippet'],
         requestBody: {
           snippet: {
-            parentId,
+            parentId: threadId,
             textOriginal: trimmedText,
           },
         },
       });
+
+      // Track this reply in the database
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+      if (videoId) {
+        await supabase.from('posted_replies').upsert({
+          user_id: userId,
+          comment_id: parentId,
+          video_id: videoId,
+          reply_text: trimmedText,
+        }, {
+          onConflict: 'user_id,comment_id'
+        });
+      }
 
       return reply.send({
         success: true,

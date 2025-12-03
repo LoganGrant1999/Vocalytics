@@ -82,7 +82,7 @@ const DashboardPage = ({ plan }: DashboardPageProps) => {
         <KpiCard
           label="Time Saved Today"
           value={stats?.timeSavedMinutes ? `${stats.timeSavedMinutes} min` : "0 min"}
-          sublabel="via SmartBatch Reply"
+          sublabel="time saved by Vocalytics Pro"
         />
       </div>
       {/* TODO: GET /api/youtube/comments + POST /api/analyze-comments */}

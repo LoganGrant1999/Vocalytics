@@ -199,7 +199,7 @@ class ApiClient {
     }>(`/youtube/public-comments?${query}`);
   }
 
-  async postReply(data: { parentId: string; text: string }) {
+  async postReply(data: { parentId: string; text: string; videoId?: string }) {
     return this.request<{
       success: boolean;
       comment: any;
@@ -440,6 +440,16 @@ class ApiClient {
         suggestedReply?: string | null;
       }>;
     }>(`/comments/inbox${params}`);
+  }
+
+  async dismissComment(commentId: string) {
+    console.log('[API] dismissComment called with commentId:', commentId);
+    console.log('[API] Making POST request to:', `/comments/${commentId}/dismiss`);
+    const result = await this.request<{ success: boolean }>(`/comments/${commentId}/dismiss`, {
+      method: 'POST',
+    });
+    console.log('[API] dismissComment result:', result);
+    return result;
   }
 
   // ========================================

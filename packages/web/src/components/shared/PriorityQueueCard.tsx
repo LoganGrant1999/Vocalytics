@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import CommentRow from "./CommentRow";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 
 interface PriorityQueueCardProps {
@@ -11,9 +11,10 @@ interface PriorityQueueCardProps {
 const PriorityQueueCard = ({ plan }: PriorityQueueCardProps) => {
   const [replies, setReplies] = useState<Record<string, string>>({});
   const [isGeneratingReplies, setIsGeneratingReplies] = useState(false);
+  const queryClient = useQueryClient();
 
   // Fetch high-priority comments
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ['commentsInbox', 'high-priority'],
     queryFn: () => api.getCommentsInbox('high-priority'),
     refetchInterval: 30000, // Refresh every 30 seconds
@@ -94,6 +95,22 @@ const PriorityQueueCard = ({ plan }: PriorityQueueCardProps) => {
 
   const handleSendAll = () => {
     console.log("TODO: batch POST /api/youtube/reply");
+  };
+
+  const handleDismiss = async (commentId: string) => {
+    console.log('[DEBUG] handleDismiss called with commentId:', commentId);
+    try {
+      console.log('[DEBUG] Calling API dismissComment...');
+      const result = await api.dismissComment(commentId);
+      console.log('[DEBUG] API call successful, result:', result);
+      // Refetch the inbox to update the UI
+      refetch();
+      // Invalidate dashboard stats to update counts
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+      console.log('[DEBUG] Queries invalidated');
+    } catch (error) {
+      console.error('[DEBUG] Failed to dismiss comment:', error);
+    }
   };
 
   // Helper to format timestamp
@@ -192,6 +209,7 @@ const PriorityQueueCard = ({ plan }: PriorityQueueCardProps) => {
                 badges={generateBadges(comment.reasons)}
                 originalText={comment.text}
                 draftedReply={replies[comment.id] || ""}
+                onDismiss={() => handleDismiss(comment.id)}
               />
             ))}
           </div>

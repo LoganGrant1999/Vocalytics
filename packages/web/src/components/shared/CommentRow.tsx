@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { X } from "lucide-react";
 
 interface CommentRowProps {
   commenterHandle: string;
@@ -10,6 +12,7 @@ interface CommentRowProps {
   originalText: string;
   draftedReply: string;
   approved?: boolean;
+  onDismiss?: () => void;
 }
 
 const CommentRow = ({
@@ -20,6 +23,7 @@ const CommentRow = ({
   originalText,
   draftedReply,
   approved: initialApproved = false,
+  onDismiss,
 }: CommentRowProps) => {
   const [approved, setApproved] = useState(initialApproved);
   const [reply, setReply] = useState(draftedReply);
@@ -62,19 +66,32 @@ const CommentRow = ({
         />
       </div>
 
-      {/* Approve checkbox */}
-      <div className="flex items-center gap-2">
-        <Checkbox
-          id={`approve-${commenterHandle}`}
-          checked={approved}
-          onCheckedChange={(checked) => setApproved(checked as boolean)}
-        />
-        <label
-          htmlFor={`approve-${commenterHandle}`}
-          className="text-sm font-medium cursor-pointer"
-        >
-          Approve reply
-        </label>
+      {/* Approve checkbox and Dismiss button */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id={`approve-${commenterHandle}`}
+            checked={approved}
+            onCheckedChange={(checked) => setApproved(checked as boolean)}
+          />
+          <label
+            htmlFor={`approve-${commenterHandle}`}
+            className="text-sm font-medium cursor-pointer"
+          >
+            Approve reply
+          </label>
+        </div>
+        {onDismiss && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onDismiss}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <X className="w-4 h-4 mr-1" />
+            Dismiss
+          </Button>
+        )}
       </div>
     </div>
   );

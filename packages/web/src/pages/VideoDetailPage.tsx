@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, AlertCircle, RefreshCw } from "lucide-react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import SentimentPill from "@/components/shared/SentimentPill";
 import SentimentChart from "@/components/shared/SentimentChart";
@@ -17,11 +17,17 @@ interface VideoDetailPageProps {
 const VideoDetailPage = ({ plan }: VideoDetailPageProps) => {
   const navigate = useNavigate();
   const { id: videoId } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
 
-  // Fetch video metadata
+  // Fetch video metadata (optional - may fail if YouTube not connected)
   const { data: videos, isLoading: videosLoading } = useQuery({
     queryKey: ["videos"],
     queryFn: () => api.getVideos({ mine: true, limit: 50 }),
+    retry: false,
+    // Don't throw errors if YouTube not connected - we can still show analysis
+    onError: (error) => {
+      console.log('[VideoDetailPage] Failed to fetch videos (expected if YouTube not connected):', error);
+    },
   });
 
   // Fetch video analysis with polling when analyzing
@@ -45,18 +51,20 @@ const VideoDetailPage = ({ plan }: VideoDetailPageProps) => {
   });
 
   // Auto-analyze on mount if no analysis exists
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [hasTriggeredAnalysis, setHasTriggeredAnalysis] = useState(false);
+  // Check if we're coming from VideoAnalysisInput with ?analyzing=true
+  const [isAnalyzing, setIsAnalyzing] = useState(searchParams.get('analyzing') === 'true');
+  const [hasTriggeredAnalysis, setHasTriggeredAnalysis] = useState(searchParams.get('analyzing') === 'true');
   const [analysisFailure, setAnalysisFailure] = useState<string | null>(null);
   const [analysisProgress, setAnalysisProgress] = useState<{ progress: number; status: string } | null>(null);
 
   // Reset state when videoId changes
   React.useEffect(() => {
-    setHasTriggeredAnalysis(false);
-    setIsAnalyzing(false);
+    const isAnalyzingParam = searchParams.get('analyzing') === 'true';
+    setHasTriggeredAnalysis(isAnalyzingParam);
+    setIsAnalyzing(isAnalyzingParam);
     setAnalysisFailure(null);
     setAnalysisProgress(null);
-  }, [videoId]);
+  }, [videoId, searchParams]);
 
   // Poll progress while analyzing
   React.useEffect(() => {
@@ -70,18 +78,34 @@ const VideoDetailPage = ({ plan }: VideoDetailPageProps) => {
         const result = await api.getAnalysisProgress(videoId);
         if (result.progress !== null && result.progress !== undefined) {
           setAnalysisProgress({ progress: result.progress, status: result.status || '' });
+
+          // If progress reaches 100%, stop analyzing and refetch
+          if (result.progress >= 100) {
+            console.log('[VideoDetailPage] Analysis complete, stopping progress poll');
+            setIsAnalyzing(false);
+            refetchAnalysis();
+          }
+        } else {
+          // No progress data means analysis is complete or not started
+          // Check if analysis exists
+          refetchAnalysis().then(({ data }) => {
+            if (data) {
+              console.log('[VideoDetailPage] Analysis found, stopping progress poll');
+              setIsAnalyzing(false);
+            }
+          });
         }
       } catch (error) {
         console.error('[VideoDetailPage] Failed to fetch progress:', error);
       }
     };
 
-    // Poll immediately, then every 500ms
+    // Poll immediately, then every 1 second (reduced from 500ms to avoid rate limits)
     pollProgress();
-    const interval = setInterval(pollProgress, 500);
+    const interval = setInterval(pollProgress, 1000);
 
     return () => clearInterval(interval);
-  }, [videoId, isAnalyzing]);
+  }, [videoId, isAnalyzing, refetchAnalysis]);
 
   const video = videos?.find((v) => v.videoId === videoId);
 
@@ -101,7 +125,8 @@ const VideoDetailPage = ({ plan }: VideoDetailPageProps) => {
       analysisCommentCount: analysis?.totalComments,
     });
 
-    if (!videoId || hasTriggeredAnalysis || isAnalyzing || analysisLoading || videosLoading) return;
+    // Don't wait for videosLoading when analyzing without YouTube - we can proceed without video metadata
+    if (!videoId || hasTriggeredAnalysis || isAnalyzing || analysisLoading) return;
 
     // Check if we should trigger analysis
     let shouldAnalyze = false;
@@ -144,8 +169,11 @@ const VideoDetailPage = ({ plan }: VideoDetailPageProps) => {
           setIsAnalyzing(false);
         });
     }
-  }, [videoId, hasError, analysis, hasTriggeredAnalysis, isAnalyzing, analysisLoading, videosLoading, video, refetchAnalysis]);
-  const isLoading = videosLoading || analysisLoading || isAnalyzing;
+  }, [videoId, hasError, analysis, hasTriggeredAnalysis, isAnalyzing, analysisLoading, video, refetchAnalysis]);
+
+  // Only show loading if we're actually analyzing or loading analysis data
+  // Don't wait for videos to load (they may fail if YouTube not connected)
+  const isLoading = analysisLoading || isAnalyzing;
 
   // Loading state
   if (isLoading) {
@@ -431,7 +459,7 @@ const VideoDetailPage = ({ plan }: VideoDetailPageProps) => {
             <span className="text-success">✓</span> Top Positive Comments
           </h2>
           <div className="space-y-3">
-            {analysis.topPositive.map((comment) => {
+            {analysis.topPositive.map((comment: any) => {
               console.log('[VideoDetailPage] Positive comment:', JSON.stringify(comment, null, 2));
               return (
                 <CommentWithReply
@@ -444,6 +472,7 @@ const VideoDetailPage = ({ plan }: VideoDetailPageProps) => {
                   canReply={!!video}
                   commentId={comment.commentId}
                   videoId={videoId}
+                  postedReply={comment.postedReply || null}
                 />
               );
             })}
@@ -458,7 +487,7 @@ const VideoDetailPage = ({ plan }: VideoDetailPageProps) => {
             <span className="text-destructive">!</span> Top Negative Comments
           </h2>
           <div className="space-y-3">
-            {analysis.topNegative.map((comment) => (
+            {analysis.topNegative.map((comment: any) => (
               <CommentWithReply
                 key={comment.commentId}
                 commenterHandle={comment.author}
@@ -469,6 +498,7 @@ const VideoDetailPage = ({ plan }: VideoDetailPageProps) => {
                 canReply={!!video}
                 commentId={comment.commentId}
                 videoId={videoId}
+                postedReply={comment.postedReply || null}
               />
             ))}
           </div>

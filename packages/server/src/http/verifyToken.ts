@@ -28,12 +28,18 @@ export default function buildVerifyToken(): VerifyTokenFn {
       // Enrich with DB data if admin client available
       if (admin) {
         try {
-          const { data: rows } = await admin
+          const { data: rows, error: dbError } = await admin
             .from('profiles')
             .select('id, tier, email')
             .eq('id', payload.userId)
             .limit(1)
             .single();
+
+          if (dbError) {
+            // User not found in database - JWT is invalid/stale
+            console.warn(`[verifyToken] User ${payload.userId} not found in database (JWT is stale/invalid)`);
+            return null;
+          }
 
           if (rows) {
             return {
@@ -43,13 +49,19 @@ export default function buildVerifyToken(): VerifyTokenFn {
               tier: (rows.tier as 'free' | 'pro') ?? null,
             };
           }
+
+          // No rows returned - user doesn't exist
+          console.warn(`[verifyToken] No profile found for user ${payload.userId}`);
+          return null;
         } catch (dbErr) {
-          // DB lookup failed, continue with just JWT data
-          console.warn('Failed to enrich user from DB:', dbErr);
+          // Unexpected DB error - reject to be safe
+          console.error('[verifyToken] Database error during user lookup:', dbErr);
+          return null;
         }
       }
 
-      // Return JWT data if no DB enrichment
+      // No admin client available - fall back to JWT data only (dev mode)
+      console.warn('[verifyToken] No admin client available, using JWT data only (not recommended for production)');
       return {
         userId: payload.userId,
         email: payload.email,

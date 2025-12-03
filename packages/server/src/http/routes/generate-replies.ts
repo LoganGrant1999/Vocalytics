@@ -48,16 +48,6 @@ export async function generateRepliesRoute(fastify: FastifyInstance) {
         });
       }
 
-      // Enforce paywall (increment by number of replies)
-      const enforcement = await enforceReply({
-        userDbId: auth.userDbId,
-        incrementBy: comments.length
-      });
-
-      if (!enforcement.allowed) {
-        return reply.code(402).send('error' in enforcement ? enforcement.error : { error: 'Payment required' });
-      }
-
       // Fetch user's tone profile
       let toneProfile = null;
       try {
@@ -74,9 +64,23 @@ export async function generateRepliesRoute(fastify: FastifyInstance) {
         console.log('[generate-replies] No tone profile found for user');
       }
 
-      // Generate replies for each comment
+      // Generate replies for each comment (enforce quota per reply)
       const replies = [];
       for (const comment of comments) {
+        // Enforce paywall for each reply (atomic increment by 1)
+        const enforcement = await enforceReply({
+          userDbId: auth.userDbId,
+          incrementBy: 1
+        });
+
+        if (!enforcement.allowed) {
+          // If quota exceeded, return what we have so far
+          if (replies.length > 0) {
+            break; // Return partial results
+          } else {
+            return reply.code(402).send('error' in enforcement ? enforcement.error : { error: 'Payment required' });
+          }
+        }
         const result = await generateReplies(
           { id: comment.comment_id, text: comment.comment_text },
           [tone || 'friendly'],

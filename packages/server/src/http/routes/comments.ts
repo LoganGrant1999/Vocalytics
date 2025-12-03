@@ -258,7 +258,8 @@ export async function commentsRoutes(fastify: FastifyInstance) {
       let query = supabase
         .from('comment_scores')
         .select('*')
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .or('dismissed.is.null,dismissed.eq.false'); // Exclude dismissed comments
 
       // Apply filters
       if (filter === 'high-priority') {
@@ -286,8 +287,29 @@ export async function commentsRoutes(fastify: FastifyInstance) {
         console.log(`[comments inbox] Sample score:`, JSON.stringify(scores[0], null, 2));
       }
 
+      // Filter out comments that have already been replied to AND reply comments (not top-level)
+      let filteredScores = scores || [];
+      if (scores && scores.length > 0) {
+        const { data: postedReplies } = await supabase
+          .from('posted_replies')
+          .select('comment_id')
+          .eq('user_id', userId);
+
+        const repliedCommentIds = new Set((postedReplies || []).map((r: any) => r.comment_id));
+
+        // Filter out:
+        // 1. Comments that have been replied to (in posted_replies table)
+        // 2. Reply comments themselves (comment_id contains a dot)
+        filteredScores = scores.filter((score: any) =>
+          !repliedCommentIds.has(score.comment_id) &&
+          !score.comment_id.includes('.')
+        );
+
+        console.log(`[comments inbox] Filtered out ${scores.length - filteredScores.length} already-replied/reply comments`);
+      }
+
       // Transform to frontend format
-      const comments = (scores || []).map((score: any) => ({
+      const comments = filteredScores.map((score: any) => ({
         id: score.comment_id,
         text: score.comment_text,
         authorDisplayName: score.author_name,
@@ -317,6 +339,11 @@ export async function commentsRoutes(fastify: FastifyInstance) {
         });
       }
 
+      console.log(`[comments inbox] Returning ${comments.length} comments to frontend`);
+      if (comments.length > 0) {
+        console.log(`[comments inbox] First comment:`, JSON.stringify(comments[0], null, 2));
+      }
+
       return reply.send({ comments });
 
     } catch (error: any) {
@@ -324,6 +351,59 @@ export async function commentsRoutes(fastify: FastifyInstance) {
       return reply.code(500).send({
         code: 'INTERNAL_ERROR',
         message: error.message || 'Failed to fetch inbox'
+      });
+    }
+  });
+
+  /**
+   * POST /api/comments/:commentId/dismiss - Dismiss a comment from inbox
+   * Marks a comment as dismissed so it no longer appears in the High-Priority inbox
+   */
+  fastify.post('/comments/:commentId/dismiss', async (request: any, reply) => {
+    const auth = request.auth;
+    const userId = auth?.userId || auth?.userDbId;
+    const { commentId } = request.params as { commentId: string };
+
+    if (!userId) {
+      return reply.code(401).send({
+        code: 'UNAUTHORIZED',
+        message: 'Missing auth'
+      });
+    }
+
+    if (!commentId) {
+      return reply.code(400).send({
+        code: 'BAD_REQUEST',
+        message: 'Comment ID is required'
+      });
+    }
+
+    try {
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+
+      // Update the comment_scores row to mark as dismissed
+      const { error } = await supabase
+        .from('comment_scores')
+        .update({ dismissed: true })
+        .eq('user_id', userId)
+        .eq('comment_id', commentId);
+
+      if (error) {
+        console.error('[comments.ts] Error dismissing comment:', error);
+        return reply.code(500).send({
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to dismiss comment'
+        });
+      }
+
+      console.log(`[comments.ts] Comment ${commentId} dismissed by user ${userId}`);
+
+      return reply.send({ success: true });
+    } catch (error: any) {
+      console.error('[comments.ts] Error dismissing comment:', error);
+      return reply.code(500).send({
+        code: 'INTERNAL_ERROR',
+        message: error.message || 'Failed to dismiss comment'
       });
     }
   });

@@ -167,6 +167,26 @@ export async function getAuthedYouTubeForUser(
 }
 
 /**
+ * Creates an unauthenticated YouTube API client using API key only.
+ * This allows analyzing public videos without requiring user OAuth.
+ *
+ * @returns Unauthenticated YouTube API client
+ * @throws Error if YOUTUBE_API_KEY is not configured
+ */
+export function getUnauthenticatedYouTube(): youtube_v3.Youtube {
+  const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
+
+  if (!YOUTUBE_API_KEY) {
+    throw new Error('YOUTUBE_API_KEY not configured. Cannot analyze videos without authentication.');
+  }
+
+  return google.youtube({
+    version: 'v3',
+    auth: YOUTUBE_API_KEY,
+  });
+}
+
+/**
  * Creates a new OAuth2 client for initiating the auth flow
  */
 export function createOAuth2Client(): OAuth2Client {

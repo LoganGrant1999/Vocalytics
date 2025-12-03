@@ -1,6 +1,10 @@
 import { FastifyInstance, FastifyReply } from 'fastify';
 import { getAuthedYouTubeForUser } from '../../lib/google.js';
 import { google } from 'googleapis';
+import { createClient } from '@supabase/supabase-js';
+
+const SUPABASE_URL = process.env.SUPABASE_URL!;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 // Simple in-memory rate limiter (serverless-safe with short TTL)
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -8,6 +12,11 @@ const RATE_LIMIT_WINDOW = 60_000; // 1 minute
 const RATE_LIMIT_MAX = 10; // 10 requests per minute per user
 
 function checkRateLimit(userId: string): boolean {
+  // Skip rate limiting in development
+  if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV !== 'production') {
+    return true;
+  }
+
   const now = Date.now();
   const existing = rateLimitMap.get(userId);
 
@@ -120,7 +129,7 @@ export async function youtubeApiRoutes(fastify: FastifyInstance) {
       });
     }
 
-    const { parentId, text } = request.body as any;
+    const { parentId, text, videoId } = request.body as any;
 
     if (!parentId || !text) {
       return reply.code(400).send({
@@ -129,21 +138,55 @@ export async function youtubeApiRoutes(fastify: FastifyInstance) {
       });
     }
 
+    // Extract the top-level comment thread ID (before the dot if it exists)
+    // YouTube comment IDs: "Ugw..." (thread) or "Ugw....xxxxx" (reply)
+    // When replying, we always need just the thread ID
+    const threadId = parentId.includes('.') ? parentId.split('.')[0] : parentId;
+
+    console.log('[youtube-api.ts] Reply posting:', {
+      originalParentId: parentId,
+      extractedThreadId: threadId,
+      replyText: text.slice(0, 50) + '...',
+    });
+
     // Enforce 220 character limit (YouTube comment max)
     const trimmedText = text.slice(0, 220);
 
     try {
       const youtube = await getAuthedYouTubeForUser(userId);
 
+      console.log('[youtube-api.ts] Calling YouTube API with:', {
+        parentId: threadId,
+        textLength: trimmedText.length,
+      });
+
       const response = await youtube.comments.insert({
         part: ['snippet'],
         requestBody: {
           snippet: {
-            parentId,
+            parentId: threadId,
             textOriginal: trimmedText,
           },
         },
       }) as any;
+
+      console.log('[youtube-api.ts] YouTube API response:', {
+        success: true,
+        commentId: response?.data?.id,
+      });
+
+      // Track this reply in the database
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+      if (videoId) {
+        await supabase.from('posted_replies').upsert({
+          user_id: userId,
+          comment_id: parentId,
+          video_id: videoId,
+          reply_text: trimmedText,
+        }, {
+          onConflict: 'user_id,comment_id'
+        });
+      }
 
       return reply.send({
         success: true,
