@@ -1,5 +1,5 @@
 {
-  "buildCommand": "cd ../.. && pnpm --filter @vocalytics/web build && mkdir -p .vercel_build_output && cp -r packages/web/dist/* .vercel_build_output/",
+  "buildCommand": "bash -c 'cd ../.. && pnpm --filter @vocalytics/web build && mkdir -p .vercel_build_output && cp -r packages/web/dist/* .vercel_build_output/'",
   "outputDirectory": ".vercel_build_output",
   "installCommand": "pnpm install",
   "rewrites": [
