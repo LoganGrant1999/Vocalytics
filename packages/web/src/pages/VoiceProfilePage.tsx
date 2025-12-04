@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
-import { Youtube, AlertCircle } from "lucide-react";
+import { Youtube, AlertCircle, Crown } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
@@ -12,6 +12,7 @@ import api from "@/lib/api";
 
 const VoiceProfilePage = () => {
   const { user } = useAuth();
+  const isPro = user?.tier === 'pro';
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const hasYouTubeConnected = user?.hasYouTubeConnected || false;
@@ -154,7 +155,24 @@ const VoiceProfilePage = () => {
 
       {/* Editable controls */}
       <div className="rounded-2xl border border-border bg-card p-6 space-y-6">
-        <h3 className="text-lg font-semibold">Customize Your Voice</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold">Customize Your Voice</h3>
+          {!isPro && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold">
+              <Crown className="w-3 h-3" />
+              Pro Only
+            </div>
+          )}
+        </div>
+
+        {!isPro && (
+          <Alert>
+            <Crown className="h-4 w-4" />
+            <AlertDescription>
+              Voice profile customization is available for Pro users only. Upgrade to unlock advanced voice customization.
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Tone description */}
         <div className="space-y-2">
@@ -165,6 +183,7 @@ const VoiceProfilePage = () => {
             onChange={(e) => setTone(e.target.value)}
             className="min-h-[80px] resize-none"
             placeholder="e.g., Friendly and casual, professional but warm, energetic and hype..."
+            disabled={!isPro}
           />
           <p className="text-xs text-muted-foreground">
             Describe how you want to sound in your replies
@@ -184,6 +203,7 @@ const VoiceProfilePage = () => {
             value={replyLength}
             onValueChange={setReplyLength}
             className="w-full"
+            disabled={!isPro}
           />
         </div>
 
@@ -200,6 +220,7 @@ const VoiceProfilePage = () => {
             value={emojiLevel}
             onValueChange={setEmojiLevel}
             className="w-full"
+            disabled={!isPro}
           />
         </div>
 
@@ -212,6 +233,7 @@ const VoiceProfilePage = () => {
             onChange={(e) => setPhrases(e.target.value)}
             className="min-h-[120px] resize-none"
             placeholder="e.g., you're insane 😂, appreciate you big time 🙏, more coming soon"
+            disabled={!isPro}
           />
           <p className="text-xs text-muted-foreground">
             Enter phrases separated by commas or new lines
@@ -219,22 +241,34 @@ const VoiceProfilePage = () => {
         </div>
 
         {/* Save button */}
-        <Button
-          onClick={handleSave}
-          disabled={saveMutation.isPending}
-          className="w-full bg-primary hover:bg-primary/90"
-        >
-          {saveMutation.isPending ? "Saving..." : "Save Voice Settings"}
-        </Button>
-        {saveMutation.isSuccess && (
-          <p className="text-sm text-green-600 text-center">
-            Voice profile saved successfully!
-          </p>
-        )}
-        {saveMutation.isError && (
-          <p className="text-sm text-red-600 text-center">
-            Failed to save profile. Please try again.
-          </p>
+        {isPro ? (
+          <>
+            <Button
+              onClick={handleSave}
+              disabled={saveMutation.isPending}
+              className="w-full bg-primary hover:bg-primary/90"
+            >
+              {saveMutation.isPending ? "Saving..." : "Save Voice Settings"}
+            </Button>
+            {saveMutation.isSuccess && (
+              <p className="text-sm text-green-600 text-center">
+                Voice profile saved successfully!
+              </p>
+            )}
+            {saveMutation.isError && (
+              <p className="text-sm text-red-600 text-center">
+                Failed to save profile. Please try again.
+              </p>
+            )}
+          </>
+        ) : (
+          <Button
+            onClick={() => navigate("/app/billing")}
+            className="w-full bg-primary hover:bg-primary/90"
+          >
+            <Crown className="w-4 h-4 mr-2" />
+            Upgrade to Pro
+          </Button>
         )}
       </div>
     </div>

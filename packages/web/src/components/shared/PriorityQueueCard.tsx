@@ -291,6 +291,7 @@ const PriorityQueueCard = ({ plan }: PriorityQueueCardProps) => {
                 badges={generateBadges(comment.reasons)}
                 originalText={comment.text}
                 draftedReply={replies[comment.id] || ""}
+                videoTitle={comment.videoTitle}
                 approved={approvedComments[comment.id] || false}
                 onApprovalChange={(approved) => {
                   setApprovedComments((prev) => ({
@@ -308,11 +309,6 @@ const PriorityQueueCard = ({ plan }: PriorityQueueCardProps) => {
               />
             ))}
           </div>
-
-          {/* Footer note */}
-          <p className="text-xs text-muted-foreground mt-6 text-center">
-            Replies post from your channel. We space timing so it looks natural.
-          </p>
         </>
       )}
     </div>

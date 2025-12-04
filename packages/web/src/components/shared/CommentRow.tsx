@@ -1,7 +1,7 @@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
+import { X, Video } from "lucide-react";
 
 interface CommentRowProps {
   commenterHandle: string;
@@ -10,6 +10,7 @@ interface CommentRowProps {
   badges: string[];
   originalText: string;
   draftedReply: string;
+  videoTitle?: string;
   approved?: boolean;
   onDismiss?: () => void;
   onApprovalChange?: (approved: boolean) => void;
@@ -23,6 +24,7 @@ const CommentRow = ({
   badges,
   originalText,
   draftedReply,
+  videoTitle,
   approved = false,
   onDismiss,
   onApprovalChange,
@@ -31,6 +33,14 @@ const CommentRow = ({
 
   return (
     <div className="border-b border-border py-6 first:pt-0 last:border-b-0">
+      {/* Video title */}
+      {videoTitle && (
+        <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border/50">
+          <Video className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-xs font-medium text-muted-foreground">{videoTitle}</span>
+        </div>
+      )}
+
       {/* Original comment */}
       <div className="mb-4">
         <div className="flex items-center gap-3 mb-2 flex-wrap">

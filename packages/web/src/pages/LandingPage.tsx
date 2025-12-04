@@ -81,8 +81,8 @@ const LandingPage = () => {
             <div className="p-3 rounded-xl bg-gradient-to-br from-primary to-primary/70 shadow-lg shadow-primary/30 group-hover:scale-110 transition-transform">
               <Sparkles className="w-6 h-6 text-white" />
             </div>
-            <h3 className="font-semibold">Batch send in one click</h3>
-            <p className="text-sm text-muted-foreground">Approve once, reply to hundreds</p>
+            <h3 className="font-semibold">Batch send approved replies</h3>
+            <p className="text-sm text-muted-foreground">Select, review, and post multiple replies at once</p>
           </div>
         </div>
 

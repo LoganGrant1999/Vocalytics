@@ -1,59 +1,17 @@
-import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Youtube, User, AlertCircle } from "lucide-react";
+import { Youtube, User, AlertCircle, Crown, Check, X } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-import api from "@/lib/api";
-
-interface UsageData {
-  analyze_weekly_count: number;
-  analyze_weekly_limit: number;
-  reply_daily_count: number;
-  reply_daily_limit: number;
-  period_start: string;
-}
 
 const SettingsPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [usage, setUsage] = useState<UsageData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    const fetchUsage = async () => {
-      try {
-        setIsLoading(true);
-        const data = await api.getUsage();
-        setUsage(data);
-      } catch (err: any) {
-        console.error("Failed to fetch usage:", err);
-        setError(err.message || "Failed to load usage data");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    if (user?.tier === "free") {
-      fetchUsage();
-    } else {
-      setIsLoading(false);
-    }
-  }, [user]);
 
   const handleConnectYouTube = () => {
     navigate("/connect");
   };
-
-  const analyzeProgress = usage
-    ? (usage.analyze_weekly_count / usage.analyze_weekly_limit) * 100
-    : 0;
-  const replyProgress = usage
-    ? (usage.reply_daily_count / usage.reply_daily_limit) * 100
-    : 0;
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -61,7 +19,7 @@ const SettingsPage = () => {
       <div>
         <h1 className="text-3xl font-bold mb-2">Settings</h1>
         <p className="text-muted-foreground">
-          Manage your account, connections, and usage limits.
+          Manage your account and connections.
         </p>
       </div>
 
@@ -130,88 +88,133 @@ const SettingsPage = () => {
         </div>
       </Card>
 
-      {/* Usage Limits (Free tier only) */}
+      {/* Upgrade to Pro (Free tier only) */}
       {user?.tier === "free" && (
         <Card className="p-6">
-          <h2 className="text-lg font-semibold mb-4">Usage Limits</h2>
-
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Unlock Pro Features</h2>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold">
+              <Crown className="w-3 h-3" />
+              Pro Only
             </div>
-          ) : error ? (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          ) : usage ? (
-            <div className="space-y-6">
-              {/* Weekly Analysis Limit */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <p className="font-medium">Video Analysis</p>
-                  <p className="text-sm text-muted-foreground">
-                    {usage.analyze_weekly_count} / {usage.analyze_weekly_limit} this week
-                  </p>
-                </div>
-                <Progress value={analyzeProgress} className="h-2" />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Resets weekly
-                </p>
-              </div>
+          </div>
 
-              {/* Daily Reply Limit */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <p className="font-medium">AI Replies</p>
-                  <p className="text-sm text-muted-foreground">
-                    {usage.reply_daily_count} / {usage.reply_daily_limit} today
-                  </p>
-                </div>
-                <Progress value={replyProgress} className="h-2" />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Resets daily
-                </p>
-              </div>
+          <p className="text-sm text-muted-foreground mb-6">
+            You're on the Free plan. Upgrade to Pro for just $10/month to unlock these powerful features:
+          </p>
 
-              {/* Upgrade CTA */}
-              <div className="mt-6 p-4 rounded-lg bg-primary/5 border border-primary/20">
-                <p className="text-sm mb-3">
-                  Want unlimited access? Upgrade to Pro for unlimited video analysis and AI replies.
-                </p>
-                <Button
-                  onClick={() => navigate("/app/billing")}
-                  className="w-full sm:w-auto"
-                >
-                  Upgrade to Pro
-                </Button>
+          <div className="space-y-4 mb-6">
+            {/* Features you have */}
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase">What you have now</p>
+              <div className="space-y-2">
+                <div className="flex items-start gap-3">
+                  <Check className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm">Unlimited video analysis</span>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Check className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm">Unlimited AI reply generation</span>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Check className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm">Basic voice profile</span>
+                </div>
               </div>
             </div>
-          ) : null}
+
+            {/* Features missing */}
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase">Missing Pro features</p>
+              <div className="space-y-2">
+                <div className="flex items-start gap-3">
+                  <X className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                  <span className="text-sm text-muted-foreground"><strong className="text-foreground">Post replies to YouTube</strong> - Free users can only generate, not post</span>
+                </div>
+                <div className="flex items-start gap-3">
+                  <X className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                  <span className="text-sm text-muted-foreground"><strong className="text-foreground">Batch send approved replies</strong> - Select and post multiple replies at once</span>
+                </div>
+                <div className="flex items-start gap-3">
+                  <X className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                  <span className="text-sm text-muted-foreground"><strong className="text-foreground">Auto-prioritize top 100 comments</strong> - Get instant priority scoring</span>
+                </div>
+                <div className="flex items-start gap-3">
+                  <X className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                  <span className="text-sm text-muted-foreground"><strong className="text-foreground">Daily engagement analytics</strong> - Track trends and insights</span>
+                </div>
+                <div className="flex items-start gap-3">
+                  <X className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                  <span className="text-sm text-muted-foreground"><strong className="text-foreground">Advanced voice profile customization</strong> - Fine-tune AI reply tone</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Upgrade CTA */}
+          <div className="pt-4 border-t border-border">
+            <Button
+              onClick={() => navigate("/app/billing")}
+              className="w-full bg-primary hover:bg-primary/90"
+            >
+              <Crown className="w-4 h-4 mr-2" />
+              Upgrade to Pro - $10/month
+            </Button>
+          </div>
         </Card>
       )}
 
       {/* Pro Plan Benefits */}
       {user?.tier === "pro" && (
         <Card className="p-6">
-          <h2 className="text-lg font-semibold mb-4">Pro Plan Benefits</h2>
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="h-2 w-2 rounded-full bg-success"></div>
-              <p className="text-sm">Unlimited video analysis</p>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Your Pro Benefits</h2>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold">
+              <Crown className="w-3 h-3" />
+              Pro
             </div>
-            <div className="flex items-center gap-3">
-              <div className="h-2 w-2 rounded-full bg-success"></div>
-              <p className="text-sm">Unlimited AI-powered replies</p>
+          </div>
+          <p className="text-sm text-muted-foreground mb-4">
+            You have full access to all Vocalytics features.
+          </p>
+          <div className="space-y-2">
+            <div className="flex items-start gap-3">
+              <Check className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+              <span className="text-sm"><strong>Post replies to YouTube</strong> - Publish AI-generated replies instantly</span>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="h-2 w-2 rounded-full bg-success"></div>
-              <p className="text-sm">Priority support</p>
+            <div className="flex items-start gap-3">
+              <Check className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+              <span className="text-sm"><strong>Batch send approved replies</strong> - Select and post multiple replies at once</span>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="h-2 w-2 rounded-full bg-success"></div>
-              <p className="text-sm">Advanced voice profile customization</p>
+            <div className="flex items-start gap-3">
+              <Check className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+              <span className="text-sm"><strong>Auto-prioritize top 100 comments</strong> - Get instant priority scoring</span>
             </div>
+            <div className="flex items-start gap-3">
+              <Check className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+              <span className="text-sm"><strong>Daily engagement analytics</strong> - Track trends and insights</span>
+            </div>
+            <div className="flex items-start gap-3">
+              <Check className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+              <span className="text-sm"><strong>Advanced voice profile customization</strong> - Fine-tune AI reply tone</span>
+            </div>
+            <div className="flex items-start gap-3">
+              <Check className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+              <span className="text-sm">Unlimited video analysis</span>
+            </div>
+            <div className="flex items-start gap-3">
+              <Check className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+              <span className="text-sm">Unlimited AI reply generation</span>
+            </div>
+          </div>
+          <div className="mt-6 pt-4 border-t border-border">
+            <Button
+              onClick={() => navigate("/app/billing")}
+              variant="outline"
+              className="w-full sm:w-auto"
+            >
+              Manage Billing
+            </Button>
           </div>
         </Card>
       )}

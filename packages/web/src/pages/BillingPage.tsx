@@ -81,15 +81,19 @@ const BillingPage = ({ plan }: BillingPageProps) => {
           <ul className="space-y-2 text-sm text-muted-foreground">
             <li className="flex items-center gap-2">
               <Check className="w-4 h-4 text-primary" />
-              2 analyses/week
+              Unlimited video analysis
             </li>
             <li className="flex items-center gap-2">
               <Check className="w-4 h-4 text-primary" />
-              1 AI reply/day
+              Unlimited AI reply generation
+            </li>
+            <li className="flex items-center gap-2">
+              <Check className="w-4 h-4 text-primary" />
+              Basic voice profile
             </li>
             <li className="flex items-center gap-2">
               <Check className="w-4 h-4 text-muted" />
-              No batch send
+              Cannot post replies to YouTube
             </li>
           </ul>
         )}
@@ -104,15 +108,19 @@ const BillingPage = ({ plan }: BillingPageProps) => {
           <ul className="space-y-3 mb-6 text-sm">
             <li className="flex items-start gap-2">
               <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-              <span>2 analyses/week</span>
+              <span>Unlimited video analysis</span>
             </li>
             <li className="flex items-start gap-2">
               <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-              <span>1 AI reply/day</span>
+              <span>Unlimited AI reply generation</span>
             </li>
             <li className="flex items-start gap-2">
               <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
               <span>Basic voice profile</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <Check className="w-4 h-4 text-muted mt-0.5 flex-shrink-0" />
+              <span className="text-muted-foreground">Cannot post replies to YouTube</span>
             </li>
           </ul>
           {plan === "free" ? (
@@ -140,7 +148,7 @@ const BillingPage = ({ plan }: BillingPageProps) => {
           </div>
           
           <h3 className="text-xl font-bold mb-2">Pro</h3>
-          <div className="text-3xl font-bold mb-4">$29<span className="text-lg text-muted-foreground">/mo</span></div>
+          <div className="text-3xl font-bold mb-4">$10<span className="text-lg text-muted-foreground">/mo</span></div>
           <ul className="space-y-3 mb-6 text-sm">
             <li className="flex items-start gap-2">
               <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
