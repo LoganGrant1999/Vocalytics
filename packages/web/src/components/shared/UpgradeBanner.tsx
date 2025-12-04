@@ -1,17 +1,28 @@
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
+import api from "@/lib/api";
 
 interface UpgradeBannerProps {
   plan: "free" | "pro";
 }
 
 const UpgradeBanner = ({ plan }: UpgradeBannerProps) => {
-  const handleUpgrade = () => {
-    console.log("TODO: POST /api/billing/checkout");
+  const handleUpgrade = async () => {
+    try {
+      const { url } = await api.createCheckoutSession();
+      window.location.href = url;
+    } catch (err: any) {
+      console.error("Checkout error:", err);
+    }
   };
 
-  const handleManageBilling = () => {
-    console.log("TODO: POST /api/billing/portal");
+  const handleManageBilling = async () => {
+    try {
+      const { url } = await api.createPortalSession();
+      window.location.href = url;
+    } catch (err: any) {
+      console.error("Portal error:", err);
+    }
   };
 
   if (plan === "pro") {
@@ -27,7 +38,6 @@ const UpgradeBanner = ({ plan }: UpgradeBannerProps) => {
         <Button variant="outline" onClick={handleManageBilling}>
           Manage Billing
         </Button>
-        {/* TODO: POST /api/billing/portal */}
       </div>
     );
   }
@@ -36,7 +46,7 @@ const UpgradeBanner = ({ plan }: UpgradeBannerProps) => {
     <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10 p-8 glow-border">
       <div className="flex items-center justify-center gap-2 mb-3">
         <Sparkles className="w-6 h-6 text-primary" />
-        <h3 className="text-2xl font-bold">Unlock SmartBatch Pro</h3>
+        <h3 className="text-2xl font-bold">Unlock Vocalytics Pro</h3>
       </div>
       
       <div className="grid md:grid-cols-3 gap-4 mb-6 text-center">
@@ -63,7 +73,6 @@ const UpgradeBanner = ({ plan }: UpgradeBannerProps) => {
           Upgrade to Pro
         </Button>
       </div>
-      {/* TODO: POST /api/billing/checkout */}
     </div>
   );
 };
