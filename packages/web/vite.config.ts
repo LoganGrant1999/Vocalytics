@@ -7,6 +7,7 @@ import { componentTagger } from "lovable-tagger";
 export default defineConfig(({ mode }) => ({
   build: {
     outDir: process.env.VERCEL ? '../../dist' : 'dist',
+    emptyOutDir: true,
   },
   server: {
     host: "::",
