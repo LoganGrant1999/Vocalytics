@@ -26,7 +26,7 @@ export function getRedirectUri(): string {
   if (nodeEnv === 'production') {
     // ALWAYS use the production domain in production
     // This must match the redirect URI registered in Google Cloud Console
-    const redirectUri = 'https://vocalytics-alpha.vercel.app/api/youtube/callback';
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI || 'https://vocalytics-web.vercel.app/api/youtube/callback';
     console.log('[google.ts] Using production redirect URI:', redirectUri);
     return redirectUri;
   }
