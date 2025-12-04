@@ -10,16 +10,6 @@
       "maxDuration": 60
     }
   },
-  "crons": [
-    {
-      "path": "/api/cron/queue-worker",
-      "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/cron/reset-counters",
-      "schedule": "10 8 * * *"
-    }
-  ],
   "rewrites": [
     {
       "source": "/api/:path*",
