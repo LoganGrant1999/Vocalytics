@@ -9,6 +9,13 @@
       }
     },
     {
+      "src": "packages/server/package.json",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": ["src/**"]
+      }
+    },
+    {
       "src": "api/[...path].ts",
       "use": "@vercel/node"
     }
