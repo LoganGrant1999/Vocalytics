@@ -1,6 +1,6 @@
 {
-  "buildCommand": "pnpm install && pnpm --filter @vocalytics/web build",
-  "outputDirectory": "packages/web/dist",
+  "buildCommand": "pnpm build",
+  "outputDirectory": "dist",
   "installCommand": "pnpm install",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/[...path]" },
