@@ -171,11 +171,15 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
 
       const currentPeriodEnd = periodEnd ? new Date(periodEnd * 1000) : null;
 
+      // If subscription has cancel_at set, it's cancelled (even if status is "active")
+      const isCancelled = !!subscription.cancel_at || subscription.cancel_at_period_end;
+      const effectiveStatus = isCancelled ? 'canceled' : status;
+
       const { error: updateError } = await supabase
         .from('profiles')
         .update({
           stripe_subscription_id: subscription.id,
-          subscription_status: status,
+          subscription_status: effectiveStatus,
           subscribed_until: currentPeriodEnd?.toISOString() || null,
           tier: status === 'active' ? 'pro' : user.tier
         })
@@ -235,11 +239,15 @@ async function handleSubscriptionChange(subscription: Stripe.Subscription): Prom
   }
 
   // Update user subscription info
+  // If subscription has cancel_at set, it's cancelled (even if status is "active")
+  const isCancelled = !!subscription.cancel_at || subscription.cancel_at_period_end;
+  const effectiveStatus = isCancelled ? 'canceled' : status;
+
   const updates: any = {
     stripe_subscription_id: subscription.id,
-    subscription_status: status,
+    subscription_status: effectiveStatus,
     subscribed_until: currentPeriodEnd?.toISOString() || null,
-    // Set tier to pro if subscription is active
+    // Set tier to pro if subscription is active (even if cancelled, keep pro until period end)
     tier: status === 'active' ? 'pro' : user.tier
   };
 
