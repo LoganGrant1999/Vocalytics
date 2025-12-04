@@ -156,7 +156,19 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
 
       // Update user with subscription details and upgrade to pro
       const status = subscription.status;
-      const periodEnd = (subscription as any).current_period_end;
+
+      // Get period end from cancel_at (if cancelled) or from items
+      let periodEnd = subscription.cancel_at;
+
+      if (!periodEnd && subscription.items?.data?.length > 0) {
+        periodEnd = (subscription.items.data[0] as any).current_period_end;
+      }
+
+      // Fallback to root level current_period_end (for older API versions)
+      if (!periodEnd) {
+        periodEnd = (subscription as any).current_period_end;
+      }
+
       const currentPeriodEnd = periodEnd ? new Date(periodEnd * 1000) : null;
 
       const { error: updateError } = await supabase
@@ -196,8 +208,19 @@ async function handleSubscriptionChange(subscription: Stripe.Subscription): Prom
   }
 
   const status = subscription.status;
-  // Access the property with type assertion for compatibility
-  const periodEnd = (subscription as any).current_period_end;
+
+  // Get period end from cancel_at (if cancelled) or from items
+  let periodEnd = subscription.cancel_at;
+
+  if (!periodEnd && subscription.items?.data?.length > 0) {
+    periodEnd = (subscription.items.data[0] as any).current_period_end;
+  }
+
+  // Fallback to root level current_period_end (for older API versions)
+  if (!periodEnd) {
+    periodEnd = (subscription as any).current_period_end;
+  }
+
   const currentPeriodEnd = periodEnd ? new Date(periodEnd * 1000) : null;
 
   // Prevent out-of-order webhook processing:
