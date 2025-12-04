@@ -1,5 +1,6 @@
 {
-  "buildCommand": "cd packages/web && pnpm build && ls -la ../../dist",
+  "framework": null,
+  "buildCommand": "cd packages/web && pnpm build && cd ../.. && ls -la && ls -la dist",
   "outputDirectory": "dist",
   "installCommand": "pnpm install",
   "rewrites": [
