@@ -1,3 +1,7 @@
-# Force fresh API deployment
-!api/index.ts
-!api/cron/
+node_modules
+.git
+.next
+.turbo
+*.log
+.env*
+!vercel.json
