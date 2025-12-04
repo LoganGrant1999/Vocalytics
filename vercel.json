@@ -1,6 +1,6 @@
 {
   "buildCommand": "pnpm --filter @vocalytics/web build",
-  "outputDirectory": ".vercel_build_output",
+  "outputDirectory": "vercel_build_output",
   "installCommand": "pnpm install",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/[...path]" },
