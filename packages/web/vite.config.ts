@@ -24,7 +24,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    outDir: 'dist',
+    outDir: '../../public',
     emptyOutDir: true,
   },
 }));
