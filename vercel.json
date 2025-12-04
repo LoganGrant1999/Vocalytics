@@ -1,11 +1,25 @@
 {
-  "installCommand": "pnpm install",
-  "buildCommand": "pnpm --filter @vocalytics/web build",
-  "outputDirectory": "public",
-  "functions": {
-    "api/**/*.ts": {
-      "memory": 1024,
-      "maxDuration": 60
+  "version": 2,
+  "builds": [
+    {
+      "src": "packages/web/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    },
+    {
+      "src": "api/[...path].ts",
+      "use": "@vercel/node"
     }
-  }
+  ],
+  "routes": [
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/packages/web/dist/$1"
+    }
+  ]
 }
