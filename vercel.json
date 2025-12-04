@@ -9,22 +9,11 @@
       }
     },
     {
-      "src": "packages/server/package.json",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": ["src/**"]
-      }
-    },
-    {
-      "src": "api/[...path].ts",
+      "src": "api/*.ts",
       "use": "@vercel/node"
     }
   ],
   "routes": [
-    {
-      "src": "/api/.*",
-      "continue": true
-    },
     {
       "handle": "filesystem"
     },
