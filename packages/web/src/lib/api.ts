@@ -116,6 +116,8 @@ class ApiClient {
         emailVerified: boolean;
         hasYouTubeConnected: boolean;
         createdAt: string;
+        subscription_status?: string;
+        subscribed_until?: string;
       };
       quota?: {
         analyze_weekly_count: number;

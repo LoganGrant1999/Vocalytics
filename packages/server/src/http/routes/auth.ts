@@ -274,6 +274,8 @@ export async function protectedAuthRoutes(fastify: FastifyInstance) {
           emailVerified: user.email_verified,
           hasYouTubeConnected: !!user.youtube_access_token,
           createdAt: user.created_at,
+          subscription_status: user.subscription_status,
+          subscribed_until: user.subscribed_until,
         },
         quota: quota || undefined,
       });
