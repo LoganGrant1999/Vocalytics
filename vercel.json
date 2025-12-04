@@ -1,6 +1,7 @@
 {
   "installCommand": "pnpm install",
   "buildCommand": "pnpm --filter @vocalytics/web build",
+  "outputDirectory": "public",
   "functions": {
     "api/**/*.ts": {
       "memory": 1024,
