@@ -1,7 +1,7 @@
 {
   "framework": null,
-  "buildCommand": "pnpm --filter @vocalytics/web build && pwd && ls -la /vercel/path0/ && ls -la /vercel/path0/dist/ || echo 'No dist at root' && ls -la /vercel/path0/packages/web/dist/ || echo 'No dist in packages/web'",
-  "outputDirectory": "dist",
+  "buildCommand": "pnpm --filter @vocalytics/web build",
+  "outputDirectory": "packages/web/dist",
   "installCommand": "pnpm install",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/[...path]" },
