@@ -24,7 +24,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    outDir: 'dist',
+    outDir: '../../.vercel_build_output',
     emptyOutDir: true,
   },
 }));
