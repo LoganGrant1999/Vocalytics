@@ -1,5 +1,5 @@
 {
-  "buildCommand": "pnpm install && pnpm --filter @vocalytics/web build && find . -name 'dist' -type d && ls -la packages/web/",
+  "buildCommand": "pnpm --filter @vocalytics/web build",
   "outputDirectory": "packages/web/dist",
   "installCommand": "pnpm install",
   "rewrites": [
