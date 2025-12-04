@@ -1,6 +1,6 @@
 {
-  "buildCommand": "cd ../.. && pnpm --filter @vocalytics/web build && ls -la packages/web/",
-  "outputDirectory": "packages/web/dist",
+  "buildCommand": "pnpm --filter @vocalytics/web build && mkdir -p .vercel_build_output && cp -r packages/web/dist/* .vercel_build_output/",
+  "outputDirectory": ".vercel_build_output",
   "installCommand": "pnpm install",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/[...path]" },
