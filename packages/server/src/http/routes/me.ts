@@ -217,37 +217,9 @@ export async function meRoutes(fastify: FastifyInstance) {
       console.log(`[dashboard-stats] High-priority count: ${highPriorityCount}, videos:`,
         filteredHighPriority?.map(d => d.video_id));
 
-      // Count replies ready to send (comments with suggested_reply that haven't been posted)
-      const { data: repliesReadyData, error: repliesError } = await supabase
-        .from('comment_scores')
-        .select('comment_id, suggested_reply')
-        .eq('user_id', userId)
-        .not('suggested_reply', 'is', null)
-        .or('dismissed.is.null,dismissed.eq.false'); // Exclude dismissed comments
-
-      console.log(`[dashboard-stats] Replies with suggested_reply:`, repliesReadyData?.length || 0, 'error:', repliesError);
-
-      // Filter out comments that have been replied to AND reply comments (not top-level)
-      let repliesReady = repliesReadyData || [];
-      if (repliesReadyData && repliesReadyData.length > 0) {
-        const { data: postedReplies } = await supabase
-          .from('posted_replies')
-          .select('comment_id')
-          .eq('user_id', userId);
-
-        const repliedCommentIds = new Set((postedReplies || []).map((r: any) => r.comment_id));
-        console.log(`[dashboard-stats] Posted replies count:`, postedReplies?.length || 0);
-
-        // Filter out:
-        // 1. Comments that have been replied to (in posted_replies table)
-        // 2. Reply comments themselves (comment_id contains a dot)
-        repliesReady = repliesReadyData.filter((item: any) =>
-          !repliedCommentIds.has(item.comment_id) &&
-          !item.comment_id.includes('.')
-        );
-      }
-
-      const repliesReadyCount = repliesReady.length;
+      // "Replies Ready To Send" should match "High-Priority To Reply"
+      // Both represent comments that need replies
+      const repliesReadyCount = highPriorityCount;
       console.log(`[dashboard-stats] Replies ready count:`, repliesReadyCount);
 
       // Calculate time saved today based on SENT replies (not just drafted)
