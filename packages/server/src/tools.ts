@@ -429,6 +429,9 @@ export async function fetchComments(
   // Try to use YouTube Data API key for public video comments
   const youtubeApiKey = process.env.YOUTUBE_API_KEY || process.env.GOOGLE_API_KEY;
 
+  console.log('[fetchComments] YouTube API key available:', !!youtubeApiKey);
+  console.log('[fetchComments] API key prefix:', youtubeApiKey?.substring(0, 10));
+
   // ---- MOCK (no API key available) ----
   if (!youtubeApiKey) {
     const all: TWComment[] = [];
@@ -496,9 +499,11 @@ export async function fetchComments(
   if (pageToken) params.pageToken = pageToken;
 
   const url = `${base}?${new URLSearchParams(params).toString()}`;
+  console.log('[fetchComments] Calling YouTube API:', url.substring(0, 100) + '...');
   const res = await fetch(url); // No auth header needed with API key in URL
   if (!res.ok) {
     const body = await res.text();
+    console.error('[fetchComments] YouTube API error:', res.status, body);
     throw new Error(`YouTube API error ${res.status}: ${body}`);
   }
   const json = await res.json();
