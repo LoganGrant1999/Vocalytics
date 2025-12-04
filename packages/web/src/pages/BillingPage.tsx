@@ -4,12 +4,14 @@ import { Check, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import PlanBadge from "@/components/shared/PlanBadge";
 import api from "@/lib/api";
+import { useAuth } from "@/hooks/useAuth";
 
 interface BillingPageProps {
   plan: "free" | "pro";
 }
 
 const BillingPage = ({ plan }: BillingPageProps) => {
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -41,6 +43,25 @@ const BillingPage = ({ plan }: BillingPageProps) => {
       setError(err.message || "Failed to open billing portal");
       setIsLoading(false);
     }
+  };
+
+  // Format subscription date
+  const formatSubscriptionDate = () => {
+    if (!user?.subscribed_until) return null;
+
+    const date = new Date(user.subscribed_until);
+    const options: Intl.DateTimeFormatOptions = {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    };
+
+    const formattedDate = date.toLocaleDateString('en-US', options);
+    const isCancelled = user.subscription_status === 'canceled';
+
+    return isCancelled
+      ? `Active until ${formattedDate}`
+      : `Next charge on ${formattedDate}`;
   };
 
   return (
@@ -76,6 +97,12 @@ const BillingPage = ({ plan }: BillingPageProps) => {
             </Button>
           )}
         </div>
+
+        {plan === "pro" && formatSubscriptionDate() && (
+          <p className="text-sm text-muted-foreground mb-4">
+            {formatSubscriptionDate()}
+          </p>
+        )}
 
         {plan === "free" && (
           <ul className="space-y-2 text-sm text-muted-foreground">

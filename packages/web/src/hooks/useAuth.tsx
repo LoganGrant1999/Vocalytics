@@ -11,6 +11,8 @@ interface User {
   emailVerified: boolean;
   hasYouTubeConnected: boolean;
   createdAt: string;
+  subscription_status?: string;
+  subscribed_until?: string;
 }
 
 interface Quota {
