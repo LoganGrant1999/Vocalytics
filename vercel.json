@@ -1,5 +1,5 @@
 {
-  "buildCommand": "cd packages/web && pnpm install && pnpm build",
-  "outputDirectory": "packages/web/dist",
-  "installCommand": "pnpm install"
+  "buildCommand": "pnpm install && pnpm --filter @vocalytics/web build",
+  "installCommand": "pnpm install",
+  "framework": "vite"
 }
