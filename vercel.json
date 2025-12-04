@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "pnpm install --frozen-lockfile && pnpm --filter @vocalytics/web build && ls -la packages/web/dist",
+  "buildCommand": "pnpm install --frozen-lockfile && cd packages/web && pnpm build",
   "outputDirectory": "packages/web/dist",
   "installCommand": "pnpm install --frozen-lockfile",
   "framework": null,
