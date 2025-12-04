@@ -4,21 +4,45 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import awsLambdaFastify from '@fastify/aws-lambda';
 
-// Cache the Fastify server instance across invocations
-let cachedServer: any = null;
+// Cache the handler across invocations
+let cachedHandler: any = null;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    // Initialize Fastify server once and reuse
-    if (!cachedServer) {
+    // Initialize Fastify server and wrap it for serverless
+    if (!cachedHandler) {
       const { createHttpServer } = await import('../packages/server/src/http/index.js');
-      cachedServer = await createHttpServer();
-      await cachedServer.ready();
+      const fastify = await createHttpServer();
+      cachedHandler = awsLambdaFastify(fastify);
     }
 
-    // Forward the request to Fastify
-    cachedServer.routing(req, res);
+    // Convert Vercel request to AWS Lambda format
+    const event = {
+      httpMethod: req.method,
+      path: req.url,
+      headers: req.headers as Record<string, string>,
+      body: JSON.stringify(req.body),
+      queryStringParameters: req.query as Record<string, string>,
+      isBase64Encoded: false,
+    };
+
+    const context = {};
+
+    // Call the Lambda handler
+    const response = await cachedHandler(event, context);
+
+    // Convert Lambda response back to Vercel format
+    res.status(response.statusCode);
+
+    if (response.headers) {
+      Object.entries(response.headers).forEach(([key, value]) => {
+        res.setHeader(key, value as string);
+      });
+    }
+
+    res.send(response.body);
   } catch (error: any) {
     console.error('[Vercel Handler Error]:', error);
 
