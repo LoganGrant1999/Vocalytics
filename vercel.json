@@ -1,25 +1,5 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "packages/web/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
-    },
-    {
-      "src": "api/*.ts",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "handle": "filesystem"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/packages/web/dist/$1"
-    }
-  ]
+  "buildCommand": "cd packages/web && pnpm install && pnpm build",
+  "outputDirectory": "packages/web/dist",
+  "installCommand": "pnpm install"
 }
