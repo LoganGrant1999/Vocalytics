@@ -1,6 +1,6 @@
 {
   "framework": null,
-  "buildCommand": "pnpm --filter @vocalytics/web build",
+  "buildCommand": "pnpm --filter @vocalytics/web build && ls -la && find . -name 'dist' -type d && find . -name 'index.html' -type f",
   "outputDirectory": "dist",
   "installCommand": "pnpm install",
   "rewrites": [
