@@ -1,6 +1,6 @@
 {
   "framework": null,
-  "buildCommand": "pnpm --filter @vocalytics/web build",
+  "buildCommand": "pnpm --filter @vocalytics/web build && ls -la packages/web/dist && pwd",
   "outputDirectory": "packages/web/dist",
   "installCommand": "pnpm install",
   "rewrites": [
