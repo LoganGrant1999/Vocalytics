@@ -155,7 +155,7 @@ export default async function route(app: FastifyInstance) {
       let nextPageToken: string | undefined = undefined;
       let pageCount = 0;
 
-      console.log(`[analysis] Starting to fetch comments for video ${videoId} with userId ${userId}`);
+      console.log(`[analysis] Starting to fetch comments for video ${videoId} with userId ${userId}, authenticated: ${isAuthenticated}`);
 
       do {
         const { comments, nextPageToken: newToken } = await fetchComments(
@@ -165,7 +165,7 @@ export default async function route(app: FastifyInstance) {
           nextPageToken,
           true, // Include replies to get all comments
           'time',
-          userId // Always use userId to fetch real YouTube comments
+          isAuthenticated ? userId : undefined // Only use userId if YouTube is connected
         );
         allComments = allComments.concat(comments);
         nextPageToken = newToken;

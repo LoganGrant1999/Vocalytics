@@ -15,6 +15,7 @@ const VideoAnalysisInput = () => {
     "idle" | "valid" | "invalid"
   >("idle");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Debounce input changes
   useEffect(() => {
@@ -36,18 +37,24 @@ const VideoAnalysisInput = () => {
     setValidationState(videoId ? "valid" : "invalid");
   }, [debouncedInput]);
 
-  const handleAnalyze = () => {
+  const handleAnalyze = async () => {
     const videoId = extractYouTubeId(input);
     if (!videoId) return;
 
-    // Start analysis and navigate immediately - don't wait
     setIsAnalyzing(true);
+    setError(null);
 
-    // Trigger analysis in background (fire and forget)
-    api.analyzeVideo(videoId).catch(err => console.error('Analysis failed:', err));
+    try {
+      // Trigger analysis - wait for it to start successfully
+      await api.analyzeVideo(videoId);
 
-    // Navigate immediately with a flag to trigger re-fetch
-    navigate(`/app/video/${videoId}?analyzing=true`);
+      // Navigate to the video page to watch progress
+      navigate(`/app/video/${videoId}?analyzing=true`);
+    } catch (err: any) {
+      console.error('Analysis failed:', err);
+      setError(err.message || 'Failed to start analysis. Please try again.');
+      setIsAnalyzing(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -87,10 +94,10 @@ const VideoAnalysisInput = () => {
             </div>
             <Button
               onClick={handleAnalyze}
-              disabled={validationState !== "valid"}
+              disabled={validationState !== "valid" || isAnalyzing}
             >
               <Search className="mr-2 h-4 w-4" />
-              Analyze
+              {isAnalyzing ? "Starting..." : "Analyze"}
             </Button>
           </div>
 
@@ -103,6 +110,12 @@ const VideoAnalysisInput = () => {
             <p className="text-sm text-green-600">
               Valid video ID: {extractYouTubeId(input)}
             </p>
+          )}
+          {error && (
+            <div className="flex items-start gap-2 text-sm text-destructive bg-destructive/10 p-3 rounded-md">
+              <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              <span>{error}</span>
+            </div>
           )}
 
           <div className="text-xs text-muted-foreground">
