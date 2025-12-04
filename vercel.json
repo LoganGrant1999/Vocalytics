@@ -1,5 +1,17 @@
 {
-  "buildCommand": "pnpm install && pnpm --filter @vocalytics/web build",
+  "buildCommand": "pnpm --filter @vocalytics/web build",
+  "outputDirectory": "packages/web/dist",
   "installCommand": "pnpm install",
-  "framework": "vite"
+  "functions": {
+    "api/**/*.ts": {
+      "memory": 1024,
+      "maxDuration": 60
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api/:path*"
+    }
+  ]
 }
