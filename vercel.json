@@ -1,6 +1,5 @@
 {
-  "buildCommand": "pnpm --filter @vocalytics/web build",
-  "outputDirectory": "dist",
+  "buildCommand": "pnpm --filter @vocalytics/web build && mkdir -p public && cp -r packages/web/dist/* public/",
   "installCommand": "pnpm install",
   "functions": {
     "api/**/*.ts": {
@@ -8,8 +7,9 @@
       "maxDuration": 60
     }
   },
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/[...path]" },
-    { "source": "/(.*)", "destination": "/index.html" }
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/[...path]" },
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/public/$1" }
   ]
 }
