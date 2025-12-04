@@ -22,6 +22,10 @@
   ],
   "routes": [
     {
+      "src": "/api/.*",
+      "continue": true
+    },
+    {
       "handle": "filesystem"
     },
     {
